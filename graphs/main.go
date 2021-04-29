@@ -1,6 +1,8 @@
 package main
 
 import (
+	crypto_rand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph"
@@ -8,53 +10,22 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"time"
 )
 
-type Node struct {
-	id       int64
-	name     string
-	original graph.Node
-}
-
-// ID returns the ID number of the node.
-func (n Node) ID() int64 {
-	return n.id
-}
-
-func (n Node) String() string {
-	return n.name
-}
-
-func NewNode(g *simple.WeightedDirectedGraph, name string) graph.Node {
-	return Node{
-		id:   g.NewNode().ID(),
-		name: name,
+func init() {
+	var b [8]byte
+	_, err := crypto_rand.Read(b[:])
+	if err != nil {
+		panic("failed to seed random with crypto/rand")
 	}
+	rand.Seed(int64(binary.LittleEndian.Uint64(b[:])))
 }
-
-func NewNodeUndirected(g *simple.WeightedUndirectedGraph, name string) graph.Node {
-	return Node{
-		id:   g.NewNode().ID(),
-		name: name,
-	}
-}
-
-func NewNodeSplit(g *simple.WeightedDirectedGraph, name string, original graph.Node) graph.Node {
-	return Node{
-		id:       g.NewNode().ID(),
-		name:     name,
-		original: original,
-	}
-}
-
-type Path []graph.WeightedEdge
 
 func main() {
 	//alt()
 	//return
 
-	gr := simple.NewWeightedUndirectedGraph(0, 0)
+	//gr := simple.NewWeightedUndirectedGraph(0, 0)
 
 	/*        b
 	   /  |  \
@@ -67,38 +38,55 @@ func main() {
 	      c
 	*/
 	// Create nodes
-	a := NewNodeUndirected(gr, "a")
-	gr.AddNode(a)
+	//a := NewNodeUndirected(gr, "a")
+	//gr.AddNode(a)
+	//
+	//b := NewNodeUndirected(gr, "b")
+	//gr.AddNode(b)
+	//
+	//c := NewNodeUndirected(gr, "c")
+	//gr.AddNode(c)
+	//
+	//d := NewNodeUndirected(gr, "d")
+	//gr.AddNode(d)
+	//
+	//// Create edges
+	//ab := gr.NewWeightedEdge(a, b, 0)
+	//gr.SetWeightedEdge(ab)
+	//
+	//ac := gr.NewWeightedEdge(a, c, 1)
+	//gr.SetWeightedEdge(ac)
+	//
+	//bd := gr.NewWeightedEdge(b, d, 1)
+	//gr.SetWeightedEdge(bd)
+	//
+	//cd := gr.NewWeightedEdge(c, d, 0)
+	//gr.SetWeightedEdge(cd)
+	//
+	//bc := gr.NewWeightedEdge(b, c, 0)
+	//gr.SetWeightedEdge(bc)
 
-	b := NewNodeUndirected(gr, "b")
-	gr.AddNode(b)
+	n, k, f := 24, 8, 5
+	m := GeneralizedWheelGenerator{}
+	gu, err := m.Generate(n, k)
+	if err != nil {
+		fmt.Printf("invalid graph parameters: %v\n", err)
+		os.Exit(1)
+	}
 
-	c := NewNodeUndirected(gr, "c")
-	gr.AddNode(c)
+	g := Directed(gu)
+	//s, t := a, d
 
-	d := NewNodeUndirected(gr, "d")
-	gr.AddNode(d)
+	start := rand.Intn(n)
+	end := rand.Intn(n)
+	for start == end {
+		end = rand.Intn(n)
+	}
 
-	// Create edges
-	ab := gr.NewWeightedEdge(a, b, 0)
-	gr.SetWeightedEdge(ab)
-
-	ac := gr.NewWeightedEdge(a, c, 1)
-	gr.SetWeightedEdge(ac)
-
-	bd := gr.NewWeightedEdge(b, d, 1)
-	gr.SetWeightedEdge(bd)
-
-	cd := gr.NewWeightedEdge(c, d, 0)
-	gr.SetWeightedEdge(cd)
-
-	bc := gr.NewWeightedEdge(b, c, 0)
-	gr.SetWeightedEdge(bc)
-
-	g := Directed(gr)
+	s, t := g.Node(int64(start)), g.Node(int64(end))
 
 	// Print normal graph
-	fmt.Println("Graph:")
+	fmt.Printf("Graph (%v -> %v, via %v paths):\n", start, end, f)
 	PrintGraphviz(g)
 	/*
 		digraph {
@@ -116,11 +104,11 @@ func main() {
 	*/
 
 	// Get shortest path
-	path, _ := ShortestPath(g, a, d)
+	//path, _ := ShortestPath(g, s, t)
 
 	// Show first shortest path
-	fmt.Println("Naive path:")
-	PrintGraphvizHighlightPaths(g, []Path{path})
+	//fmt.Println("Naive path:")
+	//PrintGraphvizHighlightPaths(g, []Path{path})
 	/*
 		digraph {
 		    b -> a[label="0",weight="0",color=black,penwidth=1];
@@ -136,15 +124,14 @@ func main() {
 		}
 	*/
 
-	k := 2
-	edges, err := DisjointEdges(g, a, d, k)
+	edges, err := DisjointEdges(g, s, t, f)
 	if err != nil {
 		fmt.Printf("unable to find disjoint edges: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Println("All edges:")
-	PrintGraphvizHighlightPaths(g, []Path{edges})
+	//fmt.Println("All edges:")
+	//PrintGraphvizHighlightPaths(g, []Path{edges})
 	/*
 		digraph {
 		    b -> a[label="0",weight="0",color=black,penwidth=1];
@@ -161,8 +148,8 @@ func main() {
 	*/
 
 	filtered := FilterCounterparts(edges)
-	fmt.Println("Filtered edges:")
-	PrintGraphvizHighlightPaths(g, []Path{filtered})
+	//fmt.Println("Filtered edges:")
+	//PrintGraphvizHighlightPaths(g, []Path{filtered})
 	/*
 		digraph {
 		    b -> a[label="0",weight="0",color=black,penwidth=1];
@@ -178,8 +165,8 @@ func main() {
 		}
 	*/
 
-	paths := BuildPaths(filtered, a, d, k)
-	fmt.Println("result:")
+	paths := BuildPaths(filtered, s, t, k)
+	fmt.Printf("Result (%v -> %v, via %v paths):\n", start, end, f)
 	PrintGraphvizHighlightPaths(g, paths)
 	/*
 		digraph {
@@ -197,10 +184,10 @@ func main() {
 	*/
 
 	// Apply full first round of algo
-	g2 := NodeSplitting(g, a, d)
-	path2, _ := ShortestPath(g2, a, d)
-	fmt.Println("Round 1 algo:")
-	PrintGraphvizHighlightPaths(g2, []Path{path2})
+	//g2 := NodeSplitting(g, s, t)
+	//path2, _ := ShortestPath(g2, s, t)
+	//fmt.Println("Round 1 algo:")
+	//PrintGraphvizHighlightPaths(g2, []Path{path2})
 	/*
 		digraph {
 		    b_out -> c_in[label="0",weight="0",color=slateblue,penwidth=3];
@@ -218,14 +205,14 @@ func main() {
 		}
 	*/
 
-	for _, e := range path2 {
-		InverseLink(g2, e)
-	}
+	//for _, e := range path2 {
+	//	InverseLink(g2, e)
+	//}
 
 	// Apply full second round of algo
-	path3, _ := ShortestPath(g2, a, d)
-	fmt.Println("Round 2 algo:")
-	PrintGraphvizHighlightPaths(g2, []Path{path3})
+	//path3, _ := ShortestPath(g2, s, t)
+	//fmt.Println("Round 2 algo:")
+	//PrintGraphvizHighlightPaths(g2, []Path{path3})
 	/*
 		digraph {
 		    b_out -> b_in[label="-0",weight="-0",color=black,penwidth=1];
@@ -580,158 +567,4 @@ func Directed(g *simple.WeightedUndirectedGraph) *simple.WeightedDirectedGraph {
 	}
 
 	return gr
-}
-
-// Pretty printing of graphs (pasted from graphviz wiki, slightly curated)
-var colors = []string{
-	"aquamarine",
-	"bisque",
-	"blue",
-	"blueviolet",
-	"brown",
-	"burlywood",
-	"cadetblue",
-	"chartreuse",
-	"chocolate",
-	"coral",
-	"cornflowerblue",
-	"crimson",
-	"cyan",
-	"darkgoldenrod",
-	"darkgreen",
-	"darkkhaki",
-	"darkolivegreen",
-	"darkorange",
-	"darkorchid",
-	"darksalmon",
-	"darkseagreen",
-	"darkslateblue",
-	"darkturquoise",
-	"darkviolet",
-	"deeppink",
-	"deepskyblue",
-	"dimgray",
-	"dodgerblue",
-	"firebrick",
-	"firebrick",
-	"forestgreen",
-	"gold",
-	"goldenrod",
-	"grey",
-	"green",
-	"greenyellow",
-	"hotpink",
-	"indianred",
-	"indigo",
-	"khaki",
-	"lawngreen",
-	"lightblue",
-	"lightcoral",
-	"lightgray",
-	"lightpink",
-	"lightsalmon",
-	"lightseagreen",
-	"lightskyblue",
-	"lightslategray",
-	"lightsteelblue",
-	"limegreen",
-	"magenta",
-	"maroon",
-	"mediumaquamarine",
-	"mediumblue",
-	"mediumorchid",
-	"mediumpurple",
-	"mediumseagreen",
-	"mediumslateblue",
-	"mediumspringgreen",
-	"mediumturquoise",
-	"mediumvioletred",
-	"midnightblue",
-	"navajowhite",
-	"navy",
-	"olivedrab",
-	"orange",
-	"orangered",
-	"orchid",
-	"palegoldenrod",
-	"palegreen",
-	"paleturquoise",
-	"palevioletred",
-	"peachpuff",
-	"peru",
-	"pink",
-	"plum",
-	"powderblue",
-	"purple",
-	"red",
-	"rosybrown",
-	"royalblue",
-	"saddlebrown",
-	"salmon",
-	"sandybrown",
-	"seagreen",
-	"sienna",
-	"skyblue",
-	"slateblue",
-	"slategray",
-	"springgreen",
-	"steelblue",
-	"tan",
-	"thistle",
-	"tomato",
-	"turquoise",
-	"violet",
-	"wheat",
-	"yellow",
-	"yellowgreen",
-}
-
-func PrintGraphviz(g graph.WeightedDirected) {
-	PrintGraphvizHighlightPaths(g, []Path{})
-}
-
-func PrintGraphvizHighlightPaths(g graph.WeightedDirected, paths []Path) {
-	nodes := g.Nodes()
-	fmt.Printf("digraph {\n")
-
-	s := rand.NewSource(time.Now().Unix())
-	r := rand.New(s)
-
-	cols := make(map[int64]map[int64]string)
-
-	for _, p := range paths {
-		col := colors[r.Intn(len(colors))]
-
-		for _, e := range p {
-			if _, ok := cols[e.From().ID()]; !ok {
-				cols[e.From().ID()] = make(map[int64]string)
-			}
-
-			cols[e.From().ID()][e.To().ID()] = col
-		}
-	}
-
-	for nodes.Next() {
-		n := nodes.Node()
-		col, ok := cols[n.ID()]
-
-		to := g.From(n.ID())
-		for to.Next() {
-			t := to.Node()
-			w := g.WeightedEdge(n.ID(), t.ID()).Weight()
-
-			c := "black"
-			width := 1
-			if ok {
-				if color, ok := col[t.ID()]; ok {
-					c = color
-					width = 3
-				}
-			}
-
-			fmt.Printf("    %v -> %v[label=\"%v\",weight=\"%v\",color=%v,penwidth=%v];\n", n, t, w, w, c, width)
-		}
-	}
-
-	fmt.Printf("}\n")
 }
