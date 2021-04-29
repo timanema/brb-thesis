@@ -395,8 +395,13 @@ func DisjointEdges(g *simple.WeightedDirectedGraph, s, t graph.Node, k int) ([]g
 	g2 := NodeSplitting(g, s, t)
 	res := make([]graph.WeightedEdge, 0, k)
 
+	var distance []float64
+	var predecessor []int64
+
 	for i := 0; i < k; i++ {
-		path, err := ShortestPath(g2, s, t)
+		var err error
+		var path Path
+		path, distance, predecessor, err = ShortestPath(g2, s, t, distance, predecessor)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to find %vnd path", k)
 		}
@@ -489,33 +494,43 @@ func BuildPaths(edges []graph.WeightedEdge, s, t graph.Node, k int) []Path {
 }
 
 // Bellman-Ford (needs to be capable of handling negative weights)
-func ShortestPath(g *simple.WeightedDirectedGraph, s, t graph.Node) (Path, error) {
+func ShortestPath(g *simple.WeightedDirectedGraph, s, t graph.Node, distance []float64, predecessor []int64) (Path, []float64, []int64, error) {
 	nodes := g.Nodes()
 
-	distance := make(map[int64]float64)
-	predecessor := make(map[int64]int64)
+	//TODO: check if nodes have increasing numbers by default
 
 	// Step 1: Init graph
-	for nodes.Next() {
-		n := nodes.Node()
-		distance[n.ID()] = math.MaxInt64
-		predecessor[n.ID()] = -1
+	if distance == nil {
+		distance = make([]float64, g.NewNode().ID())
+		predecessor = make([]int64, g.NewNode().ID())
+
+		for nodes.Next() {
+			n := nodes.Node()
+			distance[n.ID()] = math.MaxInt64
+			predecessor[n.ID()] = -1
+		}
+
+		nodes.Reset()
 	}
 
-	nodes.Reset()
 	distance[s.ID()] = 0
+
+	edges := g.Edges()
+	es := make([]graph.WeightedEdge, 0, edges.Len())
+	for edges.Next() {
+		e := edges.Edge().(graph.WeightedEdge)
+		es = append(es, e)
+	}
 
 	// Step 2: Relax edges repeatedly
 	for i := 0; i < nodes.Len(); i++ {
-		edges := g.Edges()
 		changed := false
 
-		for edges.Next() {
-			e := edges.Edge().(graph.WeightedEdge)
-
+		for _, e := range es {
 			if d := distance[e.From().ID()] + e.Weight(); d < distance[e.To().ID()] {
 				distance[e.To().ID()] = d
 				predecessor[e.To().ID()] = e.From().ID()
+
 				changed = true
 			}
 		}
@@ -529,20 +544,36 @@ func ShortestPath(g *simple.WeightedDirectedGraph, s, t graph.Node) (Path, error
 
 	// Step 4: build path to target
 	res := make([]graph.WeightedEdge, 0, nodes.Len())
+	wipe := make([]int64, 0)
 	cur := t.ID()
 
 	for cur != s.ID() {
 		next := predecessor[cur]
 
+		// Update map for next use
+		distance[cur] = math.MaxInt64
+		predecessor[cur] = -1
+
+		// Wipe all neighbours reachable from here
+		to := g.To(cur)
+		for to.Next() {
+			wipe = append(wipe, to.Node().ID())
+		}
+
 		if next == -1 {
-			return nil, errors.New("no path")
+			return nil, nil, nil, errors.New("no path")
 		}
 
 		res = append(res, g.WeightedEdge(next, cur))
 		cur = next
 	}
 
-	return res, nil
+	for _, v := range wipe {
+		distance[v] = math.MaxInt64
+		predecessor[v] = -1
+	}
+
+	return res, distance, predecessor, nil
 }
 
 func NodeSplitting(g *simple.WeightedDirectedGraph, s, t graph.Node) *simple.WeightedDirectedGraph {
