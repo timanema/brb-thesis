@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
@@ -31,7 +30,7 @@ type MultiPartiteWheelGenerator struct{}
 
 func (m MultiPartiteWheelGenerator) Generate(n, k int) (*simple.WeightedUndirectedGraph, error) {
 	if k > n/2 || k%2 == 1 || k < 2 {
-		return nil, errors.Errorf("impossible to generate (required: k < n/2, k % 2 != 1, k > 1): n=%v, k=%v", n, k)
+		return nil, errors.Errorf("impossible to generate (required: k < n/2, k mod 2 != 1, k > 1): n=%v, k=%v", n, k)
 	}
 
 	g := simple.NewWeightedUndirectedGraph(0, 0)
@@ -48,7 +47,6 @@ func (m MultiPartiteWheelGenerator) Generate(n, k int) (*simple.WeightedUndirect
 		for j := 0; j < levelSize; j++ {
 			for z := 0; z < levelSize; z++ {
 				g.SetWeightedEdge(g.NewWeightedEdge(node(g, i*levelSize+j), node(g, (i+1)*levelSize+z), 1))
-				fmt.Printf("%v -> %v\n", i*levelSize+j, (i+1)*levelSize+z)
 			}
 		}
 	}
@@ -56,7 +54,6 @@ func (m MultiPartiteWheelGenerator) Generate(n, k int) (*simple.WeightedUndirect
 	for j := 0; j < levelSize; j++ {
 		for z := 0; z < levelSize; z++ {
 			g.SetWeightedEdge(g.NewWeightedEdge(node(g, (numLevels-1)*levelSize+j), node(g, z), 1))
-			fmt.Printf("%v -> %v\n", (numLevels-1)*levelSize+j, z)
 		}
 	}
 

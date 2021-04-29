@@ -7,9 +7,13 @@ import (
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
+	"log"
 	"math"
 	"math/rand"
+	"net/http"
 	"os"
+
+	_ "net/http/pprof"
 )
 
 func init() {
@@ -21,13 +25,38 @@ func init() {
 	rand.Seed(int64(binary.LittleEndian.Uint64(b[:])))
 }
 
+func benchTableTest() {
+	n, k := 100, 5
+	m := GeneralizedWheelGenerator{}
+
+	g, err := m.Generate(n, k)
+	if err != nil {
+		fmt.Printf("failed to generate graph for lookup test: %v\n", err)
+		os.Exit(1)
+	}
+
+	start := rand.Intn(n)
+
+	s := g.Node(int64(start))
+
+	res, _ := BuildLookupTable(g, s, k)
+
+	for to, paths := range res {
+		fmt.Printf("%v -> %v\n", to, paths)
+	}
+}
+
 func main() {
-	//alt()
-	//return
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
+	benchTableTest()
+	return
 
 	//gr := simple.NewWeightedUndirectedGraph(0, 0)
 
-	/*        b
+	/*    b
 	   /  |  \
 	  0   |   1
 	 /    |    \
@@ -66,7 +95,7 @@ func main() {
 	//bc := gr.NewWeightedEdge(b, c, 0)
 	//gr.SetWeightedEdge(bc)
 
-	n, k, f := 24, 8, 5
+	n, k, f := 5, 2, 2
 	m := GeneralizedWheelGenerator{}
 	gu, err := m.Generate(n, k)
 	if err != nil {
@@ -166,7 +195,7 @@ func main() {
 	*/
 
 	paths := BuildPaths(filtered, s, t, k)
-	fmt.Printf("Result (%v -> %v, via %v paths):\n", start, end, f)
+	fmt.Printf("Result (%v -> %v, via %v paths, valid: %v):\n", start, end, f, VerifyDisjointPaths(g, s, t, f, paths))
 	PrintGraphvizHighlightPaths(g, paths)
 	/*
 		digraph {
@@ -229,6 +258,16 @@ func main() {
 		    d -> c_out[label="-0",weight="-0",color=black,penwidth=1];
 		}
 	*/
+
+	lookup, err := BuildLookupTable(gu, s, k)
+	if err != nil {
+		fmt.Printf("failed to build lookup table: %v\n", err)
+		os.Exit(1)
+	}
+
+	for to, paths := range lookup {
+		fmt.Printf("%v -> %v\n", to, paths)
+	}
 }
 
 func alt() {
@@ -313,6 +352,43 @@ func alt() {
 	paths := BuildPaths(filtered, s, t, k)
 	fmt.Println("result:")
 	PrintGraphvizHighlightPaths(gd, paths)
+}
+
+func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int) (map[int64][]Path, error) {
+	res := make(map[int64][]Path)
+	g := Directed(gu)
+
+	nodes := gu.Nodes()
+
+	for nodes.Next() {
+		n := nodes.Node()
+
+		// No lookup to self needed
+		if n.ID() == s.ID() {
+			continue
+		}
+
+		paths, err := DisjointPaths(g, s, n, k)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to build paths to %v", n)
+		}
+
+		res[n.ID()] = paths
+		//fmt.Printf("done: %v\n", n.ID())
+	}
+
+	return res, nil
+}
+
+func DisjointPaths(g *simple.WeightedDirectedGraph, s, t graph.Node, k int) ([]Path, error) {
+	edges, err := DisjointEdges(g, s, t, k)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to find disjoint edges")
+	}
+
+	filtered := FilterCounterparts(edges)
+
+	return BuildPaths(filtered, s, t, k), nil
 }
 
 func DisjointEdges(g *simple.WeightedDirectedGraph, s, t graph.Node, k int) ([]graph.WeightedEdge, error) {
@@ -432,6 +508,7 @@ func ShortestPath(g *simple.WeightedDirectedGraph, s, t graph.Node) (Path, error
 	// Step 2: Relax edges repeatedly
 	for i := 0; i < nodes.Len(); i++ {
 		edges := g.Edges()
+		changed := false
 
 		for edges.Next() {
 			e := edges.Edge().(graph.WeightedEdge)
@@ -439,7 +516,12 @@ func ShortestPath(g *simple.WeightedDirectedGraph, s, t graph.Node) (Path, error
 			if d := distance[e.From().ID()] + e.Weight(); d < distance[e.To().ID()] {
 				distance[e.To().ID()] = d
 				predecessor[e.To().ID()] = e.From().ID()
+				changed = true
 			}
+		}
+
+		if !changed {
+			break
 		}
 	}
 
