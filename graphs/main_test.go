@@ -453,3 +453,188 @@ BenchmarkTable100Nodes25Connected-12                            	       2	 94776
 BenchmarkTable100Nodes50Connected-12                            	       1	1760987702 ns/op
 
 */
+
+/*
+Benches for presentation
+*/
+
+// 143493 ns/op == 0.14ms
+func BenchmarkSingle10Nodes3ConnectedPres(b *testing.B) {
+	n, k := 10, 3
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 1031872 ns/op == 1ms
+func BenchmarkSingle50Nodes3ConnectedPres(b *testing.B) {
+	n, k := 50, 3
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 2690489 ns/op == 2.7ms
+func BenchmarkSingle100Nodes3ConnectedPres(b *testing.B) {
+	n, k := 100, 3
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 5166703 ns/op == 5.2ms
+func BenchmarkSingle150Nodes3ConnectedPres(b *testing.B) {
+	n, k := 150, 3
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 11158237 ns/op == 11.2ms
+func BenchmarkSingle200Nodes3ConnectedPres(b *testing.B) {
+	n, k := 200, 3
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 39731932 ns/op == 39.7ms
+func BenchmarkSingle500Nodes3ConnectedPres(b *testing.B) {
+	n, k := 500, 3
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 191588075 ns/op == 191.6ms
+func BenchmarkSingle1000Nodes3ConnectedPres(b *testing.B) {
+	n, k := 1000, 3
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 5322925 ns/op == 5.3ms
+func BenchmarkSingle50Nodes25ConnectedPres(b *testing.B) {
+	n, k := 50, 25
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 13095442 ns/op == 13ms
+func BenchmarkSingle100Nodes25ConnectedPres(b *testing.B) {
+	n, k := 100, 25
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 20936914 ns/op == 20.9ms
+func BenchmarkSingle150Nodes25ConnectedPres(b *testing.B) {
+	n, k := 150, 25
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 31597568 ns/op == 31.6ms
+func BenchmarkSingle200Nodes25ConnectedPres(b *testing.B) {
+	n, k := 200, 25
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 127276025 ns/op == 127.3ms
+func BenchmarkSingle500Nodes25ConnectedPres(b *testing.B) {
+	n, k := 500, 25
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 438290766 ns/op == 438.3ms
+func BenchmarkSingle1000Nodes25ConnectedPres(b *testing.B) {
+	n, k := 1000, 25
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 24694959 ns/op == 24.7ms
+func BenchmarkSingle100Nodes50ConnectedPres(b *testing.B) {
+	n, k := 100, 50
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 40792549 ns/op == 40.8ms
+func BenchmarkSingle150Nodes50ConnectedPres(b *testing.B) {
+	n, k := 150, 50
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 72140659 ns/op == 72.1ms
+func BenchmarkSingle200Nodes50ConnectedPres(b *testing.B) {
+	n, k := 200, 50
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 318277658 ns/op == 318.3ms
+func BenchmarkSingle500Nodes50ConnectedPres(b *testing.B) {
+	n, k := 500, 50
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 721954844 ns/op == 722ms
+func BenchmarkSingle1000Nodes50ConnectedPres(b *testing.B) {
+	n, k := 1000, 50
+	benchWithGenerator(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+/// TABLES
+// 1791754 ns/op == 0.002s
+func BenchmarkTable10Nodes5ConnectedPres(b *testing.B) {
+	n, k := 10, 5
+	benchTable(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 45860642 ns/op == 0.05s
+func BenchmarkTable50Nodes5ConnectedPres(b *testing.B) {
+	n, k := 50, 5
+	benchTable(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 336122326 ns/op == 0.3s
+func BenchmarkTable100Nodes5ConnectedPres(b *testing.B) {
+	n, k := 100, 5
+	benchTable(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 1100778497 ns/op == 1.1s
+func BenchmarkTable150Nodes5ConnectedPres(b *testing.B) {
+	n, k := 150, 5
+	benchTable(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 2012939823 ns/op == 2s
+func BenchmarkTable200Nodes5ConnectedPres(b *testing.B) {
+	n, k := 200, 5
+	benchTable(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 264568676 ns/op == 0.26s
+func BenchmarkTable50Nodes25ConnectedPres(b *testing.B) {
+	n, k := 50, 25
+	benchTable(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 1285495798 ns/op == 1.3s
+func BenchmarkTable100Nodes25ConnectedPres(b *testing.B) {
+	n, k := 100, 25
+	benchTable(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 3634130785 ns/op == 3.6s
+func BenchmarkTable150Nodes25ConnectedPres(b *testing.B) {
+	n, k := 150, 25
+	benchTable(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 7110399176 ns/op == 7.1s
+func BenchmarkTable200Nodes25ConnectedPres(b *testing.B) {
+	n, k := 200, 25
+	benchTable(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 2561879285 ns/op == 2.56s
+func BenchmarkTable100Nodes50ConnectedPres(b *testing.B) {
+	n, k := 100, 50
+	benchTable(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 7065331046 ns/op == 7s
+func BenchmarkTable150Nodes50ConnectedPres(b *testing.B) {
+	n, k := 150, 50
+	benchTable(n, k, GeneralizedWheelGenerator{}, b)
+}
+
+// 13072465481 ns/op == 13.1s
+func BenchmarkTable200Nodes50ConnectedPres(b *testing.B) {
+	n, k := 200, 50
+	benchTable(n, k, GeneralizedWheelGenerator{}, b)
+}

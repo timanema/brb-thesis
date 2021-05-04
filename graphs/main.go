@@ -7,10 +7,8 @@ import (
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
-	"log"
 	"math"
 	"math/rand"
-	"net/http"
 	"os"
 
 	_ "net/http/pprof"
@@ -53,7 +51,7 @@ func benchTableTest() {
 }
 
 func benchSingleTest() {
-	n, k := 100000, 5
+	n, k := 10000, 5
 	m := GeneralizedWheelGenerator{}
 
 	g, err := m.Generate(n, k)
@@ -78,11 +76,11 @@ func benchSingleTest() {
 }
 
 func main() {
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
+	//go func() {
+	//	log.Println(http.ListenAndServe("localhost:6060", nil))
+	//}()
 
-	benchTableTest()
+	benchSingleTest()
 	return
 
 	//gr := simple.NewWeightedUndirectedGraph(0, 0)
