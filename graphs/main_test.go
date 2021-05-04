@@ -433,4 +433,23 @@ BenchmarkTable50Nodes15Connected-12                             	      64	  2703
 BenchmarkTable50Nodes25Connected-12                             	      24	 890669826 ns/op
 BenchmarkTable100Nodes25Connected-12                            	      24	  77603480 ns/op
 BenchmarkTable100Nodes50Connected-12                            	       1	12191080849 ns/op
+
+Everything above + SLICES EVERYWHERE:
+BenchmarkWithGeneralizedWheelGenerator10Nodes3Connected-12      	   10000	    100631 ns/op
+BenchmarkWithGeneralizedWheelGenerator10Nodes5Connected-12      	    8479	    138468 ns/op
+BenchmarkWithGeneralizedWheelGenerator30Nodes8Connected-12      	    1557	    688879 ns/op
+BenchmarkWithGeneralizedWheelGenerator30Nodes15Connected-12     	    1012	   1174852 ns/op
+BenchmarkWithGeneralizedWheelGenerator50Nodes15Connected-12     	     500	   2235840 ns/op
+BenchmarkWithGeneralizedWheelGenerator50Nodes25Connected-12     	     344	   3468295 ns/op
+BenchmarkWithGeneralizedWheelGenerator100Nodes25Connected-12    	     132	   8702465 ns/op
+BenchmarkWithGeneralizedWheelGenerator100Nodes50Connected-12    	      64	  17659181 ns/op
+BenchmarkTable10Nodes3Connected-12                              	    1268	    930273 ns/op
+BenchmarkTable10Nodes5Connected-12                              	     942	   1198701 ns/op
+BenchmarkTable30Nodes8Connected-12                              	      55	  21920535 ns/op
+BenchmarkTable30Nodes15Connected-12                             	      33	  35263790 ns/op
+BenchmarkTable50Nodes15Connected-12                             	       9	 121143846 ns/op
+BenchmarkTable50Nodes25Connected-12                             	       6	 179129677 ns/op
+BenchmarkTable100Nodes25Connected-12                            	       2	 947767060 ns/op
+BenchmarkTable100Nodes50Connected-12                            	       1	1760987702 ns/op
+
 */
