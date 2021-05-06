@@ -1,5 +1,6 @@
 package brb
 
 type Protocol interface {
-	Receive(t uint8, src uint16, data []byte)
+	// uid is used for tracking the message throughout the network (for statistics)
+	Receive(messageType uint8, src uint16, uid uint32, data []byte)
 }

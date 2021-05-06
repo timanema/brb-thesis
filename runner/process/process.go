@@ -17,18 +17,13 @@ type Config struct {
 	RetryDelay, NeighbourDelay time.Duration
 }
 
-type neighbour struct {
-	s     *zmq4.Socket
-	ready bool
-}
-
 type Process struct {
 	id     uint16
 	s      *zmq4.Socket
 	cfg    Config
 	stopCh <-chan struct{}
 
-	neighbours map[uint16]neighbour
+	neighbours map[uint16]bool
 }
 
 func StartProcess(id uint16, cfg Config, stopCh <-chan struct{}, neighbours []uint16) (*Process, error) {
@@ -42,14 +37,13 @@ func StartProcess(id uint16, cfg Config, stopCh <-chan struct{}, neighbours []ui
 	}
 
 	// Make a map indicating readiness
-	nmap := make(map[uint16]neighbour, len(neighbours))
+	nmap := make(map[uint16]bool, len(neighbours))
 	for _, n := range neighbours {
-		nsoc, err := createSocket(IdToString(id), fmt.Sprintf(cfg.Sock, n))
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to create socket to neighbour %v", n)
+		if err := s.Connect(fmt.Sprintf(cfg.Sock, n)); err != nil {
+			return nil, errors.Wrapf(err, "unable to connect to neighbour %v", n)
 		}
 
-		nmap[n] = neighbour{s: nsoc}
+		nmap[n] = false
 	}
 
 	p := &Process{id: id, s: s, cfg: cfg, stopCh: stopCh, neighbours: nmap}
@@ -112,14 +106,13 @@ func (p *Process) checkNeighbours() {
 
 		waiting = false
 		for nid, n := range p.neighbours {
-			if !n.ready {
-				_, err = n.s.SendMessage(IdToString(nid), []byte{msg.RunnerReadyType}, b)
+			if !n {
+				_, err = p.s.SendMessage(IdToString(nid), []byte{msg.RunnerReadyType}, b)
 				if err != nil {
 					waiting = true
 					time.Sleep(p.cfg.NeighbourDelay)
 				} else {
-					n.ready = true
-					p.neighbours[nid] = n
+					p.neighbours[nid] = true
 				}
 			}
 		}
@@ -189,34 +182,30 @@ func (p *Process) handleMsg(src uint16, t uint8, b []byte, ctrl bool) {
 }
 
 func (p *Process) send(id uint16, t uint8, b []byte, ctrl bool) error {
-	if ctrl {
-		_, err := p.s.SendMessage(p.cfg.CtrlID, []byte{t}, b)
-		return err
+	dest := IdToString(id)
+
+	if !ctrl {
+		dest = p.cfg.CtrlID
 	}
 
-	n, ok := p.neighbours[id]
-	if !ok {
-		return errors.Errorf("unknown neighbour id %v", id)
-	}
-
-	_, err := n.s.SendMessage(IdToString(id), []byte{t}, b)
-
+	_, err := p.s.SendMessage(dest, []byte{t}, b)
 	return err
 }
 
 // Adding abstraction for BRB protocols
-func (p *Process) Deliver(payload []byte) {
-	fmt.Printf("process %v got delivered: %v", p.id, string(payload))
+func (p *Process) Deliver(uid uint32, payload []byte) {
+	fmt.Printf("process %v got delivered (%v): %v", p.id, uid, string(payload))
 
 	// TODO: notify controller
 }
 
-func (p *Process) Send(t uint8, dest uint16, data []byte) {
-	fmt.Printf("process %v is sending %v bytes (type=%v) to %v\n", p.id, len(data), t, dest)
+func (p *Process) Send(t uint8, dest uint16, uid uint32, data []byte) {
+	fmt.Printf("process %v is sending %v bytes (type=%v, id=%v) to %v\n", p.id, len(data), t, uid, dest)
 
 	m := &msg.WrapperDataMessage{
 		T:    t,
 		Src:  p.id,
+		Id:   uid,
 		Data: data,
 	}
 	b, err := m.Encode()

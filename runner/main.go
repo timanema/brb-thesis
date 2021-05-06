@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+// TODO: keep in mind high water mark
+
 func main() {
 	fmt.Println("starting rp runner")
 	stopCh := make(chan struct{}, 1)
