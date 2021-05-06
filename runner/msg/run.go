@@ -6,15 +6,14 @@ import (
 	"github.com/pkg/errors"
 )
 
-const RunnerAliveType uint8 = 1
-const RunnerReadyType uint8 = 2
-const RunnerFailedType uint8 = 3
+const TriggerMessageType uint8 = 5
+const WrapperDataType uint8 = 6
 
-type RunnerStatus struct {
-	ID uint16
+type TriggerMessage struct {
+	Payload []byte
 }
 
-func (r *RunnerStatus) Encode() ([]byte, error) {
+func (r *TriggerMessage) Encode() ([]byte, error) {
 	b := bytes.NewBuffer(make([]byte, 0, 4))
 	enc := gob.NewEncoder(b)
 	err := enc.Encode(r)
@@ -22,17 +21,18 @@ func (r *RunnerStatus) Encode() ([]byte, error) {
 	return b.Bytes(), errors.Wrap(err, "unable to encode message")
 }
 
-func (r *RunnerStatus) Decode(b []byte) error {
+func (r *TriggerMessage) Decode(b []byte) error {
 	dec := gob.NewDecoder(bytes.NewBuffer(b))
 	return errors.Wrap(dec.Decode(r), "unable to decode message")
 }
 
-type RunnerFailure struct {
-	ID  uint16
-	Err error
+type WrapperDataMessage struct {
+	T    uint8
+	Src  uint16
+	Data []byte
 }
 
-func (r *RunnerFailure) Encode() ([]byte, error) {
+func (r *WrapperDataMessage) Encode() ([]byte, error) {
 	b := bytes.NewBuffer(make([]byte, 0, 4))
 	enc := gob.NewEncoder(b)
 	err := enc.Encode(r)
@@ -40,7 +40,7 @@ func (r *RunnerFailure) Encode() ([]byte, error) {
 	return b.Bytes(), errors.Wrap(err, "unable to encode message")
 }
 
-func (r *RunnerFailure) Decode(b []byte) error {
+func (r *WrapperDataMessage) Decode(b []byte) error {
 	dec := gob.NewDecoder(bytes.NewBuffer(b))
 	return errors.Wrap(dec.Decode(r), "unable to decode message")
 }

@@ -33,24 +33,44 @@ func main() {
 	}()
 
 	cfg := process.Config{
-		CtrlID:     info.ID,
-		CtrlSock:   info.Sock,
-		Sock:       "ipc:///tmp/rp-node-%v.ipc",
-		MaxRetries: 5,
-		RetryDelay: time.Millisecond * 100,
+		CtrlID:         info.ID,
+		CtrlSock:       info.Sock,
+		Sock:           "ipc:///tmp/rp-node-%v.ipc",
+		MaxRetries:     5,
+		RetryDelay:     time.Millisecond * 100,
+		NeighbourDelay: time.Millisecond * 300,
 	}
 
 	fmt.Println("starting process 42")
-	_, err = process.StartProcess(42, cfg, stopCh)
+	err = c.StartProcess(42, cfg, []uint16{4242})
 	if err != nil {
 		fmt.Printf("unable to start process: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Println("starting process 4242")
-	_, err = process.StartProcess(4242, cfg, stopCh)
+	err = c.StartProcess(4242, cfg, []uint16{42})
 	if err != nil {
 		fmt.Printf("unable to start process: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("waiting for all process to be alive")
+	if err := c.WaitForAlive(); err != nil {
+		fmt.Printf("err while waiting for alive: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("waiting for all process to be ready")
+	if err := c.WaitForReady(); err != nil {
+		fmt.Printf("err while waiting for ready: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("everything ready, sending test msg")
+	time.Sleep(time.Second)
+	if err := c.TriggerMessageSend(42, []byte("blah")); err != nil {
+		fmt.Printf("err while sending payload msg: %v\n", err)
 		os.Exit(1)
 	}
 
