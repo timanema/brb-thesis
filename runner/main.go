@@ -71,11 +71,13 @@ func main() {
 
 	fmt.Println("everything ready, sending test msg")
 	time.Sleep(time.Second)
-	if err := c.TriggerMessageSend(42, []byte("blah")); err != nil {
+	uid, err := c.TriggerMessageSend(42, []byte("blah"))
+	if err != nil {
 		fmt.Printf("err while sending payload msg: %v\n", err)
 		os.Exit(1)
 	}
 
+	fmt.Printf("sent message (%v), waiting for stop\n", uid)
 	<-stopCh
 	fmt.Println("server stop")
 }

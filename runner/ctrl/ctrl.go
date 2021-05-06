@@ -1,10 +1,13 @@
 package ctrl
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"github.com/pebbe/zmq4"
 	"github.com/pkg/errors"
+	"math/rand"
+	"os"
 	"rp-runner/msg"
 	"rp-runner/process"
 	"sync"
@@ -24,12 +27,21 @@ type ControllerInfo struct {
 	ID, Sock string
 }
 
+type BrbConfig struct {
+	MaxByzantine, TotalByzantine int
+}
+
 type Controller struct {
 	s      *zmq4.Socket
 	stopCh chan struct{}
 
 	p     map[uint16]proc
 	pLock sync.Mutex
+
+	payloadMap map[uint32][]byte
+	deliverMap map[uint32]map[uint16]struct{}
+	sendMap    map[uint32]time.Time
+	dLock      sync.Mutex
 }
 
 func StartController(info ControllerInfo) (*Controller, error) {
@@ -50,7 +62,13 @@ func StartController(info ControllerInfo) (*Controller, error) {
 		return nil, errors.Wrapf(err, "unable to bind to socket %v", info.Sock)
 	}
 
-	c := &Controller{s: s, stopCh: make(chan struct{}), p: make(map[uint16]proc)}
+	c := &Controller{s: s,
+		stopCh:     make(chan struct{}),
+		p:          make(map[uint16]proc),
+		payloadMap: make(map[uint32][]byte),
+		deliverMap: make(map[uint32]map[uint16]struct{}),
+		sendMap:    make(map[uint32]time.Time),
+	}
 	go c.run()
 
 	return c, nil
@@ -70,14 +88,22 @@ func (c *Controller) StartProcess(id uint16, cfg process.Config, neighbours []ui
 }
 
 // TODO: tack on statistics etc later
-func (c *Controller) TriggerMessageSend(id uint16, payload []byte) error {
-	m := &msg.TriggerMessage{Payload: payload}
+func (c *Controller) TriggerMessageSend(id uint16, payload []byte) (uint32, error) {
+	uid := rand.Uint32()
+
+	m := &msg.TriggerMessage{Id: uid, Payload: payload}
 	b, err := m.Encode()
 	if err != nil {
-		return errors.Wrap(err, "failed to encode payload message")
+		return 0, errors.Wrap(err, "failed to encode payload message")
 	}
 
-	return errors.Wrapf(c.send(id, msg.TriggerMessageType, b), "failed to send message to %v", id)
+	c.dLock.Lock()
+	c.payloadMap[uid] = payload
+	c.deliverMap[uid] = make(map[uint16]struct{})
+	c.sendMap[uid] = time.Now()
+	c.dLock.Unlock()
+
+	return uid, errors.Wrapf(c.send(id, msg.TriggerMessageType, b), "failed to send message to %v", id)
 }
 
 func (c *Controller) WaitForAlive() error {
@@ -116,6 +142,33 @@ func (c *Controller) WaitForReady() error {
 	}
 
 	return nil
+}
+
+func (c *Controller) aggregateStats(uid uint32) Stats {
+	c.pLock.Lock()
+	c.dLock.Lock()
+	defer c.dLock.Unlock()
+	defer c.pLock.Unlock()
+
+	latency := time.Duration(0)
+	cnt := 0
+
+	for _, p := range c.p {
+		s := p.p.Stats()
+		del := s.Deliveries[uid]
+		lat := del.Sub(c.sendMap[uid])
+
+		if lat > latency {
+			latency = lat
+		}
+
+		cnt += s.MsgSent[uid]
+	}
+
+	return Stats{
+		Latency:  latency,
+		MsgCount: cnt,
+	}
 }
 
 func (c *Controller) Close() {
@@ -195,5 +248,21 @@ func (c *Controller) handleMsg(src uint16, t uint8, b []byte) {
 		c.pLock.Unlock()
 
 		fmt.Printf("runner %v failed: %v\n", r.ID, r.Err)
+	case msg.MessageDeliveredType:
+		var r msg.MessageDelivered
+		if err := r.Decode(b); err != nil {
+			fmt.Printf("failed to decode msg: %v\n", err)
+			return
+		}
+
+		c.dLock.Lock()
+		if bytes.Compare(r.Payload, c.payloadMap[r.Id]) != 0 {
+			fmt.Printf("process %v delived invalid payload, BRB guarantees violated: got %v, wanted %v\n",
+				src, r.Payload, c.payloadMap[r.Id])
+			os.Exit(1)
+		}
+
+		c.deliverMap[r.Id][src] = struct{}{}
+		c.dLock.Unlock()
 	}
 }

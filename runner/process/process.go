@@ -6,7 +6,9 @@ import (
 	"github.com/pebbe/zmq4"
 	"github.com/pkg/errors"
 	"os"
+	"rp-runner/brb"
 	"rp-runner/msg"
+	"sync"
 	"time"
 )
 
@@ -17,11 +19,21 @@ type Config struct {
 	RetryDelay, NeighbourDelay time.Duration
 }
 
+type Stats struct {
+	Deliveries map[uint32]time.Time
+	MsgSent    map[uint32]int
+}
+
 type Process struct {
 	id     uint16
 	s      *zmq4.Socket
 	cfg    Config
 	stopCh <-chan struct{}
+
+	stats Stats
+	sLock sync.Mutex
+
+	brb brb.Protocol
 
 	neighbours map[uint16]bool
 }
@@ -46,14 +58,14 @@ func StartProcess(id uint16, cfg Config, stopCh <-chan struct{}, neighbours []ui
 		nmap[n] = false
 	}
 
-	p := &Process{id: id, s: s, cfg: cfg, stopCh: stopCh, neighbours: nmap}
-
-	go p.run()
+	stats := Stats{Deliveries: make(map[uint32]time.Time), MsgSent: make(map[uint32]int)}
+	p := &Process{id: id, s: s, cfg: cfg, stopCh: stopCh, stats: stats, neighbours: nmap}
 
 	if err := p.waitForConnection(); err != nil {
 		return nil, errors.Wrap(err, "unable to communicate with controller")
 	}
 
+	go p.run()
 	go p.checkNeighbours()
 
 	return p, nil
@@ -179,6 +191,25 @@ func (p *Process) handleMsg(src uint16, t uint8, b []byte, ctrl bool) {
 	} else {
 		fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, src, t, b)
 	}
+
+	switch t {
+	case msg.WrapperDataType:
+		var r msg.WrapperDataMessage
+		if err := r.Decode(b); err != nil {
+			fmt.Printf("failed to decode msg: %v\n", err)
+			return
+		}
+
+		p.brb.Receive(r.T, src, r.Id, r.Data)
+	case msg.TriggerMessageType:
+		var r msg.TriggerMessage
+		if err := r.Decode(b); err != nil {
+			fmt.Printf("failed to decode msg: %v\n", err)
+			return
+		}
+
+		p.brb.Send(r.Id, r.Payload)
+	}
 }
 
 func (p *Process) send(id uint16, t uint8, b []byte, ctrl bool) error {
@@ -196,7 +227,26 @@ func (p *Process) send(id uint16, t uint8, b []byte, ctrl bool) error {
 func (p *Process) Deliver(uid uint32, payload []byte) {
 	fmt.Printf("process %v got delivered (%v): %v", p.id, uid, string(payload))
 
-	// TODO: notify controller
+	m := &msg.MessageDelivered{
+		Id:      uid,
+		Payload: payload,
+	}
+	b, err := m.Encode()
+	if err != nil {
+		// TODO: send to controller
+		fmt.Printf("process %v failed to encode deliver message: %v\n", p.id, err)
+		os.Exit(1)
+	}
+
+	err = p.send(0, msg.MessageDeliveredType, b, true)
+	if err != nil {
+		fmt.Printf("process %v failed to send deliver message: %v\n", p.id, err)
+		os.Exit(1)
+	}
+
+	p.sLock.Lock()
+	p.stats.Deliveries[uid] = time.Now()
+	p.sLock.Unlock()
 }
 
 func (p *Process) Send(t uint8, dest uint16, uid uint32, data []byte) {
@@ -204,7 +254,6 @@ func (p *Process) Send(t uint8, dest uint16, uid uint32, data []byte) {
 
 	m := &msg.WrapperDataMessage{
 		T:    t,
-		Src:  p.id,
 		Id:   uid,
 		Data: data,
 	}
@@ -217,8 +266,19 @@ func (p *Process) Send(t uint8, dest uint16, uid uint32, data []byte) {
 
 	err = p.send(dest, msg.WrapperDataType, b, false)
 	if err != nil {
-		// TODO: send to controller
 		fmt.Printf("process %v failed to send wrapper data message: %v\n", p.id, err)
 		os.Exit(1)
 	}
+
+	p.sLock.Lock()
+	p.stats.MsgSent[uid] += 1
+	p.sLock.Unlock()
+}
+
+func (p *Process) Stats() Stats {
+	p.sLock.Lock()
+	defer p.sLock.Unlock()
+
+	s := p.stats
+	return s
 }

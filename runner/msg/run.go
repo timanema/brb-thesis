@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"github.com/pkg/errors"
-	"time"
 )
 
 const TriggerMessageType uint8 = 5
@@ -12,6 +11,7 @@ const WrapperDataType uint8 = 6
 const MessageDeliveredType uint8 = 7
 
 type TriggerMessage struct {
+	Id      uint32
 	Payload []byte
 }
 
@@ -30,7 +30,6 @@ func (r *TriggerMessage) Decode(b []byte) error {
 
 type WrapperDataMessage struct {
 	T    uint8
-	Src  uint16
 	Id   uint32
 	Data []byte
 }
@@ -51,7 +50,6 @@ func (r *WrapperDataMessage) Decode(b []byte) error {
 type MessageDelivered struct {
 	Id      uint32
 	Payload []byte
-	Time    time.Time
 }
 
 func (r *MessageDelivered) Encode() ([]byte, error) {
