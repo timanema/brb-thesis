@@ -5,14 +5,19 @@ import (
 	"os"
 	"os/signal"
 	"rp-runner/ctrl"
+	"rp-runner/graphs"
 	"rp-runner/process"
 	"syscall"
 	"time"
 )
 
-// TODO: keep in mind high water mark
-
 func main() {
+	graphs.GraphsMain()
+	//RunnerMain()
+}
+
+// TODO: keep in mind high water mark
+func RunnerMain() {
 	fmt.Println("starting rp runner")
 	stopCh := make(chan struct{}, 1)
 	info := ctrl.ControllerInfo{
