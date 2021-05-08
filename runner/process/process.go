@@ -17,6 +17,7 @@ type Config struct {
 	Sock                       string
 	MaxRetries                 int
 	RetryDelay, NeighbourDelay time.Duration
+	ByzConfig                  brb.Config
 }
 
 type Stats struct {
@@ -38,7 +39,7 @@ type Process struct {
 	neighbours map[uint16]bool
 }
 
-func StartProcess(id uint16, cfg Config, stopCh <-chan struct{}, neighbours []uint16) (*Process, error) {
+func StartProcess(id uint16, cfg Config, stopCh <-chan struct{}, neighbours []uint16, brb brb.Protocol) (*Process, error) {
 	s, err := createSocket(IdToString(id), cfg.CtrlSock)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create socket")
@@ -59,14 +60,18 @@ func StartProcess(id uint16, cfg Config, stopCh <-chan struct{}, neighbours []ui
 	}
 
 	stats := Stats{Deliveries: make(map[uint32]time.Time), MsgSent: make(map[uint32]int)}
-	p := &Process{id: id, s: s, cfg: cfg, stopCh: stopCh, stats: stats, neighbours: nmap}
+	p := &Process{id: id, s: s, cfg: cfg, stopCh: stopCh, stats: stats, brb: brb, neighbours: nmap}
 
 	if err := p.waitForConnection(); err != nil {
 		return nil, errors.Wrap(err, "unable to communicate with controller")
 	}
 
 	go p.run()
-	go p.checkNeighbours()
+
+	go func() {
+		p.brb.Init(p, p, p.cfg.ByzConfig)
+		p.checkNeighbours()
+	}()
 
 	return p, nil
 }
@@ -215,7 +220,7 @@ func (p *Process) handleMsg(src uint16, t uint8, b []byte, ctrl bool) {
 func (p *Process) send(id uint16, t uint8, b []byte, ctrl bool) error {
 	dest := IdToString(id)
 
-	if !ctrl {
+	if ctrl {
 		dest = p.cfg.CtrlID
 	}
 
@@ -225,7 +230,7 @@ func (p *Process) send(id uint16, t uint8, b []byte, ctrl bool) error {
 
 // Adding abstraction for BRB protocols
 func (p *Process) Deliver(uid uint32, payload []byte) {
-	fmt.Printf("process %v got delivered (%v): %v", p.id, uid, string(payload))
+	fmt.Printf("process %v got delivered (%v): %v\n", p.id, uid, string(payload))
 
 	m := &msg.MessageDelivered{
 		Id:      uid,

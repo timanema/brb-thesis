@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"github.com/pebbe/zmq4"
 	"github.com/pkg/errors"
+	"gonum.org/v1/gonum/graph"
 	"math/rand"
 	"os"
+	"rp-runner/brb"
 	"rp-runner/msg"
 	"rp-runner/process"
 	"sync"
@@ -17,18 +19,14 @@ import (
 const pollInterval = time.Millisecond * 300
 
 type proc struct {
-	p            *process.Process
-	alive, ready bool
+	p                 *process.Process
+	alive, ready, byz bool
 
 	err error
 }
 
 type ControllerInfo struct {
 	ID, Sock string
-}
-
-type BrbConfig struct {
-	MaxByzantine, TotalByzantine int
 }
 
 type Controller struct {
@@ -74,16 +72,29 @@ func StartController(info ControllerInfo) (*Controller, error) {
 	return c, nil
 }
 
-func (c *Controller) StartProcess(id uint16, cfg process.Config, neighbours []uint16) error {
+func (c *Controller) StartProcess(id uint16, cfg process.Config, neighbours []uint16, bp brb.Protocol, byz bool) error {
 	c.pLock.Lock()
 	defer c.pLock.Unlock()
 
-	p, err := process.StartProcess(id, cfg, c.stopCh, neighbours)
+	// Inject BRB config
+	cfg.ByzConfig = brb.Config{
+		Byz:        byz,
+		Id:         id,
+		Graph:      nil,
+		Neighbours: neighbours,
+	}
+
+	p, err := process.StartProcess(id, cfg, c.stopCh, neighbours, bp)
 	if err != nil {
 		return errors.Wrap(err, "unable to start process")
 	}
 
-	c.p[id] = proc{p: p}
+	c.p[id] = proc{p: p, byz: byz}
+	return nil
+}
+
+func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirected, byz int) error {
+	// TODO: implement
 	return nil
 }
 
@@ -142,6 +153,29 @@ func (c *Controller) WaitForReady() error {
 	}
 
 	return nil
+}
+
+func (c *Controller) WaitForDeliver(uid uint32) Stats {
+	// TODO: use ids of normal nodes instead of len check?
+	c.pLock.Lock()
+	needed := 0
+	for _, p := range c.p {
+		if !p.byz {
+			needed += 1
+		}
+	}
+	c.pLock.Unlock()
+
+	for {
+		c.dLock.Lock()
+		del := len(c.deliverMap[uid])
+		c.dLock.Unlock()
+
+		if del >= needed {
+			return c.aggregateStats(uid)
+		}
+		time.Sleep(pollInterval * 2)
+	}
 }
 
 func (c *Controller) aggregateStats(uid uint32) Stats {
