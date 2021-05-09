@@ -26,7 +26,7 @@ type Stats struct {
 }
 
 type Process struct {
-	id     uint16
+	id     uint64
 	s      *zmq4.Socket
 	cfg    Config
 	stopCh <-chan struct{}
@@ -36,10 +36,10 @@ type Process struct {
 
 	brb brb.Protocol
 
-	neighbours map[uint16]bool
+	neighbours map[uint64]bool
 }
 
-func StartProcess(id uint16, cfg Config, stopCh <-chan struct{}, neighbours []uint16, brb brb.Protocol) (*Process, error) {
+func StartProcess(id uint64, cfg Config, stopCh <-chan struct{}, neighbours []uint64, brb brb.Protocol) (*Process, error) {
 	s, err := createSocket(IdToString(id), cfg.CtrlSock)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create socket")
@@ -50,7 +50,7 @@ func StartProcess(id uint16, cfg Config, stopCh <-chan struct{}, neighbours []ui
 	}
 
 	// Make a map indicating readiness
-	nmap := make(map[uint16]bool, len(neighbours))
+	nmap := make(map[uint64]bool, len(neighbours))
 	for _, n := range neighbours {
 		if err := s.Connect(fmt.Sprintf(cfg.Sock, n)); err != nil {
 			return nil, errors.Wrapf(err, "unable to connect to neighbour %v", n)
@@ -183,14 +183,14 @@ func (p *Process) run() {
 		if err != nil {
 			fmt.Printf("err while reading: %v\n", err)
 		} else if len(m) >= 3 {
-			p.handleMsg(binary.BigEndian.Uint16(m[0]), m[1][0], m[2], len(m) >= 4 && m[3][0] == ControlIdMagic)
+			p.handleMsg(binary.BigEndian.Uint64(m[0]), m[1][0], m[2], len(m) >= 4 && m[3][0] == ControlIdMagic)
 		} else {
 			fmt.Printf("discarding bogus message: %v\n", m)
 		}
 	}
 }
 
-func (p *Process) handleMsg(src uint16, t uint8, b []byte, ctrl bool) {
+func (p *Process) handleMsg(src uint64, t uint8, b []byte, ctrl bool) {
 	if ctrl {
 		fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, p.cfg.CtrlID, t, b)
 	} else {
@@ -217,7 +217,7 @@ func (p *Process) handleMsg(src uint16, t uint8, b []byte, ctrl bool) {
 	}
 }
 
-func (p *Process) send(id uint16, t uint8, b []byte, ctrl bool) error {
+func (p *Process) send(id uint64, t uint8, b []byte, ctrl bool) error {
 	dest := IdToString(id)
 
 	if ctrl {
@@ -254,7 +254,7 @@ func (p *Process) Deliver(uid uint32, payload []byte) {
 	p.sLock.Unlock()
 }
 
-func (p *Process) Send(t uint8, dest uint16, uid uint32, data []byte) {
+func (p *Process) Send(t uint8, dest uint64, uid uint32, data []byte) {
 	fmt.Printf("process %v is sending %v bytes (type=%v, id=%v) to %v\n", p.id, len(data), t, uid, dest)
 
 	m := &msg.WrapperDataMessage{

@@ -6,15 +6,14 @@ import (
 	"os/signal"
 	"rp-runner/brb"
 	"rp-runner/ctrl"
-	"rp-runner/graphs"
 	"rp-runner/process"
 	"syscall"
 	"time"
 )
 
 func main() {
-	graphs.GraphsMain()
-	//RunnerMain()
+	//graphs.GraphsMain()
+	RunnerMain()
 }
 
 // TODO: keep in mind high water mark
@@ -50,14 +49,14 @@ func RunnerMain() {
 	}
 
 	fmt.Println("starting process 42")
-	err = c.StartProcess(42, cfg, []uint16{4242}, &brb.Flooding{}, false)
+	err = c.StartProcess(42, cfg, []uint64{4242}, &brb.Flooding{}, false)
 	if err != nil {
 		fmt.Printf("unable to start process: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Println("starting process 4242")
-	err = c.StartProcess(4242, cfg, []uint16{42}, &brb.Flooding{}, false)
+	err = c.StartProcess(4242, cfg, []uint64{42}, &brb.Flooding{}, false)
 	if err != nil {
 		fmt.Printf("unable to start process: %v\n", err)
 		os.Exit(1)

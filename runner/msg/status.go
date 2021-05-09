@@ -11,7 +11,7 @@ const RunnerReadyType uint8 = 2
 const RunnerFailedType uint8 = 3
 
 type RunnerStatus struct {
-	ID uint16
+	ID uint64
 }
 
 func (r *RunnerStatus) Encode() ([]byte, error) {
@@ -28,7 +28,7 @@ func (r *RunnerStatus) Decode(b []byte) error {
 }
 
 type RunnerFailure struct {
-	ID  uint16
+	ID  uint64
 	Err error
 }
 

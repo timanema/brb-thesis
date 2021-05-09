@@ -33,11 +33,11 @@ type Controller struct {
 	s      *zmq4.Socket
 	stopCh chan struct{}
 
-	p     map[uint16]proc
+	p     map[uint64]proc
 	pLock sync.Mutex
 
 	payloadMap map[uint32][]byte
-	deliverMap map[uint32]map[uint16]struct{}
+	deliverMap map[uint32]map[uint64]struct{}
 	sendMap    map[uint32]time.Time
 	dLock      sync.Mutex
 }
@@ -62,9 +62,9 @@ func StartController(info ControllerInfo) (*Controller, error) {
 
 	c := &Controller{s: s,
 		stopCh:     make(chan struct{}),
-		p:          make(map[uint16]proc),
+		p:          make(map[uint64]proc),
 		payloadMap: make(map[uint32][]byte),
-		deliverMap: make(map[uint32]map[uint16]struct{}),
+		deliverMap: make(map[uint32]map[uint64]struct{}),
 		sendMap:    make(map[uint32]time.Time),
 	}
 	go c.run()
@@ -72,7 +72,7 @@ func StartController(info ControllerInfo) (*Controller, error) {
 	return c, nil
 }
 
-func (c *Controller) StartProcess(id uint16, cfg process.Config, neighbours []uint16, bp brb.Protocol, byz bool) error {
+func (c *Controller) StartProcess(id uint64, cfg process.Config, neighbours []uint64, bp brb.Protocol, byz bool) error {
 	c.pLock.Lock()
 	defer c.pLock.Unlock()
 
@@ -99,7 +99,7 @@ func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirect
 }
 
 // TODO: tack on statistics etc later
-func (c *Controller) TriggerMessageSend(id uint16, payload []byte) (uint32, error) {
+func (c *Controller) TriggerMessageSend(id uint64, payload []byte) (uint32, error) {
 	uid := rand.Uint32()
 
 	m := &msg.TriggerMessage{Id: uid, Payload: payload}
@@ -110,7 +110,7 @@ func (c *Controller) TriggerMessageSend(id uint16, payload []byte) (uint32, erro
 
 	c.dLock.Lock()
 	c.payloadMap[uid] = payload
-	c.deliverMap[uid] = make(map[uint16]struct{})
+	c.deliverMap[uid] = make(map[uint64]struct{})
 	c.sendMap[uid] = time.Now()
 	c.dLock.Unlock()
 
@@ -209,7 +209,7 @@ func (c *Controller) Close() {
 	close(c.stopCh)
 }
 
-func (c *Controller) send(id uint16, t uint8, b []byte) error {
+func (c *Controller) send(id uint64, t uint8, b []byte) error {
 	_, err := c.s.SendMessage(process.IdToString(id), []byte{t}, b, []byte{process.ControlIdMagic})
 
 	return err
@@ -229,14 +229,14 @@ func (c *Controller) run() {
 		if err != nil {
 			fmt.Printf("err while reading: %v\n", err)
 		} else if len(m) >= 3 {
-			c.handleMsg(binary.BigEndian.Uint16(m[0]), m[1][0], m[2])
+			c.handleMsg(binary.BigEndian.Uint64(m[0]), m[1][0], m[2])
 		} else {
 			fmt.Printf("discarding bogus message: %v\n", m)
 		}
 	}
 }
 
-func (c *Controller) handleMsg(src uint16, t uint8, b []byte) {
+func (c *Controller) handleMsg(src uint64, t uint8, b []byte) {
 	fmt.Printf("server got data from %v (type=%v): %v\n", src, t, b)
 
 	switch t {

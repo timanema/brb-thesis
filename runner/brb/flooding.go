@@ -16,7 +16,7 @@ func (f *Flooding) Init(n Network, app Application, cfg Config) {
 	f.seen = make(map[uint32]struct{})
 }
 
-func (f *Flooding) flood(uid uint32, data []byte, ex uint16) {
+func (f *Flooding) flood(uid uint32, data []byte, ex uint64) {
 	for _, n := range f.cfg.Neighbours {
 		if n != ex {
 			f.n.Send(0, n, uid, data)
@@ -24,7 +24,7 @@ func (f *Flooding) flood(uid uint32, data []byte, ex uint16) {
 	}
 }
 
-func (f *Flooding) Receive(_ uint8, src uint16, uid uint32, data []byte) {
+func (f *Flooding) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	if _, ok := f.seen[uid]; !ok {
 		f.seen[uid] = struct{}{}
 		f.app.Deliver(uid, data)
