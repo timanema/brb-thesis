@@ -14,10 +14,12 @@ type Network interface {
 }
 
 type Config struct {
-	Byz        bool
-	Id         uint64
-	Neighbours []uint64
-	Graph      *graph.UndirectWeighted
+	Byz           bool
+	F             int
+	Id            uint64
+	Neighbours    []uint64
+	Graph         graph.WeightedUndirected
+	KnownTopology bool
 }
 
 type Protocol interface {

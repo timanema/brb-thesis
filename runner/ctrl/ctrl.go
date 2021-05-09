@@ -7,8 +7,10 @@ import (
 	"github.com/pebbe/zmq4"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph"
+	"gonum.org/v1/gonum/graph/simple"
 	"math/rand"
 	"os"
+	"reflect"
 	"rp-runner/brb"
 	"rp-runner/msg"
 	"rp-runner/process"
@@ -72,29 +74,64 @@ func StartController(info ControllerInfo) (*Controller, error) {
 	return c, nil
 }
 
-func (c *Controller) StartProcess(id uint64, cfg process.Config, neighbours []uint64, bp brb.Protocol, byz bool) error {
-	c.pLock.Lock()
-	defer c.pLock.Unlock()
-
-	// Inject BRB config
-	cfg.ByzConfig = brb.Config{
-		Byz:        byz,
-		Id:         id,
-		Graph:      nil,
-		Neighbours: neighbours,
-	}
-
-	p, err := process.StartProcess(id, cfg, c.stopCh, neighbours, bp)
+func (c *Controller) StartProcess(cfg process.Config, bp brb.Protocol) error {
+	p, err := process.StartProcess(cfg.ByzConfig.Id, cfg, c.stopCh, cfg.ByzConfig.Neighbours, bp)
 	if err != nil {
 		return errors.Wrap(err, "unable to start process")
 	}
 
-	c.p[id] = proc{p: p, byz: byz}
+	c.pLock.Lock()
+	c.p[cfg.ByzConfig.Id] = proc{p: p, byz: cfg.ByzConfig.Byz}
+	c.pLock.Unlock()
 	return nil
 }
 
-func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirected, byz int) error {
-	// TODO: implement
+func (c *Controller) contains(n uint64, xs []uint64) bool {
+	for _, v := range xs {
+		if n == v {
+			return true
+		}
+	}
+
+	return false
+}
+
+// TODO: random byzantine nodes?
+func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirected, bp brb.Protocol, F int, byzEx []uint64) error {
+	byzLeft := F
+	nodes := g.Nodes()
+	for nodes.Next() {
+		n := nodes.Node()
+		to := g.From(n.ID())
+		neighbours := make([]uint64, 0, to.Len())
+
+		for to.Next() {
+			neighbours = append(neighbours, uint64(to.Node().ID()))
+		}
+
+		pg := simple.NewWeightedUndirectedGraph(0, 0)
+		graph.CopyWeighted(pg, g)
+
+		byz := byzLeft > 0 && !c.contains(uint64(n.ID()), byzEx)
+		if byz {
+			byzLeft -= 1
+		}
+
+		pcfg := cfg
+		pcfg.ByzConfig = brb.Config{
+			Byz:           byz,
+			F:             F,
+			Id:            uint64(n.ID()),
+			Neighbours:    neighbours,
+			Graph:         pg,
+			KnownTopology: true,
+		}
+
+		if err := c.StartProcess(pcfg, reflect.New(reflect.ValueOf(bp).Elem().Type()).Interface().(brb.Protocol)); err != nil {
+			return errors.Wrap(err, "failed to start process")
+		}
+	}
+
 	return nil
 }
 

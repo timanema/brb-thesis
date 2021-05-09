@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"gonum.org/v1/gonum/graph/simple"
 	"os"
 	"os/signal"
 	"rp-runner/brb"
@@ -25,7 +26,7 @@ func RunnerMain() {
 		Sock: "ipc:///tmp/rp-ctrl.ipc",
 	}
 
-	c, err := ctrl.StartController(info)
+	ctrl, err := ctrl.StartController(info)
 
 	sigc := make(chan os.Signal, 1)
 	signal.Notify(sigc,
@@ -35,7 +36,7 @@ func RunnerMain() {
 		syscall.SIGQUIT)
 	go func() {
 		<-sigc
-		c.Close()
+		ctrl.Close()
 		close(stopCh)
 	}()
 
@@ -48,42 +49,45 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	fmt.Println("starting process 42")
-	err = c.StartProcess(42, cfg, []uint64{4242}, &brb.Flooding{}, false)
-	if err != nil {
-		fmt.Printf("unable to start process: %v\n", err)
-		os.Exit(1)
-	}
+	g := simple.NewWeightedUndirectedGraph(0, 0)
+	a, b, c := simple.Node(0), simple.Node(1), simple.Node(2)
+	g.AddNode(a)
+	g.AddNode(b)
+	g.AddNode(c)
 
-	fmt.Println("starting process 4242")
-	err = c.StartProcess(4242, cfg, []uint64{42}, &brb.Flooding{}, false)
+	g.SetWeightedEdge(g.NewWeightedEdge(a, b, 1))
+	g.SetWeightedEdge(g.NewWeightedEdge(a, c, 1))
+	g.SetWeightedEdge(g.NewWeightedEdge(b, c, 1))
+
+	fmt.Println("starting processes")
+	err = ctrl.StartProcesses(cfg, g, &brb.Flooding{}, 1, []uint64{0})
 	if err != nil {
-		fmt.Printf("unable to start process: %v\n", err)
+		fmt.Printf("unable to start processes: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Println("waiting for all process to be alive")
-	if err := c.WaitForAlive(); err != nil {
+	if err := ctrl.WaitForAlive(); err != nil {
 		fmt.Printf("err while waiting for alive: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Println("waiting for all process to be ready")
-	if err := c.WaitForReady(); err != nil {
+	if err := ctrl.WaitForReady(); err != nil {
 		fmt.Printf("err while waiting for ready: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Println("everything ready, sending test msg")
 	time.Sleep(time.Second)
-	uid, err := c.TriggerMessageSend(42, []byte("blah"))
+	uid, err := ctrl.TriggerMessageSend(0, []byte("blah"))
 	if err != nil {
 		fmt.Printf("err while sending payload msg: %v\n", err)
 		os.Exit(1)
 	}
 
 	fmt.Printf("sent message (%v), waiting for deliver\n", uid)
-	stats := c.WaitForDeliver(uid)
+	stats := ctrl.WaitForDeliver(uid)
 	fmt.Printf("stats: %v\n", stats)
 
 	<-stopCh

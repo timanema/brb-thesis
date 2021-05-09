@@ -1,5 +1,7 @@
 package brb
 
+import "fmt"
+
 // Simple 'brb' (NOT BRB) testing protocol
 type Flooding struct {
 	n   Network
@@ -14,6 +16,10 @@ func (f *Flooding) Init(n Network, app Application, cfg Config) {
 	f.app = app
 	f.cfg = cfg
 	f.seen = make(map[uint32]struct{})
+
+	if cfg.Byz {
+		fmt.Printf("process %v is a Byzantine node\n", cfg.Id)
+	}
 }
 
 func (f *Flooding) flood(uid uint32, data []byte, ex uint64) {
@@ -25,6 +31,10 @@ func (f *Flooding) flood(uid uint32, data []byte, ex uint64) {
 }
 
 func (f *Flooding) Receive(_ uint8, src uint64, uid uint32, data []byte) {
+	if f.cfg.Byz {
+		return
+	}
+
 	if _, ok := f.seen[uid]; !ok {
 		f.seen[uid] = struct{}{}
 		f.app.Deliver(uid, data)
@@ -34,8 +44,10 @@ func (f *Flooding) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 }
 
 func (f *Flooding) Send(uid uint32, payload []byte) {
-	f.seen[uid] = struct{}{}
-	f.app.Deliver(uid, payload)
+	if _, ok := f.seen[uid]; !ok {
+		f.seen[uid] = struct{}{}
+		f.app.Deliver(uid, payload)
 
-	f.flood(uid, payload, f.cfg.Id)
+		f.flood(uid, payload, f.cfg.Id)
+	}
 }
