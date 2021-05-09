@@ -124,7 +124,7 @@ func (p *Process) checkNeighbours() {
 		waiting = false
 		for nid, n := range p.neighbours {
 			if !n {
-				_, err = p.s.SendMessage(IdToString(nid), []byte{msg.RunnerReadyType}, b)
+				_, err = p.s.SendMessage(IdToString(nid), []byte{msg.RunnerPingType}, []byte{0x00})
 				if err != nil {
 					waiting = true
 					time.Sleep(p.cfg.NeighbourDelay)
@@ -191,11 +191,11 @@ func (p *Process) run() {
 }
 
 func (p *Process) handleMsg(src uint64, t uint8, b []byte, ctrl bool) {
-	if ctrl {
-		fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, p.cfg.CtrlID, t, b)
-	} else {
-		fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, src, t, b)
-	}
+	//if ctrl {
+	//	fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, p.cfg.CtrlID, t, b)
+	//} else {
+	//	fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, src, t, b)
+	//}
 
 	switch t {
 	case msg.WrapperDataType:
@@ -230,7 +230,7 @@ func (p *Process) send(id uint64, t uint8, b []byte, ctrl bool) error {
 
 // Adding abstraction for BRB protocols
 func (p *Process) Deliver(uid uint32, payload []byte) {
-	fmt.Printf("process %v got delivered (%v): %v\n", p.id, uid, string(payload))
+	//fmt.Printf("process %v got delivered (%v): %v\n", p.id, uid, string(payload))
 
 	m := &msg.MessageDelivered{
 		Id:      uid,
@@ -255,7 +255,7 @@ func (p *Process) Deliver(uid uint32, payload []byte) {
 }
 
 func (p *Process) Send(t uint8, dest uint64, uid uint32, data []byte) {
-	fmt.Printf("process %v is sending %v bytes (type=%v, id=%v) to %v\n", p.id, len(data), t, uid, dest)
+	//fmt.Printf("process %v is sending %v bytes (type=%v, id=%v) to %v\n", p.id, len(data), t, uid, dest)
 
 	m := &msg.WrapperDataMessage{
 		T:    t,

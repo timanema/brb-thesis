@@ -162,7 +162,7 @@ func (c *Controller) WaitForAlive() error {
 			if p.err != nil {
 				return errors.Wrapf(p.err, "process %v failed", pic)
 			} else if !p.alive {
-				fmt.Printf("waiting for %v alive\n", pic)
+				//fmt.Printf("waiting for %v alive\n", pic)
 				waiting = true
 				time.Sleep(pollInterval)
 				break
@@ -181,7 +181,7 @@ func (c *Controller) WaitForReady() error {
 			if p.err != nil {
 				return errors.Wrapf(p.err, "process %v failed", pic)
 			} else if !p.ready {
-				fmt.Printf("waiting for %v ready\n", pic)
+				//fmt.Printf("waiting for %v ready\n", pic)
 				waiting = true
 				time.Sleep(pollInterval)
 				break
@@ -274,7 +274,7 @@ func (c *Controller) run() {
 }
 
 func (c *Controller) handleMsg(src uint64, t uint8, b []byte) {
-	fmt.Printf("server got data from %v (type=%v): %v\n", src, t, b)
+	//fmt.Printf("server got data from %v (type=%v): %v\n", src, t, b)
 
 	switch t {
 	case msg.RunnerAliveType:
@@ -290,7 +290,7 @@ func (c *Controller) handleMsg(src uint64, t uint8, b []byte) {
 		c.p[r.ID] = p
 		c.pLock.Unlock()
 
-		fmt.Printf("runner %v is alive\n", r.ID)
+		//fmt.Printf("runner %v is alive\n", r.ID)
 	case msg.RunnerReadyType:
 		var r msg.RunnerStatus
 		if err := r.Decode(b); err != nil {
@@ -304,7 +304,7 @@ func (c *Controller) handleMsg(src uint64, t uint8, b []byte) {
 		c.p[r.ID] = p
 		c.pLock.Unlock()
 
-		fmt.Printf("runner %v is ready\n", r.ID)
+		//fmt.Printf("runner %v is ready\n", r.ID)
 	case msg.RunnerFailedType:
 		var r msg.RunnerFailure
 		if err := r.Decode(b); err != nil {

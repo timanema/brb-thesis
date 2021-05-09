@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+const RunnerPingType uint8 = 0
 const RunnerAliveType uint8 = 1
 const RunnerReadyType uint8 = 2
 const RunnerFailedType uint8 = 3
