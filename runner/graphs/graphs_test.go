@@ -66,7 +66,7 @@ func TestSimple(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, paths, 2)
-	assert.True(t, VerifyDisjointPaths(Directed(gr), a, d, k, paths))
+	assert.True(t, VerifySolution(Directed(gr), a, d, k, paths))
 }
 
 func TestSimpleTrap(t *testing.T) {
@@ -119,7 +119,7 @@ func TestSimpleTrap(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, paths, 2)
-	assert.True(t, VerifyDisjointPaths(Directed(gr), a, d, k, paths))
+	assert.True(t, VerifySolution(Directed(gr), a, d, k, paths))
 }
 
 func TestImpossible(t *testing.T) {
@@ -183,7 +183,7 @@ func TestWithMultiPartiteWheelGenerator(test *testing.T) {
 		paths, err := DisjointPaths(Directed(g), s, t, f)
 		assert.NoError(test, err)
 		assert.Len(test, paths, f)
-		assert.True(test, VerifyDisjointPaths(Directed(g), s, t, f, paths))
+		assert.True(test, VerifySolution(Directed(g), s, t, f, paths))
 	}
 }
 
@@ -208,7 +208,7 @@ func TestWithGeneralizedWheelGenerator(test *testing.T) {
 		paths, err := DisjointPaths(Directed(g), s, t, f)
 		assert.NoError(test, err)
 		assert.Len(test, paths, f)
-		assert.True(test, VerifyDisjointPaths(Directed(g), s, t, f, paths))
+		assert.True(test, VerifySolution(Directed(g), s, t, f, paths))
 	}
 }
 

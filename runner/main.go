@@ -6,14 +6,15 @@ import (
 	"os/signal"
 	"rp-runner/brb"
 	"rp-runner/ctrl"
+	"rp-runner/graphs"
 	"rp-runner/process"
 	"syscall"
 	"time"
 )
 
 func main() {
-	//graphs.GraphsMain()
-	RunnerMain()
+	graphs.GraphsMain()
+	//RunnerMain()
 }
 
 // TODO: keep in mind high water mark

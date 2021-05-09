@@ -80,10 +80,10 @@ func GraphsMain() {
 	//	log.Println(http.ListenAndServe("localhost:6060", nil))
 	//}()
 
-	benchSingleTest()
-	return
+	//benchSingleTest()
+	//return
 
-	//gr := simple.NewWeightedUndirectedGraph(0, 0)
+	gr := simple.NewWeightedUndirectedGraph(0, 0)
 
 	/*    b
 	   /  |  \
@@ -95,36 +95,36 @@ func GraphsMain() {
 	   \  |  /
 	      c
 	*/
-	// Create nodes
-	//a := NewNodeUndirected(gr, "a")
-	//gr.AddNode(a)
-	//
-	//b := NewNodeUndirected(gr, "b")
-	//gr.AddNode(b)
-	//
-	//c := NewNodeUndirected(gr, "c")
-	//gr.AddNode(c)
-	//
-	//d := NewNodeUndirected(gr, "d")
-	//gr.AddNode(d)
-	//
-	//// Create edges
-	//ab := gr.NewWeightedEdge(a, b, 0)
-	//gr.SetWeightedEdge(ab)
-	//
-	//ac := gr.NewWeightedEdge(a, c, 1)
-	//gr.SetWeightedEdge(ac)
-	//
-	//bd := gr.NewWeightedEdge(b, d, 1)
-	//gr.SetWeightedEdge(bd)
-	//
-	//cd := gr.NewWeightedEdge(c, d, 0)
-	//gr.SetWeightedEdge(cd)
-	//
-	//bc := gr.NewWeightedEdge(b, c, 0)
-	//gr.SetWeightedEdge(bc)
+	//Create nodes
+	a := NewNodeUndirected(gr, "a")
+	gr.AddNode(a)
 
-	n, k, f := 5, 2, 2
+	b := NewNodeUndirected(gr, "b")
+	gr.AddNode(b)
+
+	c := NewNodeUndirected(gr, "c")
+	gr.AddNode(c)
+
+	d := NewNodeUndirected(gr, "d")
+	gr.AddNode(d)
+
+	// Create edges
+	ab := gr.NewWeightedEdge(a, b, 0)
+	gr.SetWeightedEdge(ab)
+
+	ac := gr.NewWeightedEdge(a, c, 1)
+	gr.SetWeightedEdge(ac)
+
+	bd := gr.NewWeightedEdge(b, d, 1)
+	gr.SetWeightedEdge(bd)
+
+	cd := gr.NewWeightedEdge(c, d, 0)
+	gr.SetWeightedEdge(cd)
+
+	bc := gr.NewWeightedEdge(b, c, 0)
+	gr.SetWeightedEdge(bc)
+
+	n, k, f := 5, 3, 2
 	m := GeneralizedWheelGenerator{}
 	gu, err := m.Generate(n, k)
 	if err != nil {
@@ -224,7 +224,7 @@ func GraphsMain() {
 	*/
 
 	paths := BuildPaths(filtered, s, t, k)
-	fmt.Printf("Result (%v -> %v, via %v paths, valid: %v):\n", start, end, f, VerifyDisjointPaths(g, s, t, f, paths))
+	fmt.Printf("Result (%v -> %v, via %v paths, valid: %v):\n", start, end, f, VerifySolution(g, s, t, f, paths))
 	PrintGraphvizHighlightPaths(g, paths)
 	/*
 		digraph {
@@ -297,6 +297,8 @@ func GraphsMain() {
 	for to, paths := range lookup {
 		fmt.Printf("%v -> %v\n", to, paths)
 	}
+
+	fmt.Printf("valid %v-disjoint paths: %v", f, VerifyDisjointPaths(paths, s, t, f))
 }
 
 func alt() {

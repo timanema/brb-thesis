@@ -5,7 +5,7 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 )
 
-func VerifyDisjointPaths(g *simple.WeightedDirectedGraph, s, t graph.Node, k int, paths []Path) bool {
+func VerifySolution(g graph.WeightedDirected, s, t graph.Node, k int, paths []Path) bool {
 	// Check if enough paths
 	if len(paths) < k {
 		return false
@@ -65,4 +65,71 @@ func VerifyDisjointPaths(g *simple.WeightedDirectedGraph, s, t graph.Node, k int
 	}
 
 	return true
+}
+
+func bfs(g graph.WeightedDirected, s, t graph.Node) Path {
+	visited := make(map[int64]struct{}, g.Nodes().Len())
+	parent := make(map[int64]int64, g.Nodes().Len())
+	queue := make([]int64, 0)
+
+	queue = append(queue, s.ID())
+	visited[s.ID()] = struct{}{}
+
+	for len(queue) > 0 {
+		n := queue[0]
+		queue = queue[1:]
+
+		adj := g.From(n)
+		for adj.Next() {
+			a := adj.Node().ID()
+			w := g.WeightedEdge(n, a).Weight()
+
+			if _, ok := visited[a]; !ok && w > 0 {
+				queue = append(queue, a)
+				visited[a] = struct{}{}
+				parent[a] = n
+			}
+		}
+	}
+
+	res := make([]graph.WeightedEdge, 0)
+	cur := t.ID()
+
+	for cur != s.ID() {
+		next, ok := parent[cur]
+		if !ok {
+			return nil
+		}
+
+		res = append(res, g.WeightedEdge(next, cur))
+		cur = next
+	}
+
+	return res
+}
+
+// Verifies there are k disjoint paths through the graph
+func VerifyDisjointPaths(paths []Path, s, t graph.Node, k int) bool {
+	flow := 0
+	g := simple.NewWeightedDirectedGraph(0, 0)
+
+	for _, path := range paths {
+		for _, e := range path {
+			g.SetWeightedEdge(g.NewWeightedEdge(e.From(), e.To(), 1))
+			g.SetWeightedEdge(g.NewWeightedEdge(e.To(), e.From(), 1))
+		}
+	}
+
+	for {
+		p := bfs(g, s, t)
+		if p == nil {
+			return flow >= k
+		}
+		flow += 1
+
+		for _, e := range p {
+			g.SetWeightedEdge(g.NewWeightedEdge(e.From(), e.To(), e.Weight()-1))
+			g.SetWeightedEdge(g.NewWeightedEdge(e.To(), e.From(), e.Weight()+1))
+		}
+	}
 }
