@@ -101,7 +101,6 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	}
 
 	d.send(uid, b.Bytes(), to)
-
 	if _, ok := d.delivered[uid]; !ok {
 		if graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
 			d.delivered[uid] = struct{}{}

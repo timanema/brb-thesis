@@ -40,38 +40,17 @@ type Process struct {
 }
 
 func StartProcess(id uint64, cfg Config, stopCh <-chan struct{}, neighbours []uint64, brb brb.Protocol) (*Process, error) {
-	s, err := createSocket(IdToString(id), cfg.CtrlSock)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create socket")
-	}
-
-	if err := s.Bind(fmt.Sprintf(cfg.Sock, id)); err != nil {
-		return nil, errors.Wrapf(err, "unable to bind to socket %v", fmt.Sprintf(cfg.Sock, id))
-	}
-
-	// Make a map indicating readiness
 	nmap := make(map[uint64]bool, len(neighbours))
 	for _, n := range neighbours {
-		if err := s.Connect(fmt.Sprintf(cfg.Sock, n)); err != nil {
-			return nil, errors.Wrapf(err, "unable to connect to neighbour %v", n)
-		}
-
 		nmap[n] = false
 	}
 
 	stats := Stats{Deliveries: make(map[uint32]time.Time), MsgSent: make(map[uint32]int)}
-	p := &Process{id: id, s: s, cfg: cfg, stopCh: stopCh, stats: stats, brb: brb, neighbours: nmap}
+	p := &Process{id: id, s: nil, cfg: cfg, stopCh: stopCh, stats: stats, brb: brb, neighbours: nmap}
 
-	if err := p.waitForConnection(); err != nil {
-		return nil, errors.Wrap(err, "unable to communicate with controller")
+	if err := p.start(); err != nil {
+		return nil, errors.Wrap(err, "failed to start")
 	}
-
-	go p.run()
-
-	go func() {
-		p.brb.Init(p, p, p.cfg.ByzConfig)
-		p.checkNeighbours()
-	}()
 
 	return p, nil
 }
@@ -80,6 +59,17 @@ func createSocket(id, endpoint string) (*zmq4.Socket, error) {
 	s, err := zmq4.NewSocket(zmq4.ROUTER)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create ZeroMQ socket")
+	}
+
+	if err := s.SetSndhwm(0); err != nil {
+		return nil, errors.Wrap(err, "unable to set send HWM")
+	}
+	if err := s.SetRcvhwm(0); err != nil {
+		return nil, errors.Wrap(err, "unable to set recv HWM")
+	}
+
+	if err := s.SetLinger(0); err != nil {
+		return nil, errors.Wrap(err, "unable to set linger")
 	}
 
 	if err := s.SetRouterMandatory(1); err != nil {
@@ -95,6 +85,47 @@ func createSocket(id, endpoint string) (*zmq4.Socket, error) {
 	}
 
 	return s, nil
+}
+
+func (p *Process) start() error {
+	s, err := createSocket(IdToString(p.id), p.cfg.CtrlSock)
+	if err != nil {
+		return errors.Wrap(err, "unable to create socket")
+	}
+
+	p.s = s
+
+	if err := p.s.Bind(fmt.Sprintf(p.cfg.Sock, p.id)); err != nil {
+		return errors.Wrapf(err, "unable to bind to socket %v", fmt.Sprintf(p.cfg.Sock, p.id))
+	}
+
+	// Make a map indicating readiness
+	for n, _ := range p.neighbours {
+		if err := s.Connect(fmt.Sprintf(p.cfg.Sock, n)); err != nil {
+			return errors.Wrapf(err, "unable to connect to neighbour %v", n)
+		}
+	}
+
+	if err := p.waitForConnection(); err != nil {
+		return errors.Wrap(err, "unable to communicate with controller")
+	}
+
+	go p.run()
+
+	go func() {
+		p.brb.Init(p, p, p.cfg.ByzConfig)
+		p.checkNeighbours()
+	}()
+
+	return nil
+}
+
+func (p *Process) Reset() error {
+	if err := p.s.Close(); err != nil {
+		return errors.Wrap(err, "failed to close socket")
+	}
+
+	return errors.Wrap(p.start(), "failed to restart")
 }
 
 func (p *Process) checkNeighbours() {
@@ -126,6 +157,7 @@ func (p *Process) checkNeighbours() {
 			if !n {
 				_, err = p.s.SendMessage(IdToString(nid), []byte{msg.RunnerPingType}, []byte{0x00})
 				if err != nil {
+					//fmt.Printf("proc %v got err to %v: %v\n", p.id, nid, err)
 					waiting = true
 					time.Sleep(p.cfg.NeighbourDelay)
 				} else {
@@ -192,9 +224,9 @@ func (p *Process) run() {
 
 func (p *Process) handleMsg(src uint64, t uint8, b []byte, ctrl bool) {
 	//if ctrl {
-	//	fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, p.cfg.CtrlID, t, b)
+	//	fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, p.cfg.CtrlID, t, len(b))
 	//} else {
-	//	fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, src, t, b)
+	//	fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, src, t, len(b))
 	//}
 
 	switch t {
@@ -213,6 +245,7 @@ func (p *Process) handleMsg(src uint64, t uint8, b []byte, ctrl bool) {
 			return
 		}
 
+		p.stats.MsgSent[r.Id] = 0
 		p.brb.Send(r.Id, r.Payload)
 	}
 }

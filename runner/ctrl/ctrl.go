@@ -242,6 +242,21 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 	}
 }
 
+func (c *Controller) Reset() error {
+	c.pLock.Lock()
+	defer c.pLock.Unlock()
+
+	for _, p := range c.p {
+		p.ready = false
+
+		if err := p.p.Reset(); err != nil {
+			return errors.Wrap(err, "unable to reset process")
+		}
+	}
+
+	return nil
+}
+
 func (c *Controller) Close() {
 	close(c.stopCh)
 }
@@ -335,5 +350,6 @@ func (c *Controller) handleMsg(src uint64, t uint8, b []byte) {
 
 		c.deliverMap[r.Id][src] = struct{}{}
 		c.dLock.Unlock()
+		fmt.Printf("runner %v has delivered\n", src)
 	}
 }

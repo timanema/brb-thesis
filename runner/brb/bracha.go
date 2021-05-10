@@ -10,34 +10,34 @@ import (
 )
 
 const (
-	BrachaSend uint8 = 1
-	BrachaEcho uint8 = 2
+	BrachaSend  uint8 = 1
+	BrachaEcho  uint8 = 2
 	BrachaReady uint8 = 3
 )
 
 type BrachaMessage struct {
-	Src uint64
+	Src     uint64
 	Payload []byte
 }
 
 // TODO: same as with Dolev, not really fair
 type brachaIdentifier struct {
-	Id uint32
+	Id   uint32
 	Hash [sha256.Size]byte
 }
 
 type Bracha struct {
-	n Network
+	n   Network
 	app Application
 	cfg Config
 
 	delivered map[uint32]struct{}
 
-	echo map[brachaIdentifier]map[uint64]struct{}
+	echo  map[brachaIdentifier]map[uint64]struct{}
 	ready map[brachaIdentifier]map[uint64]struct{}
 
 	// TODO: check if uid is enough, or full id (including content hash) is needed
-	echoSent map[uint32]struct{}
+	echoSent  map[uint32]struct{}
 	readySent map[uint32]struct{}
 }
 
@@ -56,21 +56,19 @@ func (b *Bracha) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func (b *Bracha) send(messageType uint8, uid uint32, data []byte, ex uint64) {
+func (b *Bracha) send(messageType uint8, uid uint32, data []byte) {
 	// Only send one echo per message
-	if _, ok :=  b.echoSent[uid]; ok && messageType == BrachaEcho {
+	if _, ok := b.echoSent[uid]; ok && messageType == BrachaEcho {
 		return
 	}
 
 	// Only send one ready per message
-	if _, ok :=  b.readySent[uid]; ok && messageType == BrachaReady {
+	if _, ok := b.readySent[uid]; ok && messageType == BrachaReady {
 		return
 	}
 
 	for _, n := range b.cfg.Neighbours {
-		if n != ex{
-			b.n.Send(messageType, n, uid, data)
-		}
+		b.n.Send(messageType, n, uid, data)
 	}
 }
 
@@ -83,7 +81,7 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data []byte)
 	var m BrachaMessage
 	dec := gob.NewDecoder(bytes.NewBuffer(data))
 	if err := dec.Decode(&m); err != nil {
-		fmt.Printf("process %v errored while decoding bracha message: %v\n", d.cfg.Id, err)
+		fmt.Printf("process %v errored while decoding bracha message: %v\n", b.cfg.Id, err)
 		os.Exit(1)
 	}
 
@@ -101,7 +99,7 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data []byte)
 
 	switch messageType {
 	case BrachaSend:
-		b.send(BrachaEcho, uid, data, src)
+		b.send(BrachaEcho, uid, data)
 		b.echoSent[uid] = struct{}{}
 	case BrachaEcho:
 		b.echo[id][src] = struct{}{}
@@ -109,12 +107,45 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data []byte)
 		b.ready[id][src] = struct{}{}
 	}
 
-	// Send ready if enough ((n + f + 1) / 2) echos
-	if len(b.echo[id]) > int(math.Ceil((float64(b.cfg.N) + float64(b.cfg.F) + 1) / 2)) {
+	// Send ready if enough ((n + f + 1) / 2) echos, or if enough readys
+	if len(b.echo[id]) > int(math.Ceil((float64(b.cfg.N)+float64(b.cfg.F)+1)/2)) || len(b.ready[id]) >= b.cfg.F+1 {
+		b.send(BrachaReady, uid, data)
+		b.readySent[uid] = struct{}{}
+	}
 
+	// Deliver if enough readys
+	if _, ok := b.delivered[uid]; !ok && len(b.ready[id]) >= b.cfg.F*2+1 {
+		b.delivered[uid] = struct{}{}
+		b.app.Deliver(uid, m.Payload)
 	}
 }
 
 func (b *Bracha) Send(uid uint32, payload []byte) {
+	if _, ok := b.delivered[uid]; !ok {
+		id := brachaIdentifier{
+			Id:   uid,
+			Hash: sha256.Sum256(payload),
+		}
 
+		b.echo[id] = map[uint64]struct{}{
+			b.cfg.Id: {},
+		}
+		b.ready[id] = map[uint64]struct{}{
+			b.cfg.Id: {},
+		}
+
+		m := &BrachaMessage{
+			Src:     b.cfg.Id,
+			Payload: payload,
+		}
+
+		buf := bytes.NewBuffer(make([]byte, 0, 20))
+		enc := gob.NewEncoder(buf)
+		if err := enc.Encode(m); err != nil {
+			fmt.Printf("process %v errored while encoding bracha message: %v\n", b.cfg.Id, err)
+			os.Exit(1)
+		}
+
+		b.send(BrachaSend, uid, buf.Bytes())
+	}
 }
