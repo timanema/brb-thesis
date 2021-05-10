@@ -29,7 +29,7 @@ func (d *DolevImproved) Init(n Network, app Application, cfg Config) {
 	d.neighboursDelivered = make(map[uint32]map[uint64]struct{})
 
 	if cfg.Byz {
-		fmt.Printf("process %v is a Byzantine node\n", cfg.Id)
+		fmt.Printf("process %v is a Dolev (improved) Byzantine node\n", cfg.Id)
 	}
 }
 

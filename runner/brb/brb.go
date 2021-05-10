@@ -15,7 +15,7 @@ type Network interface {
 
 type Config struct {
 	Byz           bool
-	F             int
+	N, F             int
 	Id            uint64
 	Neighbours    []uint64
 	Graph         graph.WeightedUndirected

@@ -18,7 +18,7 @@ func (f *Flooding) Init(n Network, app Application, cfg Config) {
 	f.seen = make(map[uint32]struct{})
 
 	if cfg.Byz {
-		fmt.Printf("process %v is a Byzantine node\n", cfg.Id)
+		fmt.Printf("process %v is a flooding Byzantine node\n", cfg.Id)
 	}
 }
 

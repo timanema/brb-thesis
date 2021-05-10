@@ -39,7 +39,7 @@ func (d *Dolev) Init(n Network, app Application, cfg Config) {
 	d.paths = make(map[dolevIdentifier][]graphs.Path)
 
 	if cfg.Byz {
-		fmt.Printf("process %v is a Byzantine node\n", cfg.Id)
+		fmt.Printf("process %v is a Dolev Byzantine node\n", cfg.Id)
 	}
 }
 
