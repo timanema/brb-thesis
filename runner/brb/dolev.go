@@ -2,6 +2,7 @@ package brb
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
 	"gonum.org/v1/gonum/graph/simple"
@@ -9,11 +10,16 @@ import (
 	"rp-runner/graphs"
 )
 
-// TODO: cheating by using statistics tracking uid as dolev id, should probably change before using eval
 type DolevMessage struct {
 	Src     uint64
 	Path    graphs.Path
 	Payload []byte
+}
+
+// TODO: cheating by using statistics tracking uid as dolev id, should probably change before using eval
+type dolevIdentifier struct {
+	Id   uint32
+	Hash [sha256.Size]byte
 }
 
 type Dolev struct {
@@ -22,7 +28,7 @@ type Dolev struct {
 	cfg Config
 
 	delivered map[uint32]struct{}
-	paths     map[uint32][]graphs.Path
+	paths     map[dolevIdentifier][]graphs.Path
 }
 
 func (d *Dolev) Init(n Network, app Application, cfg Config) {
@@ -30,7 +36,7 @@ func (d *Dolev) Init(n Network, app Application, cfg Config) {
 	d.app = app
 	d.cfg = cfg
 	d.delivered = make(map[uint32]struct{})
-	d.paths = make(map[uint32][]graphs.Path)
+	d.paths = make(map[dolevIdentifier][]graphs.Path)
 
 	if cfg.Byz {
 		fmt.Printf("process %v is a Byzantine node\n", cfg.Id)
@@ -73,7 +79,11 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	})
 
 	// Add paths to mem for this message
-	d.paths[uid] = append(d.paths[uid], m.Path)
+	id := dolevIdentifier{
+		Id:   uid,
+		Hash: sha256.Sum256(m.Payload),
+	}
+	d.paths[id] = append(d.paths[id], m.Path)
 
 	// Send to neighbours (except origin)
 	b := bytes.NewBuffer(make([]byte, 0, 20))
@@ -93,7 +103,7 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	d.send(uid, b.Bytes(), to)
 
 	if _, ok := d.delivered[uid]; !ok {
-		if graphs.VerifyDisjointPaths(d.paths[uid], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
+		if graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
 			d.delivered[uid] = struct{}{}
 			d.app.Deliver(uid, m.Payload)
 		}
@@ -102,8 +112,13 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 
 func (d *Dolev) Send(uid uint32, payload []byte) {
 	if _, ok := d.delivered[uid]; !ok {
+		id := dolevIdentifier{
+			Id:   uid,
+			Hash: sha256.Sum256(payload),
+		}
+
 		d.delivered[uid] = struct{}{}
-		d.paths[uid] = make([]graphs.Path, d.cfg.F*2+1)
+		d.paths[id] = make([]graphs.Path, d.cfg.F*2+1)
 		d.app.Deliver(uid, payload)
 
 		m := &DolevMessage{

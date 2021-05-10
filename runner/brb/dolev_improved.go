@@ -2,6 +2,7 @@ package brb
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
 	"gonum.org/v1/gonum/graph/simple"
@@ -15,7 +16,7 @@ type DolevImproved struct {
 	cfg Config
 
 	delivered           map[uint32]struct{}
-	paths               map[uint32][]graphs.Path
+	paths               map[dolevIdentifier][]graphs.Path
 	neighboursDelivered map[uint32]map[uint64]struct{}
 }
 
@@ -24,7 +25,7 @@ func (d *DolevImproved) Init(n Network, app Application, cfg Config) {
 	d.app = app
 	d.cfg = cfg
 	d.delivered = make(map[uint32]struct{})
-	d.paths = make(map[uint32][]graphs.Path)
+	d.paths = make(map[dolevIdentifier][]graphs.Path)
 	d.neighboursDelivered = make(map[uint32]map[uint64]struct{})
 
 	if cfg.Byz {
@@ -89,7 +90,11 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	}
 
 	// Add paths to mem for this message
-	d.paths[uid] = append(d.paths[uid], m.Path)
+	id := dolevIdentifier{
+		Id:   uid,
+		Hash: sha256.Sum256(m.Payload),
+	}
+	d.paths[id] = append(d.paths[id], m.Path)
 
 	// Send to appropriate neighbours
 	b := bytes.NewBuffer(make([]byte, 0, 20))
@@ -115,7 +120,7 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	d.send(uid, b.Bytes(), to)
 
 	if _, ok := d.delivered[uid]; !ok {
-		if graphs.VerifyDisjointPaths(d.paths[uid], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
+		if graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
 			d.delivered[uid] = struct{}{}
 			d.app.Deliver(uid, m.Payload)
 		}
@@ -124,8 +129,13 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 
 func (d *DolevImproved) Send(uid uint32, payload []byte) {
 	if _, ok := d.delivered[uid]; !ok {
+		id := dolevIdentifier{
+			Id:   uid,
+			Hash: sha256.Sum256(payload),
+		}
+
 		d.delivered[uid] = struct{}{}
-		d.paths[uid] = make([]graphs.Path, d.cfg.F*2+1)
+		d.paths[id] = make([]graphs.Path, d.cfg.F*2+1)
 		d.neighboursDelivered[uid] = make(map[uint64]struct{})
 		d.app.Deliver(uid, payload)
 
