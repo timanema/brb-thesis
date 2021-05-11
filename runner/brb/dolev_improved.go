@@ -130,6 +130,10 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 		if graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
 			d.delivered[uid] = struct{}{}
 			d.app.Deliver(uid, m.Payload)
+
+			// Memory cleanup
+			delete(d.paths, id)
+			delete(d.neighboursDelivered, uid)
 		}
 		//fmt.Printf("process %v stop verify (%v)\n", d.cfg.Id, time.Now().Sub(st))
 	}

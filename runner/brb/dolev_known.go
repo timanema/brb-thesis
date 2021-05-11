@@ -168,6 +168,9 @@ func (d *DolevKnown) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 			//fmt.Printf("proc %v is delivering %v at %v\n", d.cfg.Id, id, time.Now())
 			d.delivered[uid] = struct{}{}
 			d.app.Deliver(uid, m.Payload)
+
+			// Memory cleanup
+			delete(d.paths, id)
 		}
 	}
 }

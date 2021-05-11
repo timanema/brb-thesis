@@ -30,6 +30,7 @@ type Process struct {
 	s      *zmq4.Socket
 	cfg    Config
 	stopCh <-chan struct{}
+	rstCh  chan struct{}
 
 	stats Stats
 	sLock sync.Mutex
@@ -111,7 +112,8 @@ func (p *Process) start() error {
 	}
 
 	// TODO: close these
-	go p.run()
+	p.rstCh = make(chan struct{})
+	go p.run(p.rstCh)
 
 	go func() {
 		//fmt.Printf("init %v\n", p.id)
@@ -128,6 +130,8 @@ func (p *Process) Reset() error {
 	if err := p.s.Close(); err != nil {
 		return errors.Wrap(err, "failed to close socket")
 	}
+
+	close(p.rstCh)
 
 	return errors.Wrap(p.start(), "failed to restart")
 }
@@ -206,10 +210,12 @@ func (p *Process) waitForConnection() error {
 	}
 }
 
-func (p *Process) run() {
+func (p *Process) run(rstCh <-chan struct{}) {
 	for {
 		select {
 		case <-p.stopCh:
+			return
+		case <-rstCh:
 			return
 		default:
 		}

@@ -117,6 +117,12 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data []byte)
 	if _, ok := b.delivered[uid]; !ok && len(b.ready[id]) >= b.cfg.F*2+1 {
 		b.delivered[uid] = struct{}{}
 		b.app.Deliver(uid, m.Payload)
+
+		// Memory cleanup
+		delete(b.echo, id)
+		delete(b.ready, id)
+		delete(b.echoSent, uid)
+		delete(b.readySent, uid)
 	}
 }
 
