@@ -108,9 +108,24 @@ func bfs(g graph.WeightedDirected, s, t graph.Node) Path {
 	return res
 }
 
+func findDisjointPaths(g *simple.WeightedDirectedGraph, s, t graph.Node) int {
+	flow := 0
+	for {
+		p := bfs(g, s, t)
+		if p == nil {
+			return flow
+		}
+		flow += 1
+
+		for _, e := range p {
+			g.SetWeightedEdge(g.NewWeightedEdge(e.From(), e.To(), e.Weight()-1))
+			g.SetWeightedEdge(g.NewWeightedEdge(e.To(), e.From(), e.Weight()+1))
+		}
+	}
+}
+
 // Verifies there are k disjoint paths through the graph
 func VerifyDisjointPaths(paths []Path, s, t graph.Node, k int) bool {
-	flow := 0
 	g := simple.NewWeightedDirectedGraph(0, 0)
 
 	for _, path := range paths {
@@ -120,16 +135,30 @@ func VerifyDisjointPaths(paths []Path, s, t graph.Node, k int) bool {
 		}
 	}
 
-	for {
-		p := bfs(g, s, t)
-		if p == nil {
-			return flow >= k
-		}
-		flow += 1
+	return findDisjointPaths(g, s, t) >= k
+}
 
-		for _, e := range p {
-			g.SetWeightedEdge(g.NewWeightedEdge(e.From(), e.To(), e.Weight()-1))
-			g.SetWeightedEdge(g.NewWeightedEdge(e.To(), e.From(), e.Weight()+1))
+type pair struct {
+	a, b int64
+}
+
+func findPairs(xs []int64) []pair {
+	res := make([]pair, 0, len(xs)*len(xs))
+
+	for i := 0; i < len(xs); i++ {
+		for j := 0; j < len(xs); j++ {
+			if i == j {
+				continue
+			}
+
+			res = append(res, pair{a: xs[i], b: xs[j]})
 		}
 	}
+
+	return res
+}
+
+func FindConnectedness(g graph.Undirected) int {
+	// TODO: implement
+	return 0
 }

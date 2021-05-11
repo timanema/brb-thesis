@@ -83,6 +83,17 @@ func GraphsMain() {
 	//benchSingleTest()
 	//return
 
+	x := MultiPartiteWheelAltGenerator{}
+	gx, err := x.Generate(100, 6)
+	if err != nil {
+		fmt.Printf("invalid graph parameters: %v\n", err)
+		os.Exit(1)
+	}
+
+	PrintGraphviz(Directed(gx))
+
+	return
+
 	gr := simple.NewWeightedUndirectedGraph(0, 0)
 
 	/*    b

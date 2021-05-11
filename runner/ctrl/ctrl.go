@@ -349,7 +349,9 @@ func (c *Controller) handleMsg(src uint64, t uint8, b []byte) {
 		}
 
 		c.deliverMap[r.Id][src] = struct{}{}
+		c.pLock.Lock()
+		fmt.Printf("runner %v has delivered %v (%v/%v-F)\n", src, r.Id, len(c.deliverMap[r.Id]), len(c.p))
+		c.pLock.Unlock()
 		c.dLock.Unlock()
-		fmt.Printf("runner %v has delivered\n", src)
 	}
 }

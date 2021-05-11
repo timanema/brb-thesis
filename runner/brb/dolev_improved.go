@@ -73,6 +73,17 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 		d.neighboursDelivered[uid] = make(map[uint64]struct{})
 	}
 
+	traversed := make(map[uint64]struct{}, len(m.Path))
+
+	// Modification 4: Stop relaying messages which contain the label of nodes that already delivered
+	for _, e := range m.Path {
+		traversed[uint64(e.From().ID())] = struct{}{}
+
+		if _, ok := d.neighboursDelivered[uid][uint64(e.From().ID())]; ok {
+			return
+		}
+	}
+
 	// Modification 2: A process has delivered the message when the path is empty
 	if len(m.Path) == 0 {
 		d.neighboursDelivered[uid][src] = struct{}{}
@@ -105,11 +116,22 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	}
 
 	to := make([]uint64, 0, len(d.cfg.Neighbours))
+
 	for _, n := range d.cfg.Neighbours {
-		// Modification 4: No longer relay to neighbours who have delivered the message already
-		if _, ok := d.neighboursDelivered[uid][n]; n != src && !pathContains(n, m.Path) && !ok {
+		_, trav := traversed[n]
+		// Modification 3: No longer relay to neighbours who have delivered the message already
+		if _, ok := d.neighboursDelivered[uid][n]; n != src && !trav && !ok {
 			to = append(to, n)
 		}
+	}
+
+	if _, ok := d.delivered[uid]; !ok {
+		//st := time.Now()
+		if graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
+			d.delivered[uid] = struct{}{}
+			d.app.Deliver(uid, m.Payload)
+		}
+		//fmt.Printf("process %v stop verify (%v)\n", d.cfg.Id, time.Now().Sub(st))
 	}
 
 	// Modification 2: If delivered, sent empty path
@@ -118,13 +140,6 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	}
 
 	d.send(uid, b.Bytes(), to)
-
-	if _, ok := d.delivered[uid]; !ok {
-		if graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
-			d.delivered[uid] = struct{}{}
-			d.app.Deliver(uid, m.Payload)
-		}
-	}
 }
 
 func (d *DolevImproved) Send(uid uint32, payload []byte) {

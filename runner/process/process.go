@@ -157,7 +157,7 @@ func (p *Process) checkNeighbours() {
 			if !n {
 				_, err = p.s.SendMessage(IdToString(nid), []byte{msg.RunnerPingType}, []byte{0x00})
 				if err != nil {
-					//fmt.Printf("proc %v got err to %v: %v\n", p.id, nid, err)
+					fmt.Printf("proc %v got err to %v: %v\n", p.id, nid, err)
 					waiting = true
 					time.Sleep(p.cfg.NeighbourDelay)
 				} else {

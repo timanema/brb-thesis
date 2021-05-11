@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph/simple"
+	"log"
 	"math"
+	"net/http"
 	"os"
 	"os/signal"
 	"rp-runner/brb"
@@ -14,6 +16,8 @@ import (
 	"rp-runner/process"
 	"syscall"
 	"time"
+
+	_ "net/http/pprof"
 )
 
 func init() {
@@ -28,6 +32,10 @@ func main() {
 
 // TODO: keep in mind high water mark
 func RunnerMain() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	fmt.Println("starting rp runner")
 	stopCh := make(chan struct{}, 1)
 	info := ctrl.ControllerInfo{
@@ -55,9 +63,9 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 150, 20, 1
-	m := graphs.MultiPartiteWheelGenerator{}
-	if err := runSimpleTest(info, 15, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
+	n, k, f := 100, 4, 1
+	m := graphs.MultiPartiteWheelAltGenerator{}
+	if err := runSimpleTest(info, 1, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
@@ -85,7 +93,7 @@ func runSimpleTest(info ctrl.ControllerInfo, runs int, n, k, f int, gen graphs.G
 	}
 
 	fmt.Println("starting processes")
-	err = ctl.StartProcesses(cfg, g, bp, f, []uint64{0})
+	err = ctl.StartProcesses(cfg, g, bp, f, []uint64{0, 1})
 	if err != nil {
 		return errors.Wrap(err, "unable to start processes")
 	}
@@ -106,16 +114,26 @@ func runSimpleTest(info ctrl.ControllerInfo, runs int, n, k, f int, gen graphs.G
 			return errors.Wrap(err, "err while waiting for ready")
 		}
 
-		uid, err := ctl.TriggerMessageSend(0, []byte(fmt.Sprintf("run_%v", i)))
+		uid1, err := ctl.TriggerMessageSend(0, []byte(fmt.Sprintf("run_%v", i)))
 		if err != nil {
 			fmt.Printf("err while sending payload msg: %v\n", err)
 			os.Exit(1)
 		}
 
-		fmt.Printf("sent message (%v, round %v), waiting for deliver\n", uid, i)
-		stats := ctl.WaitForDeliver(uid)
-		fmt.Printf("statistics (%v):\n  last delivery latency: %v\n  messages sent: %v\n", i,
+		//uid2, err := ctl.TriggerMessageSend(0, []byte(fmt.Sprintf("run_%v", i)))
+		//if err != nil {
+		//	fmt.Printf("err while sending payload msg: %v\n", err)
+		//	os.Exit(1)
+		//}
+
+		fmt.Printf("sent message (%v & %v, round %v), waiting for deliver\n", uid1, -1, i)
+		stats := ctl.WaitForDeliver(uid1)
+		fmt.Printf("statistics (%v, %v):\n  last delivery latency: %v\n  messages sent: %v\n", uid1, i,
 			stats.Latency, stats.MsgCount)
+		//stats2 := ctl.WaitForDeliver(uid2)
+		//fmt.Printf("statistics (%v, %v):\n  last delivery latency: %v\n  messages sent: %v\n", uid2, i,
+		//	stats2.Latency, stats2.MsgCount)
+
 		lat += stats.Latency
 		lats = append(lats, int(stats.Latency))
 		msg += stats.MsgCount

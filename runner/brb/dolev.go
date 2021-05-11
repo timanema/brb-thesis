@@ -49,16 +49,6 @@ func (d *Dolev) send(uid uint32, data []byte, to []uint64) {
 	}
 }
 
-func pathContains(id uint64, p graphs.Path) bool {
-	for _, e := range p {
-		if uint64(e.From().ID()) == id || uint64(e.To().ID()) == id {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	if d.cfg.Byz {
 		// TODO: better byzantine behaviour?
@@ -70,6 +60,11 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	if err := dec.Decode(&m); err != nil {
 		fmt.Printf("process %v errored while decoding dolev message: %v\n", d.cfg.Id, err)
 		os.Exit(1)
+	}
+
+	traversed := make(map[uint64]struct{}, len(m.Path))
+	for _, e := range m.Path {
+		traversed[uint64(e.From().ID())] = struct{}{}
 	}
 
 	// Add latest edge to path for message
@@ -95,18 +90,20 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 
 	to := make([]uint64, 0, len(d.cfg.Neighbours))
 	for _, n := range d.cfg.Neighbours {
-		if n != src && !pathContains(n, m.Path) {
+		if _, ok := traversed[n]; n != src && !ok {
 			to = append(to, n)
 		}
 	}
 
-	d.send(uid, b.Bytes(), to)
 	if _, ok := d.delivered[uid]; !ok {
 		if graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
+			//fmt.Printf("proc %v is delivering %v at %v\n", d.cfg.Id, id, time.Now())
 			d.delivered[uid] = struct{}{}
 			d.app.Deliver(uid, m.Payload)
 		}
 	}
+
+	d.send(uid, b.Bytes(), to)
 }
 
 func (d *Dolev) Send(uid uint32, payload []byte) {
