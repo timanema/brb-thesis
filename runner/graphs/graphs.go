@@ -396,8 +396,8 @@ func alt() {
 	PrintGraphvizHighlightPaths(gd, paths)
 }
 
-func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int) (map[int64][]Path, error) {
-	res := make(map[int64][]Path)
+func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int) (map[uint64][]Path, error) {
+	res := make(map[uint64][]Path)
 	g := Directed(gu)
 
 	nodes := gu.Nodes()
@@ -415,7 +415,7 @@ func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int) (
 			return nil, errors.Wrapf(err, "failed to build paths to %v", n)
 		}
 
-		res[n.ID()] = paths
+		res[uint64(n.ID())] = paths
 		//fmt.Printf("done: %v\n", n.ID())
 	}
 
@@ -623,12 +623,12 @@ func NodeSplitting(g *simple.WeightedDirectedGraph, s, t graph.Node) (*simple.We
 	res := make([]int64, 0)
 
 	s, t = Node{
-		id:       s.ID(),
-		name:     s.(Node).name,
+		Id:       s.ID(),
+		Name:     s.(Node).Name,
 		original: s,
 	}, Node{
-		id:       t.ID(),
-		name:     t.(Node).name,
+		Id:       t.ID(),
+		Name:     t.(Node).Name,
 		original: t,
 	}
 
@@ -638,11 +638,11 @@ func NodeSplitting(g *simple.WeightedDirectedGraph, s, t graph.Node) (*simple.We
 	outMap := make(map[string]graph.Node)
 	inMap := make(map[string]graph.Node)
 
-	inMap[s.(Node).name] = s
-	outMap[s.(Node).name] = s
+	inMap[s.(Node).Name] = s
+	outMap[s.(Node).Name] = s
 
-	inMap[t.(Node).name] = t
-	outMap[t.(Node).name] = t
+	inMap[t.(Node).Name] = t
+	outMap[t.(Node).Name] = t
 
 	nodes := g.Nodes()
 	// Add splitted nodes
@@ -655,7 +655,7 @@ func NodeSplitting(g *simple.WeightedDirectedGraph, s, t graph.Node) (*simple.We
 		}
 
 		// Add new nodes and copies
-		name := n.(Node).name
+		name := n.(Node).Name
 
 		inNode := NewNodeSplit(g2, name+"_in", n)
 		g2.AddNode(inNode)
@@ -674,17 +674,17 @@ func NodeSplitting(g *simple.WeightedDirectedGraph, s, t graph.Node) (*simple.We
 	// Re-add edges
 	for nodes.Next() {
 		n := nodes.Node()
-		name := n.(Node).name
+		name := n.(Node).Name
 		in, out := g.To(n.ID()), g.From(n.ID())
 
 		for in.Next() {
 			f := in.Node()
-			g2.SetWeightedEdge(g2.NewWeightedEdge(outMap[f.(Node).name], inMap[name], g.WeightedEdge(f.ID(), n.ID()).Weight()))
+			g2.SetWeightedEdge(g2.NewWeightedEdge(outMap[f.(Node).Name], inMap[name], g.WeightedEdge(f.ID(), n.ID()).Weight()))
 		}
 
 		for out.Next() {
 			t := out.Node()
-			g2.SetWeightedEdge(g2.NewWeightedEdge(outMap[name], inMap[t.(Node).name], g.WeightedEdge(n.ID(), t.ID()).Weight()))
+			g2.SetWeightedEdge(g2.NewWeightedEdge(outMap[name], inMap[t.(Node).Name], g.WeightedEdge(n.ID(), t.ID()).Weight()))
 		}
 	}
 

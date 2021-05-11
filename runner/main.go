@@ -23,6 +23,7 @@ import (
 func init() {
 	gob.Register(simple.WeightedEdge{})
 	gob.Register(simple.Node(0))
+	gob.Register(graphs.Node{})
 }
 
 func main() {
@@ -63,9 +64,9 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 100, 4, 1
-	m := graphs.MultiPartiteWheelAltGenerator{}
-	if err := runSimpleTest(info, 1, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
+	n, k, f := 150, 50, 20
+	m := graphs.GeneralizedWheelGenerator{}
+	if err := runSimpleTest(info, 1, n, k, f, m, cfg, &brb.DolevKnown{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}

@@ -42,6 +42,8 @@ type Controller struct {
 	deliverMap map[uint32]map[uint64]struct{}
 	sendMap    map[uint32]time.Time
 	dLock      sync.Mutex
+
+	al, rdy int
 }
 
 func StartController(info ControllerInfo) (*Controller, error) {
@@ -75,12 +77,12 @@ func StartController(info ControllerInfo) (*Controller, error) {
 }
 
 func (c *Controller) StartProcess(cfg process.Config, bp brb.Protocol) error {
+	c.pLock.Lock()
 	p, err := process.StartProcess(cfg.ByzConfig.Id, cfg, c.stopCh, cfg.ByzConfig.Neighbours, bp)
 	if err != nil {
 		return errors.Wrap(err, "unable to start process")
 	}
 
-	c.pLock.Lock()
 	c.p[cfg.ByzConfig.Id] = proc{p: p, byz: cfg.ByzConfig.Byz}
 	c.pLock.Unlock()
 	return nil
@@ -162,7 +164,7 @@ func (c *Controller) WaitForAlive() error {
 			if p.err != nil {
 				return errors.Wrapf(p.err, "process %v failed", pic)
 			} else if !p.alive {
-				//fmt.Printf("waiting for %v alive\n", pic)
+				fmt.Printf("waiting for %v alive\n", pic)
 				waiting = true
 				time.Sleep(pollInterval)
 				break
@@ -303,9 +305,10 @@ func (c *Controller) handleMsg(src uint64, t uint8, b []byte) {
 		p := c.p[r.ID]
 		p.alive = true
 		c.p[r.ID] = p
+		c.al += 1
 		c.pLock.Unlock()
 
-		//fmt.Printf("runner %v is alive\n", r.ID)
+		fmt.Printf("runner %v is alive (%v)\n", src, c.al)
 	case msg.RunnerReadyType:
 		var r msg.RunnerStatus
 		if err := r.Decode(b); err != nil {
@@ -317,9 +320,10 @@ func (c *Controller) handleMsg(src uint64, t uint8, b []byte) {
 		p := c.p[r.ID]
 		p.ready = true
 		c.p[r.ID] = p
+		c.rdy += 1
 		c.pLock.Unlock()
 
-		//fmt.Printf("runner %v is ready\n", r.ID)
+		fmt.Printf("runner %v is ready (%v/%v)\n", src, c.rdy, len(c.p))
 	case msg.RunnerFailedType:
 		var r msg.RunnerFailure
 		if err := r.Decode(b); err != nil {

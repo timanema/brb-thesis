@@ -110,10 +110,14 @@ func (p *Process) start() error {
 		return errors.Wrap(err, "unable to communicate with controller")
 	}
 
+	// TODO: close these
 	go p.run()
 
 	go func() {
+		//fmt.Printf("init %v\n", p.id)
 		p.brb.Init(p, p, p.cfg.ByzConfig)
+		//fmt.Printf("done init %v\n", p.id)
+
 		p.checkNeighbours()
 	}()
 
@@ -157,7 +161,7 @@ func (p *Process) checkNeighbours() {
 			if !n {
 				_, err = p.s.SendMessage(IdToString(nid), []byte{msg.RunnerPingType}, []byte{0x00})
 				if err != nil {
-					fmt.Printf("proc %v got err to %v: %v\n", p.id, nid, err)
+					//fmt.Printf("proc %v got err to %v: %v\n", p.id, nid, err)
 					waiting = true
 					time.Sleep(p.cfg.NeighbourDelay)
 				} else {
@@ -304,7 +308,7 @@ func (p *Process) Send(t uint8, dest uint64, uid uint32, data []byte) {
 
 	err = p.send(dest, msg.WrapperDataType, b, false)
 	if err != nil {
-		fmt.Printf("process %v failed to send wrapper data message: %v\n", p.id, err)
+		fmt.Printf("process %v failed to send wrapper data message to %v: %v\n", p.id, dest, err)
 		os.Exit(1)
 	}
 

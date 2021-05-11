@@ -16,8 +16,8 @@ func node(g *simple.WeightedUndirectedGraph, id int) graph.Node {
 
 	if n == nil {
 		n = Node{
-			id:   int64(id),
-			name: strconv.Itoa(id),
+			Id:   int64(id),
+			Name: strconv.Itoa(id),
 		}
 		g.AddNode(n)
 	}

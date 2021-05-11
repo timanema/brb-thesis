@@ -1,6 +1,8 @@
 package brb
 
-import "gonum.org/v1/gonum/graph"
+import (
+	"gonum.org/v1/gonum/graph/simple"
+)
 
 // Used as abstraction for BRB protocols
 // uid is used for tracking the message throughout the network (for statistics)
@@ -18,7 +20,7 @@ type Config struct {
 	N, F          int
 	Id            uint64
 	Neighbours    []uint64
-	Graph         graph.WeightedUndirected
+	Graph         *simple.WeightedUndirectedGraph
 	KnownTopology bool
 }
 
