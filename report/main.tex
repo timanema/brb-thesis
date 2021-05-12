@@ -17,18 +17,20 @@
 \usepackage{booktabs}
 \urlstyle{same}
 
+\newcommand{\citationneeded}{\textsuperscript{[citation needed]}}
+\newcommand\floor[1]{\lfloor#1\rfloor}
+\newcommand\ceil[1]{\lceil#1\rceil}
 
-\title{Research-Project-2020 Template}
+\title{Message efficient Byzantine Reliable Broadcast protocols on known topologies}
 
 \author{
-YOUR NAME$^1$\and
-SUPERVISOR1$^1$\and
-SUPERVISOR2$^1$
+Tim Anema$^1$\and
+J{\'e}r{\'e}mie Decouchant$^1$
 \affiliations
 $^1$TU Delft\\
 \emails
-\{YOU\}@student.tudelft.nl,
-\{SUPERVISOR1, SUPERVISOR2\}@tudelft.nl
+\{t.p.d.anema\}@student.tudelft.nl,
+\{j.decouchant\}@tudelft.nl
 }
 
 \begin{document}
@@ -39,7 +41,7 @@ $^1$TU Delft\\
 
 \input{sections/introduction}
 
-\input{sections/methodology_or_problem_description}
+\input{sections/system_model_problem}
 
 \input{sections/your_contribution}
 
@@ -51,7 +53,7 @@ $^1$TU Delft\\
 
 \input{sections/conclusion_and_future_work}
 
-\bibliographystyle{plain}
+\bibliographystyle{IEEEtran}
 \bibliography{references}
 
 \input{sections/appendix}

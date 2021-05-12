@@ -1,0 +1,60 @@
+\section{System model and problem statement}
+% Choose one that fits your research best:
+% \subsection{Methodology}
+% Typically in general research articles, the second section contains a description of the research methodology, explaining what you, the researcher, is doing to answer the research question(s), and why you have chosen this method.
+% For purely analytical work this is a description of the data collection or experimental setup on how to test the hypothesis, with a motivation.
+% In any case this section includes references to necessary background information.
+
+% \subsection{Formal Problem Description}
+% For some types of work in computer science the methodology is standard: analyze the problem (e.g., make assumptions and derive properties), present a new algorithm and its theoretical background, proving its correctness, and evaluate unproven aspects in simulation.
+% Then an explanation of the methodology is often omitted, and the setup of the evaluation is part of a later section on the evaluation of the ideas.\footnote{This already shows that there is no single outline to be given for all papers.}
+% In this case, explain relevant concepts, theory and models in this section (with references) and relate them to your research question.
+% Also this section then typically contains a more precise, formal description of the problem.
+
+% Do not forget to give this section another name, for example after the problem you are solving.
+
+A distributed model is defined by a set $\Delta=\{p_1, p_2,...,p_N\}$ of N processes, uniquely identified by an ID $i$. In the Byzantine fault-model it is assumed that there are at most $f < \floor{N/3}$ Byzantine nodes, which can exhibit arbitrary behaviour. 
+
+Furthermore, the processes are connected by a network which can be represented by an undirected graph $G=(V,E)$. In this graph every vertex represents a process $p_i$, such that $p_i \in \Delta$, which means $V=\Delta$ for all intents and purposes. It follows that the edges represent the communication links between nodes.
+Processes $p_i, p_j \in \Delta$ have a direct communication link if there exists an edge $(v_i, v_j) \in E$, which they can use to directly communicate with each other. If there exists no such link, they will have to rely on other processes to relay their messages. We assume these links are authenticated, i.e. messages delivered at $p_i \in \Delta$ via edge $(v_i, v_j) \in E$ are guaranteed to originate from $p_j$, and vice-versa. In addition to this, the links are reliable, i.e. messages will always arrive at $p_i$ if and only if $p_j$ sent them over edge $(v_i, v_j)$. However, there is no delivery time guarantee, so a link can be synchronous or asynchronous. Graph $G$ is known to all processes, and so are the IDs for every process. Furthermore, it is assumed the network is static, i.e. the network topology does not change, and the network lives for a considerable amount of time.
+
+In order to send message data to others, processes can add information to the message header, which can be used to uniquely identify the message and add protocol specific information.
+
+A Byzantine Reliable Broadcast (BRB) protocol guarantees the following properties:
+\begin{itemize}
+    \item \textbf{Validity}: If process $p_i \in \Delta$ broadcasts message $m$, then every correct process $p_j \in \Delta$ delivers $m$ at some point.
+    \item \textbf{No duplication}: A message $m$ broadcast by process $p_i \in \Delta$ is not delivered more than once by every correct process $p_j \in \Delta$.
+    \item \textbf{Integrity}: If process $p_j \in \Delta$ delivers message $m$ with sender $p_i$, process $p_i$ has broadcast $m$ in the past.
+    \item \textbf{Agreement}: If process $p_i \in Delta$ delivers message $m$, then $m$ will eventually be delivered by every correct process $p_j \in \Delta$.
+\end{itemize}
+
+We will be introducing improvements to both Dolev~\cite{dolev}, Bracha~\cite{bracha}, and Bracha-Dolev~\cite{bracha-dolev}, which make different assumptions about the network $G$ and the BRB guarantees.
+
+Dolev assumes a network $G$ which is at least $2f+1$-connected, i.e. there are at least $2f+1$ vertex-disjoint paths from every vertex $v_i \in V$ to every vertex $v_j \in (V - \{v_i\})$. Furthermore, Dolev assumes Reliable Communication (RC) which guarantees the same properties as BRB, except for the agreement property.
+
+Bracha assumes a fully connected network $G$, i.e. for every pair $v_i,v_j \in V$ there exists an edge $(v_i, v_j) \in E$. Unlike Dolev, Bracha guarantees all BRB properties.
+
+Bracha-Dolev is a combination of the previous protocols, and assumes a $2f+1$-connected network $G$, while giving all BRB guarantees.
+
+\subsection*{Background}
+TODO?
+
+\subsubsection{Dolev}
+TODO?
+
+\subsubsection{Bracha}
+TODO?
+
+\subsubsection{Bracha-Dolev}
+TODO?
+
+\subsection*{Reducing the amount of messages}
+While all mentioned protocols work well in their designed environments, there is naturally a substantial amount of redundant work.
+
+In the case of Dolev, for example, the network is being flooded with the same message in order to reach all processes over at least $f+1$ vertex-disjoint paths. However, if the network is overprovisioned, i.e. the network is $k$-connected where $k > 2f+1$, the message will take more paths than strictly necessary. In addition to this, processes will send the message to (almost) all neighbours leading to overlapping paths. Even though recent improvements have reduced the amount of required messages from $\mathcal{O}(n!)$ to nearly $\mathcal{O}(n)$~\cite{bonomi2019multihop}, it is possible this can still be reduced if processes have knowledge of the network topology.
+
+For Bracha there are similar inefficiencies. For example, Bracha uses all nodes to come to an agreement, while only a subset of size $\ceil{\frac{N+f+1}{2}} + f$ is needed in the \textit{echo} phase and an even smaller subset of size $3f+1$ is needed for the final \textit{ready} phase.
+
+The optimizations can be combined and applied to Bracha-Dolev, also reducing the amount of required messages for that protocol.
+
+The aim of this paper is to reduce the amount of messages being transmitted even further, assuming the processes know the network topology. In addition to this, it might be possible to improve the delivery complexity of Dolev in the process by taking advantage of the fact that messages will traverse fixed paths.

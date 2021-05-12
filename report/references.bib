@@ -1,5 +1,197 @@
-@Manual{example,
-    title = {example referance},
-    author = {Firstname Lastname},
-    year = {1900},
+@INPROCEEDINGS{dolev,  author={D. {Dolev}},  booktitle={22nd Annual Symposium on Foundations of Computer Science (sfcs 1981)},   title={Unanimity in an unknown and unreliable environment},   year={1981},  volume={},  number={},  pages={159-168},  doi={10.1109/SFCS.1981.53}}
+
+@article{bracha,
+title = {Asynchronous Byzantine agreement protocols},
+journal = {Information and Computation},
+volume = {75},
+number = {2},
+pages = {130-143},
+year = {1987},
+issn = {0890-5401},
+doi = {https://doi.org/10.1016/0890-5401(87)90054-X},
+url = {https://www.sciencedirect.com/science/article/pii/089054018790054X},
+author = {Gabriel Bracha},
 }
+
+@misc{bonomi2019multihop,
+      title={Multi-hop Byzantine Reliable Broadcast with Honest Dealer Made Practical}, 
+      author={Silvia Bonomi and Giovanni Farina and S{\'e}bastien Tixeuil},
+      year={2019},
+      eprint={1903.08988},
+      archivePrefix={arXiv},
+      primaryClass={cs.DC}
+}
+
+@misc{bonomi2021practical,
+      title={Practical Byzantine Reliable Broadcast on Partially Connected Networks}, 
+      author={Silvia Bonomi and J{\'e}r{\'e}mie Decouchant and Giovanni Farina and Vincent Rahli and S{\'e}bastien Tixeuil},
+      year={2021},
+      eprint={2104.03673},
+      archivePrefix={arXiv},
+      primaryClass={cs.DC}
+}
+
+@article{cpa,
+title = {Broadcasting with locally bounded Byzantine faults},
+journal = {Information Processing Letters},
+volume = {93},
+number = {3},
+pages = {109-115},
+year = {2005},
+issn = {0020-0190},
+doi = {https://doi.org/10.1016/j.ipl.2004.10.007},
+url = {https://www.sciencedirect.com/science/article/pii/S0020019004003072},
+author = {Andrzej Pelc and David Peleg},
+keywords = {Algorithms, Distributed computing, Fault tolerance, Broadcast, Byzantine faults}
+}
+
+@article{dolev-improvement,
+title = {An efficient algorithm for byzantine agreement without authentication},
+journal = {Information and Control},
+volume = {52},
+number = {3},
+pages = {257-274},
+year = {1982},
+issn = {0019-9958},
+doi = {https://doi.org/10.1016/S0019-9958(82)90776-8},
+url = {https://www.sciencedirect.com/science/article/pii/S0019995882907768},
+author = {Danny Dolev and Michael J. Fischer and Rob Fowler and Nancy A. Lynch and H. {Raymond Strong}},
+abstract = {Byzantine Agreement involves a system of n processes, of which some t may be faulty. The problem is for the correct processes to agree on a binary value sent by a transmitter that may itself be one of the n processes. If the transmitter sends the same value to each process, then all correct processes must agree on that value, but in any case, they must agree on some value. An explicit solution not using authentication for n = 3t + 1 processes is given, using 2t + 3 rounds and O(t3 log t) message bits. This solution is easily extended to the general case of n ⩾ 3t + 1 to give a solution using 2t + 3 rounds and O(nt + t3 log t) message bits.}
+}
+
+@inproceedings{bracha-dolev,
+author = {Wang, Ye and Wattenhofer, Roger},
+title = {Asynchronous Byzantine Agreement in Incomplete Networks},
+year = {2020},
+isbn = {9781450381390},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi-org.tudelft.idm.oclc.org/10.1145/3419614.3423250},
+doi = {10.1145/3419614.3423250},
+booktitle = {Proceedings of the 2nd ACM Conference on Advances in Financial Technologies},
+pages = {178–188},
+numpages = {11},
+location = {New York, NY, USA},
+series = {AFT '20}
+}
+
+@article{HotStuff,
+  author    = {Ittai Abraham and
+               Guy Gueta and
+               Dahlia Malkhi},
+  title     = {Hot-Stuff the Linear, Optimal-Resilience, One-Message {BFT} Devil},
+  journal   = {CoRR},
+  volume    = {abs/1803.05069},
+  year      = {2018},
+  url       = {http://arxiv.org/abs/1803.05069},
+  archivePrefix = {arXiv},
+  eprint    = {1803.05069},
+  timestamp = {Mon, 13 Aug 2018 16:49:08 +0200},
+  biburl    = {https://dblp.org/rec/journals/corr/abs-1803-05069.bib},
+  bibsource = {dblp computer science bibliography, https://dblp.org}
+}
+
+@article{original-disjoint-path,
+title = {Graph Minors .XIII. The Disjoint Paths Problem},
+journal = {Journal of Combinatorial Theory, Series B},
+volume = {63},
+number = {1},
+pages = {65-110},
+year = {1995},
+issn = {0095-8956},
+doi = {https://doi.org/10.1006/jctb.1995.1006},
+url = {https://www.sciencedirect.com/science/article/pii/S0095895685710064},
+author = {N. Robertson and P.D. Seymour},
+abstract = {We describe an algorithm, which for fixed k ≥ 0 has running time O(|V(G)|3), to solve the following problem: given a graph G and k pairs of vertices of G, decide if there are k mutually vertex-disjoint paths of G joining the pairs.}
+}
+
+@article{improved-disjoint-path,
+title = {The disjoint paths problem in quadratic time},
+journal = {Journal of Combinatorial Theory, Series B},
+volume = {102},
+number = {2},
+pages = {424-435},
+year = {2012},
+issn = {0095-8956},
+doi = {https://doi.org/10.1016/j.jctb.2011.07.004},
+url = {https://www.sciencedirect.com/science/article/pii/S0095895611000712},
+author = {Ken-ichi Kawarabayashi and Yusuke Kobayashi and Bruce Reed},
+}
+
+@inproceedings{fast-partial-disjoint-path,
+  title     = {A Fast Algorithm for Optimally Finding Partially Disjoint Shortest Paths},
+  author    = {Longkun Guo and Yunyun Deng and Kewen Liao and Qiang He and Timos Sellis and Zheshan Hu},
+  booktitle = {Proceedings of the Twenty-Seventh International Joint Conference on
+               Artificial Intelligence, {IJCAI-18}},
+  publisher = {International Joint Conferences on Artificial Intelligence Organization},             
+  pages     = {1456--1462},
+  year      = {2018},
+  month     = {7},
+  doi       = {10.24963/ijcai.2018/202},
+  url       = {https://doi.org/10.24963/ijcai.2018/202},
+}
+
+@InProceedings{topology-discovery,
+author="Dolev, Shlomi
+and Liba, Omri
+and Schiller, Elad M.",
+editor="Gramoli, Vincent
+and Guerraoui, Rachid",
+title="Self-stabilizing Byzantine Resilient Topology Discovery and Message Delivery",
+booktitle="Networked Systems",
+year="2013",
+publisher="Springer Berlin Heidelberg",
+address="Berlin, Heidelberg",
+pages="42--57",
+isbn="978-3-642-40148-0"
+}
+
+@article{signatures-crypo-1,
+author = {Dolev, Danny and Reischuk, R\"{u}diger},
+title = {Bounds on Information Exchange for Byzantine Agreement},
+year = {1985},
+issue_date = {Jan. 1985},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {32},
+number = {1},
+issn = {0004-5411},
+url = {https://doi-org.tudelft.idm.oclc.org/10.1145/2455.214112},
+doi = {10.1145/2455.214112},
+journal = {J. ACM},
+month = jan,
+pages = {191-204},
+numpages = {14}
+}
+
+@InProceedings{pki-crypto-2,
+author="Abraham, Ittai
+and Devadas, Srinivas
+and Dolev, Danny
+and Nayak, Kartik
+and Ren, Ling",
+editor="Goldberg, Ian
+and Moore, Tyler",
+title="Synchronous Byzantine Agreement with Expected O(1) Rounds, Expected $O(n^2)$ Communication, and Optimal Resilience",
+booktitle="Financial Cryptography and Data Security",
+year="2019",
+publisher="Springer International Publishing",
+address="Cham",
+pages="320--334",
+isbn="978-3-030-32101-7"
+}
+
+@article{np-complete-disjoint,
+author = {Li, Chung-Lun and Thomas McCormick, S. and Simchi-Levi, David},
+title = {Finding disjoint paths with different path-costs: Complexity and algorithms},
+journal = {Networks},
+volume = {22},
+number = {7},
+pages = {653-667},
+doi = {https://doi.org/10.1002/net.3230220705},
+url = {https://onlinelibrary.wiley.com/doi/abs/10.1002/net.3230220705},
+eprint = {https://onlinelibrary.wiley.com/doi/pdf/10.1002/net.3230220705},
+year = {1992}
+}
+
+@INPROCEEDINGS{using-tee,  author={Tseng, Lewis and Wu, Yingjian and Pan, Haochen and Aloqaily, Moayad and Boukerche, Azzedine},  booktitle={2019 IEEE Global Communications Conference (GLOBECOM)},   title={Reliable Broadcast in Networks with Trusted Nodes},   year={2019},  volume={},  number={},  pages={1-6},  doi={10.1109/GLOBECOM38437.2019.9013797}}
