@@ -78,7 +78,6 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 		Id:   uid,
 		Hash: sha256.Sum256(m.Payload),
 	}
-	d.paths[id] = append(d.paths[id], m.Path)
 
 	// Send to neighbours (except origin)
 	b := bytes.NewBuffer(make([]byte, 0, 20))
@@ -96,6 +95,8 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	}
 
 	if _, ok := d.delivered[uid]; !ok {
+		d.paths[id] = append(d.paths[id], m.Path)
+
 		if graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
 			//fmt.Printf("proc %v is delivering %v at %v\n", d.cfg.Id, id, time.Now())
 			d.delivered[uid] = struct{}{}

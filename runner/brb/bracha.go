@@ -72,6 +72,11 @@ func (b *Bracha) send(messageType uint8, uid uint32, data []byte) {
 	}
 }
 
+func (b *Bracha) hasDelivered(uid uint32) bool {
+	_, ok := b.delivered[uid]
+	return ok
+}
+
 func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data []byte) {
 	if b.cfg.Byz {
 		// TODO: better byzantine behaviour?
@@ -90,21 +95,26 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data []byte)
 		Hash: sha256.Sum256(data),
 	}
 
-	if _, ok := b.echo[id]; !ok {
+	_, echoMade := b.echo[id]
+	_, readyMade := b.ready[id]
+	if !echoMade || !readyMade {
 		b.echo[id] = make(map[uint64]struct{})
-	}
-	if _, ok := b.ready[id]; !ok {
 		b.ready[id] = make(map[uint64]struct{})
 	}
 
+	del := b.hasDelivered(uid)
 	switch messageType {
 	case BrachaSend:
 		b.send(BrachaEcho, uid, data)
 		b.echoSent[uid] = struct{}{}
 	case BrachaEcho:
-		b.echo[id][src] = struct{}{}
+		if !del {
+			b.echo[id][src] = struct{}{}
+		}
 	case BrachaReady:
-		b.ready[id][src] = struct{}{}
+		if !del {
+			b.ready[id][src] = struct{}{}
+		}
 	}
 
 	// Send ready if enough ((n + f + 1) / 2) echos, or if enough readys
@@ -114,7 +124,7 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data []byte)
 	}
 
 	// Deliver if enough readys
-	if _, ok := b.delivered[uid]; !ok && len(b.ready[id]) >= b.cfg.F*2+1 {
+	if !b.hasDelivered(uid) && len(b.ready[id]) >= b.cfg.F*2+1 {
 		b.delivered[uid] = struct{}{}
 		b.app.Deliver(uid, m.Payload)
 

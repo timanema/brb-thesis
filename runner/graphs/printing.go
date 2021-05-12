@@ -160,3 +160,51 @@ func PrintGraphvizHighlightPaths(g graph.WeightedDirected, paths []Path) {
 
 	fmt.Printf("}\n")
 }
+
+func PrintGraphvizHighlightRoutes(g graph.WeightedDirected, routes map[uint64][]Path) {
+	nodes := g.Nodes()
+	fmt.Printf("digraph {\n")
+
+	s := rand.NewSource(time.Now().Unix())
+	r := rand.New(s)
+
+	cols := make(map[int64]map[int64]string)
+
+	for _, route := range routes {
+		col := colors[r.Intn(len(colors))]
+
+		for _, p := range route {
+			for _, e := range p {
+				if _, ok := cols[e.From().ID()]; !ok {
+					cols[e.From().ID()] = make(map[int64]string)
+				}
+
+				cols[e.From().ID()][e.To().ID()] = col
+			}
+		}
+	}
+
+	for nodes.Next() {
+		n := nodes.Node()
+		col, ok := cols[n.ID()]
+
+		to := g.From(n.ID())
+		for to.Next() {
+			t := to.Node()
+			w := g.WeightedEdge(n.ID(), t.ID()).Weight()
+
+			c := "black"
+			width := 1
+			if ok {
+				if color, ok := col[t.ID()]; ok {
+					c = color
+					width = 3
+				}
+			}
+
+			fmt.Printf("    %v -> %v[label=\"%v\",weight=\"%v\",color=%v,penwidth=%v];\n", n, t, w, w, c, width)
+		}
+	}
+
+	fmt.Printf("}\n")
+}

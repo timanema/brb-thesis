@@ -64,8 +64,8 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 50, 24, 10
-	m := graphs.MultiPartiteWheelGenerator{}
+	n, k, f := 100, 5, 0
+	m := graphs.GeneralizedWheelGenerator{}
 	if err := runSimpleTest(info, 5, n, k, f, m, cfg, &brb.DolevKnown{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)

@@ -30,7 +30,6 @@ type Process struct {
 	s      *zmq4.Socket
 	cfg    Config
 	stopCh <-chan struct{}
-	rstCh  chan struct{}
 
 	stats Stats
 	sLock sync.Mutex
@@ -111,9 +110,7 @@ func (p *Process) start() error {
 		return errors.Wrap(err, "unable to communicate with controller")
 	}
 
-	// TODO: close these
-	p.rstCh = make(chan struct{})
-	go p.run(p.rstCh)
+	go p.run()
 
 	go func() {
 		//fmt.Printf("init %v\n", p.id)
@@ -124,16 +121,6 @@ func (p *Process) start() error {
 	}()
 
 	return nil
-}
-
-func (p *Process) Reset() error {
-	if err := p.s.Close(); err != nil {
-		return errors.Wrap(err, "failed to close socket")
-	}
-
-	close(p.rstCh)
-
-	return errors.Wrap(p.start(), "failed to restart")
 }
 
 func (p *Process) checkNeighbours() {
@@ -210,12 +197,10 @@ func (p *Process) waitForConnection() error {
 	}
 }
 
-func (p *Process) run(rstCh <-chan struct{}) {
+func (p *Process) run() {
 	for {
 		select {
 		case <-p.stopCh:
-			return
-		case <-rstCh:
 			return
 		default:
 		}
@@ -307,7 +292,6 @@ func (p *Process) Send(t uint8, dest uint64, uid uint32, data []byte) {
 	}
 	b, err := m.Encode()
 	if err != nil {
-		// TODO: send to controller
 		fmt.Printf("process %v failed to encode wrapper data message: %v\n", p.id, err)
 		os.Exit(1)
 	}

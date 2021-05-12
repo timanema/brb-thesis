@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"sort"
 
 	_ "net/http/pprof"
 )
@@ -24,7 +25,7 @@ func init() {
 }
 
 func benchTableTest() {
-	n, k := 300, 125
+	n, k := 30, 15
 	m := GeneralizedWheelGenerator{}
 
 	g, err := m.Generate(n, k)
@@ -38,7 +39,7 @@ func benchTableTest() {
 	s := g.Node(int64(start))
 	//PrintGraphviz(Directed(g))
 
-	res, err := BuildLookupTable(g, s, k)
+	res, err := BuildLookupTable(g, s, k, false)
 	if err != nil {
 		fmt.Printf("failed to build lookup table for %v: %v\n", start, err)
 		os.Exit(1)
@@ -48,10 +49,11 @@ func benchTableTest() {
 	for to, paths := range res {
 		fmt.Printf("%v -> %v\n", to, paths)
 	}
+	PrintGraphvizHighlightRoutes(Directed(g), res)
 }
 
 func benchSingleTest() {
-	n, k := 10000, 5
+	n, k := 10, 2
 	m := GeneralizedWheelGenerator{}
 
 	g, err := m.Generate(n, k)
@@ -66,13 +68,31 @@ func benchSingleTest() {
 	t := g.Node(int64(math.Min(1, float64(start-1))))
 	//PrintGraphviz(Directed(g))
 
-	res, err := DisjointPaths(Directed(g), s, t, k)
+	additionalWeight := make(map[uint64]map[uint64]struct{})
+
+	nodes := g.Nodes()
+	for nodes.Next() {
+		n := uint64(nodes.Node().ID())
+		if _, ok := additionalWeight[n]; !ok {
+			additionalWeight[n] = make(map[uint64]struct{})
+		}
+	}
+	nodes.Reset()
+
+	res, err := DisjointPaths(Directed(g), s, t, int(math.Ceil((float64(k)-1)/2)), additionalWeight)
 	if err != nil {
 		fmt.Printf("failed to build paths table for %v: %v\n", start, err)
 		os.Exit(1)
 	}
 
+	PrintGraphvizHighlightPaths(Directed(g), res)
 	fmt.Printf("Result:\n%v\n", res)
+
+	_, err = DisjointPaths(Directed(g), s, t, k, additionalWeight)
+	if err != nil {
+		fmt.Printf("failed to build paths table for %v: %v\n", start, err)
+		os.Exit(1)
+	}
 }
 
 func GraphsMain() {
@@ -82,17 +102,6 @@ func GraphsMain() {
 
 	//benchSingleTest()
 	//return
-
-	x := MultiPartiteWheelAltGenerator{}
-	gx, err := x.Generate(100, 6)
-	if err != nil {
-		fmt.Printf("invalid graph parameters: %v\n", err)
-		os.Exit(1)
-	}
-
-	PrintGraphviz(Directed(gx))
-
-	return
 
 	gr := simple.NewWeightedUndirectedGraph(0, 0)
 
@@ -193,7 +202,7 @@ func GraphsMain() {
 		}
 	*/
 
-	edges, err := DisjointEdges(g, s, t, f)
+	edges, err := DisjointEdges(g, s, t, f, nil)
 	if err != nil {
 		fmt.Printf("unable to find disjoint edges: %v\n", err)
 		os.Exit(1)
@@ -299,7 +308,7 @@ func GraphsMain() {
 		}
 	*/
 
-	lookup, err := BuildLookupTable(gu, s, k)
+	lookup, err := BuildLookupTable(gu, s, k, false)
 	if err != nil {
 		fmt.Printf("failed to build lookup table: %v\n", err)
 		os.Exit(1)
@@ -381,7 +390,7 @@ func alt() {
 
 	k := 3
 	s, t := a, h
-	edges, err := DisjointEdges(gd, s, t, k)
+	edges, err := DisjointEdges(gd, s, t, k, nil)
 	if err != nil {
 		fmt.Printf("unable to find disjoint edges: %v\n", err)
 		os.Exit(1)
@@ -396,23 +405,49 @@ func alt() {
 	PrintGraphvizHighlightPaths(gd, paths)
 }
 
-func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int) (map[uint64][]Path, error) {
+func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int, skipNeighbour bool) (map[uint64][]Path, error) {
 	res := make(map[uint64][]Path)
 	g := Directed(gu)
 
 	nodes := gu.Nodes()
+	orderedNodes := make([]graph.Node, 0, nodes.Len())
+
+	additionalWeight := make(map[uint64]map[uint64]struct{})
 
 	for nodes.Next() {
 		n := nodes.Node()
+		nid := uint64(n.ID())
+		if _, ok := additionalWeight[nid]; !ok {
+			additionalWeight[nid] = make(map[uint64]struct{})
+		}
+		orderedNodes = append(orderedNodes, n)
+	}
+	nodes.Reset()
 
+	sort.Slice(orderedNodes, func(i, j int) bool {
+		return orderedNodes[i].ID() < orderedNodes[j].ID()
+	})
+
+	for _, n := range orderedNodes {
 		// No lookup to self needed
 		if n.ID() == s.ID() {
 			continue
 		}
 
-		paths, err := DisjointPaths(g, s, n, k)
+		f := k
+		if skipNeighbour && g.HasEdgeBetween(s.ID(), n.ID()) {
+			f = 1
+		}
+
+		paths, err := DisjointPaths(g, s, n, f, additionalWeight)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to build paths to %v", n)
+		}
+
+		for _, p := range paths {
+			for _, e := range p {
+				additionalWeight[uint64(e.From().ID())][uint64(e.To().ID())] = struct{}{}
+			}
 		}
 
 		res[uint64(n.ID())] = paths
@@ -422,8 +457,8 @@ func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int) (
 	return res, nil
 }
 
-func DisjointPaths(g *simple.WeightedDirectedGraph, s, t graph.Node, k int) ([]Path, error) {
-	edges, err := DisjointEdges(g, s, t, k)
+func DisjointPaths(g *simple.WeightedDirectedGraph, s, t graph.Node, k int, additionalWeight map[uint64]map[uint64]struct{}) ([]Path, error) {
+	edges, err := DisjointEdges(g, s, t, k, additionalWeight)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to find disjoint edges")
 	}
@@ -433,8 +468,8 @@ func DisjointPaths(g *simple.WeightedDirectedGraph, s, t graph.Node, k int) ([]P
 	return BuildPaths(filtered, s, t, k), nil
 }
 
-func DisjointEdges(g *simple.WeightedDirectedGraph, s, t graph.Node, k int) ([]graph.WeightedEdge, error) {
-	g2, nodes := NodeSplitting(g, s, t)
+func DisjointEdges(g *simple.WeightedDirectedGraph, s, t graph.Node, k int, additionalWeight map[uint64]map[uint64]struct{}) ([]graph.WeightedEdge, error) {
+	g2, nodes := NodeSplitting(g, s, t, additionalWeight)
 	res := make([]graph.WeightedEdge, 0, k)
 
 	edges := FindAdjMap(g2, nodes[len(nodes)-1])
@@ -618,7 +653,7 @@ func ShortestPath(g *simple.WeightedDirectedGraph, s, t int64, nodes []int64, ed
 	return res, nil
 }
 
-func NodeSplitting(g *simple.WeightedDirectedGraph, s, t graph.Node) (*simple.WeightedDirectedGraph, []int64) {
+func NodeSplitting(g *simple.WeightedDirectedGraph, s, t graph.Node, additionalWeight map[uint64]map[uint64]struct{}) (*simple.WeightedDirectedGraph, []int64) {
 	g2 := simple.NewWeightedDirectedGraph(0, 0)
 	res := make([]int64, 0)
 
@@ -679,12 +714,32 @@ func NodeSplitting(g *simple.WeightedDirectedGraph, s, t graph.Node) (*simple.We
 
 		for in.Next() {
 			f := in.Node()
-			g2.SetWeightedEdge(g2.NewWeightedEdge(outMap[f.(Node).Name], inMap[name], g.WeightedEdge(f.ID(), n.ID()).Weight()))
+
+			w := g.WeightedEdge(f.ID(), n.ID()).Weight()
+			if additionalWeight != nil {
+				if _, ok := additionalWeight[uint64(f.ID())][uint64(n.ID())]; !ok {
+					w += 0
+				}
+			}
+
+			g2.SetWeightedEdge(g2.NewWeightedEdge(outMap[f.(Node).Name], inMap[name], w))
 		}
 
 		for out.Next() {
 			t := out.Node()
-			g2.SetWeightedEdge(g2.NewWeightedEdge(outMap[name], inMap[t.(Node).Name], g.WeightedEdge(n.ID(), t.ID()).Weight()))
+
+			w := g.WeightedEdge(n.ID(), t.ID()).Weight()
+			if additionalWeight != nil {
+				if _, ok := additionalWeight[uint64(n.ID())][uint64(t.ID())]; !ok {
+					w += 0
+
+					if n.ID() == s.ID() {
+						w *= 1
+					}
+				}
+			}
+
+			g2.SetWeightedEdge(g2.NewWeightedEdge(outMap[name], inMap[t.(Node).Name], w))
 		}
 	}
 

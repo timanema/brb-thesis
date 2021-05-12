@@ -105,7 +105,6 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 		Id:   uid,
 		Hash: sha256.Sum256(m.Payload),
 	}
-	d.paths[id] = append(d.paths[id], m.Path)
 
 	// Send to appropriate neighbours
 	b := bytes.NewBuffer(make([]byte, 0, 20))
@@ -126,7 +125,8 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	}
 
 	if _, ok := d.delivered[uid]; !ok {
-		//st := time.Now()
+		d.paths[id] = append(d.paths[id], m.Path)
+
 		if graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
 			d.delivered[uid] = struct{}{}
 			d.app.Deliver(uid, m.Payload)
@@ -135,7 +135,6 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 			delete(d.paths, id)
 			delete(d.neighboursDelivered, uid)
 		}
-		//fmt.Printf("process %v stop verify (%v)\n", d.cfg.Id, time.Now().Sub(st))
 	}
 
 	// Modification 2: If delivered, sent empty path

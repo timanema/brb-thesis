@@ -183,7 +183,7 @@ func (c *Controller) WaitForReady() error {
 			if p.err != nil {
 				return errors.Wrapf(p.err, "process %v failed", pic)
 			} else if !p.ready {
-				//fmt.Printf("waiting for %v ready\n", pic)
+				fmt.Printf("waiting for %v ready\n", pic)
 				waiting = true
 				time.Sleep(pollInterval)
 				break
@@ -195,32 +195,32 @@ func (c *Controller) WaitForReady() error {
 }
 
 func (c *Controller) WaitForDeliver(uid uint32) Stats {
-	// TODO: use ids of normal nodes instead of len check?
 	c.pLock.Lock()
-	needed := 0
-	for _, p := range c.p {
+	needed := make(map[uint64]struct{})
+	for pid, p := range c.p {
 		if !p.byz {
-			needed += 1
+			needed[pid] = struct{}{}
 		}
 	}
 	c.pLock.Unlock()
 
 	for {
 		c.dLock.Lock()
-		del := len(c.deliverMap[uid])
+		for pid := range c.deliverMap[uid] {
+			delete(needed, pid)
+		}
 		c.dLock.Unlock()
 
-		if del >= needed {
+		if len(needed) == 0 {
 			return c.aggregateStats(uid)
 		}
+		fmt.Printf("waiting for %v more: %v\n", len(needed), needed)
 		time.Sleep(pollInterval * 2)
 	}
 }
 
 func (c *Controller) aggregateStats(uid uint32) Stats {
 	c.pLock.Lock()
-	c.dLock.Lock()
-	defer c.dLock.Unlock()
 	defer c.pLock.Unlock()
 
 	latency := time.Duration(0)
@@ -229,7 +229,9 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 	for _, p := range c.p {
 		s := p.p.Stats()
 		del := s.Deliveries[uid]
+		c.dLock.Lock()
 		lat := del.Sub(c.sendMap[uid])
+		c.dLock.Unlock()
 
 		if lat > latency {
 			latency = lat
@@ -242,21 +244,6 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 		Latency:  latency,
 		MsgCount: cnt,
 	}
-}
-
-func (c *Controller) Reset() error {
-	c.pLock.Lock()
-	defer c.pLock.Unlock()
-
-	for _, p := range c.p {
-		p.ready = false
-
-		if err := p.p.Reset(); err != nil {
-			return errors.Wrap(err, "unable to reset process")
-		}
-	}
-
-	return nil
 }
 
 func (c *Controller) Close() {
@@ -353,9 +340,11 @@ func (c *Controller) handleMsg(src uint64, t uint8, b []byte) {
 		}
 
 		c.deliverMap[r.Id][src] = struct{}{}
-		c.pLock.Lock()
-		fmt.Printf("runner %v has delivered %v (%v/%v-F)\n", src, r.Id, len(c.deliverMap[r.Id]), len(c.p))
-		c.pLock.Unlock()
+		del := len(c.deliverMap[r.Id])
 		c.dLock.Unlock()
+
+		c.pLock.Lock()
+		fmt.Printf("runner %v has delivered %v (%v/%v-F)\n", src, r.Id, del, len(c.p))
+		c.pLock.Unlock()
 	}
 }
