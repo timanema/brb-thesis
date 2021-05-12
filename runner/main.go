@@ -41,9 +41,10 @@ func RunnerMain() {
 
 	fmt.Println("starting rp runner")
 	stopCh := make(chan struct{}, 1)
-	info := ctrl.ControllerInfo{
-		ID:   "RP-CONTROLLER",
-		Sock: "ipc:///tmp/rp-ctl.ipc",
+	info := ctrl.Config{
+		PollDelay:  time.Millisecond * 200,
+		CtrlBuffer: 2000,
+		ProcBuffer: 50000,
 	}
 
 	sigc := make(chan os.Signal, 1)
@@ -58,17 +59,14 @@ func RunnerMain() {
 	}()
 
 	cfg := process.Config{
-		CtrlID:         info.ID,
-		CtrlSock:       info.Sock,
-		Sock:           "ipc:///tmp/rp-node-%v.ipc",
 		MaxRetries:     5,
 		RetryDelay:     time.Millisecond * 100,
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 150, 4, 1
-	m := graphs.MultiPartiteWheelGenerator{}
-	if err := runSimpleTest(info, 15, n, k, f, m, cfg, &brb.DolevKnownImproved{}); err != nil {
+	n, k, f := 50, 50, 1
+	m := graphs.FullyConnectedGenerator{}
+	if err := runSimpleTest(info, 5, n, k, f, m, cfg, &brb.BrachaImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
@@ -78,7 +76,7 @@ func RunnerMain() {
 	fmt.Println("server stop")
 }
 
-func runSimpleTest(info ctrl.ControllerInfo, runs int, n, k, f int, gen graphs.Generator, cfg process.Config, bp brb.Protocol) error {
+func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator, cfg process.Config, bp brb.Protocol) error {
 	if k < 2*f+1 {
 		return errors.Errorf("network is not 2f+1 connected (k=%v, f=%v)", k, f)
 	}

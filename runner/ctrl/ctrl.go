@@ -16,8 +16,6 @@ import (
 	"time"
 )
 
-const pollInterval = time.Millisecond * 300
-
 type proc struct {
 	p                 *process.Process
 	alive, ready, byz bool
@@ -25,13 +23,16 @@ type proc struct {
 	err error
 }
 
-type ControllerInfo struct {
-	ID, Sock string
+type Config struct {
+	CtrlBuffer, ProcBuffer int
+	PollDelay              time.Duration
 }
 
 type Controller struct {
 	ctl      chan process.Message
 	channels map[uint64]chan process.Message
+
+	cfg Config
 
 	stopCh chan struct{}
 
@@ -46,10 +47,11 @@ type Controller struct {
 	al, rdy int
 }
 
-func StartController(_ ControllerInfo) (*Controller, error) {
+func StartController(cfg Config) (*Controller, error) {
 	c := &Controller{
-		ctl:        make(chan process.Message, 2000),
+		ctl:        make(chan process.Message, cfg.CtrlBuffer),
 		channels:   make(map[uint64]chan process.Message),
+		cfg:        cfg,
 		stopCh:     make(chan struct{}),
 		p:          make(map[uint64]proc),
 		payloadMap: make(map[uint32][]byte),
@@ -69,7 +71,7 @@ func (c *Controller) startProcess(cfg process.Config, bp brb.Protocol) error {
 	}
 
 	c.p[cfg.ByzConfig.Id] = proc{p: p, byz: cfg.ByzConfig.Byz}
-	c.channels[cfg.ByzConfig.Id] = make(chan process.Message, 50000)
+	c.channels[cfg.ByzConfig.Id] = make(chan process.Message, c.cfg.ProcBuffer)
 	c.pLock.Unlock()
 	return nil
 }
@@ -180,7 +182,7 @@ func (c *Controller) WaitForAlive() error {
 			} else if !p.alive {
 				fmt.Printf("waiting for %v alive\n", pic)
 				waiting = true
-				time.Sleep(pollInterval)
+				time.Sleep(c.cfg.PollDelay)
 				break
 			}
 		}
@@ -199,7 +201,7 @@ func (c *Controller) WaitForReady() error {
 			} else if !p.ready {
 				fmt.Printf("waiting for %v ready\n", pic)
 				waiting = true
-				time.Sleep(pollInterval)
+				time.Sleep(c.cfg.PollDelay)
 				break
 			}
 		}
@@ -235,7 +237,7 @@ func (c *Controller) WaitForDeliver(uid uint32) Stats {
 		}
 		i = (i + 1) % 5
 
-		time.Sleep(pollInterval * 2)
+		time.Sleep(c.cfg.PollDelay * 2)
 	}
 }
 

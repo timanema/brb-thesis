@@ -10,6 +10,7 @@ import (
 )
 
 // TODO: fix after Dolev known is 100% working
+// Dolev with routing and additional optimizations for RP Tim Anema
 type DolevKnownImproved struct {
 	n   Network
 	app Application

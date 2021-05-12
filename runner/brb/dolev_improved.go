@@ -7,6 +7,7 @@ import (
 	"rp-runner/graphs"
 )
 
+// Improved Dolev Protocol based on Bonomi (Multi-hop)
 type DolevImproved struct {
 	n   Network
 	app Application

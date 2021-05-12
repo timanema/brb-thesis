@@ -12,8 +12,6 @@ import (
 )
 
 type Config struct {
-	CtrlID, CtrlSock           string
-	Sock                       string
 	MaxRetries                 int
 	RetryDelay, NeighbourDelay time.Duration
 	ByzConfig                  brb.Config

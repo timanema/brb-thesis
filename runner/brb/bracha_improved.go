@@ -6,25 +6,8 @@ import (
 	"math"
 )
 
-const (
-	BrachaSend  uint8 = 1
-	BrachaEcho  uint8 = 2
-	BrachaReady uint8 = 3
-)
-
-type BrachaMessage struct {
-	Src     uint64
-	Payload []byte
-}
-
-// TODO: same as with Dolev, not really fair
-type brachaIdentifier struct {
-	Id   uint32
-	Hash [sha256.Size]byte
-}
-
-// Original Bracha Protocol
-type Bracha struct {
+// Improved version for RP Tim Anema
+type BrachaImproved struct {
 	n   Network
 	app Application
 	cfg Config
@@ -38,7 +21,7 @@ type Bracha struct {
 	readySent map[brachaIdentifier]struct{}
 }
 
-func (b *Bracha) Init(n Network, app Application, cfg Config) {
+func (b *BrachaImproved) Init(n Network, app Application, cfg Config) {
 	b.n = n
 	b.app = app
 	b.cfg = cfg
@@ -53,7 +36,7 @@ func (b *Bracha) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func (b *Bracha) send(messageType uint8, uid uint32, id brachaIdentifier, data interface{}) {
+func (b *BrachaImproved) send(messageType uint8, uid uint32, id brachaIdentifier, data interface{}) {
 	// Only send one echo per message
 	if _, ok := b.echoSent[id]; ok && messageType == BrachaEcho {
 		return
@@ -69,12 +52,12 @@ func (b *Bracha) send(messageType uint8, uid uint32, id brachaIdentifier, data i
 	}
 }
 
-func (b *Bracha) hasDelivered(uid uint32) bool {
+func (b *BrachaImproved) hasDelivered(uid uint32) bool {
 	_, ok := b.delivered[uid]
 	return ok
 }
 
-func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interface{}) {
+func (b *BrachaImproved) Receive(messageType uint8, src uint64, uid uint32, data interface{}) {
 	if b.cfg.Byz {
 		// TODO: better byzantine behaviour?
 		return
@@ -128,7 +111,7 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interfa
 	}
 }
 
-func (b *Bracha) Send(uid uint32, payload []byte) {
+func (b *BrachaImproved) Send(uid uint32, payload []byte) {
 	if _, ok := b.delivered[uid]; !ok {
 		id := brachaIdentifier{
 			Id:   uid,

@@ -19,6 +19,7 @@ type dolevIdentifier struct {
 	Hash [sha256.Size]byte
 }
 
+// Original Dolev Protocol
 type Dolev struct {
 	n   Network
 	app Application

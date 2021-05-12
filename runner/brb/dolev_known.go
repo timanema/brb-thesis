@@ -19,6 +19,7 @@ type DolevKnownMessage struct {
 	Paths   []dolevPath
 }
 
+// Dolev with routing for RP Tim Anema
 type DolevKnown struct {
 	n   Network
 	app Application
@@ -92,8 +93,6 @@ func combineDolevPaths(paths []dolevPath) map[uint64][]dolevPath {
 func (d *DolevKnown) sendMergedMessage(uid uint32, m DolevKnownMessage) error {
 	next := combineDolevPaths(m.Paths)
 
-	//fmt.Printf("proc %v: %v\n", d.cfg.Id, next)
-
 	for dst, p := range next {
 		m.Paths = p
 
@@ -106,23 +105,17 @@ func (d *DolevKnown) sendMergedMessage(uid uint32, m DolevKnownMessage) error {
 func (d *DolevKnown) sendInitialMessage(uid uint32, payload []byte) error {
 	next := combinePaths(d.broadcast)
 
-	//fmt.Println(next)
-
 	m := DolevKnownMessage{
 		Src:     d.cfg.Id,
 		Payload: payload,
 	}
 
-	//fmt.Println("initial send start")
 	for dst, p := range next {
 		m.Paths = p
-
-		//fmt.Printf("%v -> %v\n", dst, p)
 
 		d.n.Send(0, dst, uid, m)
 	}
 
-	//fmt.Println("initial send done")
 	return nil
 }
 
@@ -166,7 +159,6 @@ func (d *DolevKnown) Receive(_ uint8, src uint64, uid uint32, data interface{}) 
 
 	if !d.hasDelivered(uid) {
 		if graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
-			//fmt.Printf("proc %v is delivering %v\n", d.cfg.Id, id)
 			d.delivered[uid] = struct{}{}
 			d.app.Deliver(uid, m.Payload)
 
