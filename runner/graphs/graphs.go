@@ -103,6 +103,16 @@ func GraphsMain() {
 	//benchSingleTest()
 	//return
 
+	x := GeneralizedWheelGenerator{}
+	gx, err := x.Generate(5, 2)
+	if err != nil {
+		fmt.Printf("invalid graph parameters: %v\n", err)
+		os.Exit(1)
+	}
+
+	PrintGraphviz(Directed(gx))
+	return
+
 	gr := simple.NewWeightedUndirectedGraph(0, 0)
 
 	/*    b

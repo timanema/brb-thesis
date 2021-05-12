@@ -1,12 +1,9 @@
 package brb
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/gob"
 	"fmt"
 	"gonum.org/v1/gonum/graph/simple"
-	"os"
 	"rp-runner/graphs"
 )
 
@@ -33,7 +30,7 @@ func (d *DolevImproved) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func (d *DolevImproved) send(uid uint32, data []byte, to []uint64) {
+func (d *DolevImproved) send(uid uint32, data interface{}, to []uint64) {
 	for _, n := range to {
 		d.n.Send(0, n, uid, data)
 	}
@@ -51,7 +48,7 @@ func (d *DolevImproved) deliver(uid uint32, payload []byte) {
 	}
 }
 
-func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
+func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
 	if d.cfg.Byz {
 		// TODO: better byzantine behaviour?
 		return
@@ -62,12 +59,7 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 		return
 	}
 
-	var m DolevMessage
-	dec := gob.NewDecoder(bytes.NewBuffer(data))
-	if err := dec.Decode(&m); err != nil {
-		fmt.Printf("process %v errored while decoding dolev message: %v\n", d.cfg.Id, err)
-		os.Exit(1)
-	}
+	m := data.(DolevMessage)
 
 	if _, ok := d.neighboursDelivered[uid]; !ok {
 		d.neighboursDelivered[uid] = make(map[uint64]struct{})
@@ -87,6 +79,16 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	// Modification 2: A process has delivered the message when the path is empty
 	if len(m.Path) == 0 {
 		d.neighboursDelivered[uid][src] = struct{}{}
+
+		// Since the source process has delivered the message, there must be a link (either direct or over f+1 paths)
+		if src != m.Src {
+			m.Path = graphs.Path{
+				simple.WeightedEdge{
+					F: simple.Node(m.Src),
+					T: simple.Node(src),
+				},
+			}
+		}
 	}
 
 	// Add latest edge to path for message
@@ -106,24 +108,6 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 		Hash: sha256.Sum256(m.Payload),
 	}
 
-	// Send to appropriate neighbours
-	b := bytes.NewBuffer(make([]byte, 0, 20))
-	enc := gob.NewEncoder(b)
-	if err := enc.Encode(m); err != nil {
-		fmt.Printf("process %v errored while encoding dolev message: %v\n", d.cfg.Id, err)
-		os.Exit(1)
-	}
-
-	to := make([]uint64, 0, len(d.cfg.Neighbours))
-
-	for _, n := range d.cfg.Neighbours {
-		_, trav := traversed[n]
-		// Modification 3: No longer relay to neighbours who have delivered the message already
-		if _, ok := d.neighboursDelivered[uid][n]; n != src && !trav && !ok {
-			to = append(to, n)
-		}
-	}
-
 	if _, ok := d.delivered[uid]; !ok {
 		d.paths[id] = append(d.paths[id], m.Path)
 
@@ -138,11 +122,23 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	}
 
 	// Modification 2: If delivered, sent empty path
-	if d.hasDelivered(uid) {
+	del := d.hasDelivered(uid)
+	if del {
 		m.Path = nil
 	}
 
-	d.send(uid, b.Bytes(), to)
+	// Send to appropriate neighbours
+	to := make([]uint64, 0, len(d.cfg.Neighbours))
+
+	for _, n := range d.cfg.Neighbours {
+		_, trav := traversed[n]
+		// Modification 3: No longer relay to neighbours who have delivered the message already
+		if _, ok := d.neighboursDelivered[uid][n]; n != src && !ok && (del || !trav) {
+			to = append(to, n)
+		}
+	}
+
+	d.send(uid, m, to)
 }
 
 func (d *DolevImproved) Send(uid uint32, payload []byte) {
@@ -157,19 +153,12 @@ func (d *DolevImproved) Send(uid uint32, payload []byte) {
 		d.neighboursDelivered[uid] = make(map[uint64]struct{})
 		d.app.Deliver(uid, payload)
 
-		m := &DolevMessage{
+		m := DolevMessage{
 			Src:     d.cfg.Id,
 			Path:    nil,
 			Payload: payload,
 		}
 
-		b := bytes.NewBuffer(make([]byte, 0, 20))
-		enc := gob.NewEncoder(b)
-		if err := enc.Encode(m); err != nil {
-			fmt.Printf("process %v errored while encoding dolev message: %v\n", d.cfg.Id, err)
-			os.Exit(1)
-		}
-
-		d.send(uid, b.Bytes(), d.cfg.Neighbours)
+		d.send(uid, m, d.cfg.Neighbours)
 	}
 }

@@ -12,7 +12,7 @@ type Application interface {
 }
 
 type Network interface {
-	Send(messageType uint8, dest uint64, uid uint32, data []byte)
+	Send(messageType uint8, dest uint64, uid uint32, data interface{})
 }
 
 type Config struct {
@@ -29,7 +29,7 @@ type Protocol interface {
 	// be completed before announcing that they're ready)
 	Init(n Network, app Application, cfg Config)
 
-	Receive(messageType uint8, src uint64, uid uint32, data []byte)
+	Receive(messageType uint8, src uint64, uid uint32, data interface{})
 
 	Send(uid uint32, payload []byte)
 }

@@ -2,9 +2,7 @@ package ctrl
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
-	"github.com/pebbe/zmq4"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
@@ -32,7 +30,9 @@ type ControllerInfo struct {
 }
 
 type Controller struct {
-	s      *zmq4.Socket
+	ctl      chan process.Message
+	channels map[uint64]chan process.Message
+
 	stopCh chan struct{}
 
 	p     map[uint64]proc
@@ -46,25 +46,10 @@ type Controller struct {
 	al, rdy int
 }
 
-func StartController(info ControllerInfo) (*Controller, error) {
-	s, err := zmq4.NewSocket(zmq4.ROUTER)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create ZeroMQ context")
-	}
-
-	if err := s.SetRouterMandatory(1); err != nil {
-		return nil, errors.Wrap(err, "unable to set mandatory routing flag")
-	}
-
-	if err := s.SetIdentity(info.ID); err != nil {
-		return nil, errors.Wrap(err, "unable to set ZeroMQ identity")
-	}
-
-	if err := s.Bind(info.Sock); err != nil {
-		return nil, errors.Wrapf(err, "unable to bind to socket %v", info.Sock)
-	}
-
-	c := &Controller{s: s,
+func StartController(_ ControllerInfo) (*Controller, error) {
+	c := &Controller{
+		ctl:        make(chan process.Message, 2000),
+		channels:   make(map[uint64]chan process.Message),
 		stopCh:     make(chan struct{}),
 		p:          make(map[uint64]proc),
 		payloadMap: make(map[uint32][]byte),
@@ -76,14 +61,15 @@ func StartController(info ControllerInfo) (*Controller, error) {
 	return c, nil
 }
 
-func (c *Controller) StartProcess(cfg process.Config, bp brb.Protocol) error {
+func (c *Controller) startProcess(cfg process.Config, bp brb.Protocol) error {
 	c.pLock.Lock()
-	p, err := process.StartProcess(cfg.ByzConfig.Id, cfg, c.stopCh, cfg.ByzConfig.Neighbours, bp)
+	p, err := process.StartProcess(cfg.ByzConfig.Id, cfg, c.stopCh, cfg.ByzConfig.Neighbours, bp, c.ctl)
 	if err != nil {
 		return errors.Wrap(err, "unable to start process")
 	}
 
 	c.p[cfg.ByzConfig.Id] = proc{p: p, byz: cfg.ByzConfig.Byz}
+	c.channels[cfg.ByzConfig.Id] = make(chan process.Message, 50000)
 	c.pLock.Unlock()
 	return nil
 }
@@ -96,6 +82,25 @@ func (c *Controller) contains(n uint64, xs []uint64) bool {
 	}
 
 	return false
+}
+
+func (c *Controller) FlushProcesses() {
+	c.pLock.Lock()
+	defer c.pLock.Unlock()
+
+	for _, p := range c.p {
+		p.p.Flush()
+	}
+
+	// TODO: make better
+	time.Sleep(time.Second * 5)
+
+	for _, p := range c.p {
+		p.p.StopFlush()
+	}
+
+	// To ensure all flushing routines are stopped
+	time.Sleep(time.Millisecond * 400)
 }
 
 // TODO: random byzantine nodes?
@@ -129,23 +134,30 @@ func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirect
 			KnownTopology: true,
 		}
 
-		if err := c.StartProcess(pcfg, reflect.New(reflect.ValueOf(bp).Elem().Type()).Interface().(brb.Protocol)); err != nil {
+		if err := c.startProcess(pcfg, reflect.New(reflect.ValueOf(bp).Elem().Type()).Interface().(brb.Protocol)); err != nil {
+			return errors.Wrap(err, "failed to create process")
+		}
+	}
+
+	c.pLock.Lock()
+	for _, p := range c.p {
+		if err := p.p.Start(c.channels); err != nil {
 			return errors.Wrap(err, "failed to start process")
 		}
 	}
+	c.pLock.Unlock()
 
 	return nil
 }
 
-// TODO: tack on statistics etc later
 func (c *Controller) TriggerMessageSend(id uint64, payload []byte) (uint32, error) {
 	uid := rand.Uint32()
 
-	m := &msg.TriggerMessage{Id: uid, Payload: payload}
-	b, err := m.Encode()
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to encode payload message")
-	}
+	m := msg.TriggerMessage{Id: uid, Payload: payload}
+	//b, err := m.Encode()
+	//if err != nil {
+	//	return 0, errors.Wrap(err, "failed to encode payload message")
+	//}
 
 	c.dLock.Lock()
 	c.payloadMap[uid] = payload
@@ -153,7 +165,9 @@ func (c *Controller) TriggerMessageSend(id uint64, payload []byte) (uint32, erro
 	c.sendMap[uid] = time.Now()
 	c.dLock.Unlock()
 
-	return uid, errors.Wrapf(c.send(id, msg.TriggerMessageType, b), "failed to send message to %v", id)
+	c.send(id, msg.TriggerMessageType, m)
+
+	return uid, nil
 }
 
 func (c *Controller) WaitForAlive() error {
@@ -204,6 +218,7 @@ func (c *Controller) WaitForDeliver(uid uint32) Stats {
 	}
 	c.pLock.Unlock()
 
+	i := 0
 	for {
 		c.dLock.Lock()
 		for pid := range c.deliverMap[uid] {
@@ -214,7 +229,12 @@ func (c *Controller) WaitForDeliver(uid uint32) Stats {
 		if len(needed) == 0 {
 			return c.aggregateStats(uid)
 		}
-		fmt.Printf("waiting for %v more: %v\n", len(needed), needed)
+
+		if i == 0 {
+			fmt.Printf("waiting for %v more: %v\n", len(needed), needed)
+		}
+		i = (i + 1) % 5
+
 		time.Sleep(pollInterval * 2)
 	}
 }
@@ -250,43 +270,38 @@ func (c *Controller) Close() {
 	close(c.stopCh)
 }
 
-func (c *Controller) send(id uint64, t uint8, b []byte) error {
-	_, err := c.s.SendMessage(process.IdToString(id), []byte{t}, b, []byte{process.ControlIdMagic})
-
-	return err
+func (c *Controller) send(id uint64, t uint8, b interface{}) {
+	c.channels[id] <- process.Message{
+		Ctl:  true,
+		Type: t,
+		Data: b,
+	}
 }
 
 func (c *Controller) run() {
 	for {
 		select {
 		case <-c.stopCh:
-			_ = c.s.Close()
+			close(c.ctl)
 			return
 		default:
 		}
 
-		m, err := c.s.RecvMessageBytes(0)
-
-		if err != nil {
-			fmt.Printf("err while reading: %v\n", err)
-		} else if len(m) >= 3 {
-			c.handleMsg(binary.BigEndian.Uint64(m[0]), m[1][0], m[2])
-		} else {
-			fmt.Printf("discarding bogus message: %v\n", m)
-		}
+		m := <-c.ctl
+		c.handleMsg(m.Src, m.Type, m.Data)
 	}
 }
 
-func (c *Controller) handleMsg(src uint64, t uint8, b []byte) {
+func (c *Controller) handleMsg(src uint64, t uint8, b interface{}) {
 	//fmt.Printf("server got data from %v (type=%v): %v\n", src, t, b)
 
 	switch t {
 	case msg.RunnerAliveType:
-		var r msg.RunnerStatus
-		if err := r.Decode(b); err != nil {
-			fmt.Printf("failed to decode msg: %v\n", err)
-			return
-		}
+		r := b.(msg.RunnerStatus)
+		//if err := r.Decode(b); err != nil {
+		//	fmt.Printf("failed to decode msg: %v\n", err)
+		//	return
+		//}
 
 		c.pLock.Lock()
 		p := c.p[r.ID]
@@ -297,11 +312,11 @@ func (c *Controller) handleMsg(src uint64, t uint8, b []byte) {
 
 		fmt.Printf("runner %v is alive (%v)\n", src, c.al)
 	case msg.RunnerReadyType:
-		var r msg.RunnerStatus
-		if err := r.Decode(b); err != nil {
-			fmt.Printf("failed to decode msg: %v\n", err)
-			return
-		}
+		r := b.(msg.RunnerStatus)
+		//if err := r.Decode(b); err != nil {
+		//	fmt.Printf("failed to decode msg: %v\n", err)
+		//	return
+		//}
 
 		c.pLock.Lock()
 		p := c.p[r.ID]
@@ -312,11 +327,11 @@ func (c *Controller) handleMsg(src uint64, t uint8, b []byte) {
 
 		fmt.Printf("runner %v is ready (%v/%v)\n", src, c.rdy, len(c.p))
 	case msg.RunnerFailedType:
-		var r msg.RunnerFailure
-		if err := r.Decode(b); err != nil {
-			fmt.Printf("failed to decode msg: %v\n", err)
-			return
-		}
+		r := b.(msg.RunnerFailure)
+		//if err := r.Decode(b); err != nil {
+		//	fmt.Printf("failed to decode msg: %v\n", err)
+		//	return
+		//}
 
 		c.pLock.Lock()
 		p := c.p[r.ID]
@@ -326,11 +341,11 @@ func (c *Controller) handleMsg(src uint64, t uint8, b []byte) {
 
 		fmt.Printf("runner %v failed: %v\n", r.ID, r.Err)
 	case msg.MessageDeliveredType:
-		var r msg.MessageDelivered
-		if err := r.Decode(b); err != nil {
-			fmt.Printf("failed to decode msg: %v\n", err)
-			return
-		}
+		r := b.(msg.MessageDelivered)
+		//if err := r.Decode(b); err != nil {
+		//	fmt.Printf("failed to decode msg: %v\n", err)
+		//	return
+		//}
 
 		c.dLock.Lock()
 		if bytes.Compare(r.Payload, c.payloadMap[r.Id]) != 0 {

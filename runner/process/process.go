@@ -1,10 +1,9 @@
 package process
 
 import (
-	"encoding/binary"
 	"fmt"
-	"github.com/pebbe/zmq4"
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 	"os"
 	"rp-runner/brb"
 	"rp-runner/msg"
@@ -26,8 +25,11 @@ type Stats struct {
 }
 
 type Process struct {
+	channels map[uint64]chan Message
+	ctl      chan Message
+	flushing *atomic.Bool
+
 	id     uint64
-	s      *zmq4.Socket
 	cfg    Config
 	stopCh <-chan struct{}
 
@@ -39,72 +41,20 @@ type Process struct {
 	neighbours map[uint64]bool
 }
 
-func StartProcess(id uint64, cfg Config, stopCh <-chan struct{}, neighbours []uint64, brb brb.Protocol) (*Process, error) {
+func StartProcess(id uint64, cfg Config, stopCh <-chan struct{}, neighbours []uint64, brb brb.Protocol, ctl chan Message) (*Process, error) {
 	nmap := make(map[uint64]bool, len(neighbours))
 	for _, n := range neighbours {
 		nmap[n] = false
 	}
 
 	stats := Stats{Deliveries: make(map[uint32]time.Time), MsgSent: make(map[uint32]int)}
-	p := &Process{id: id, s: nil, cfg: cfg, stopCh: stopCh, stats: stats, brb: brb, neighbours: nmap}
-
-	if err := p.start(); err != nil {
-		return nil, errors.Wrap(err, "failed to start")
-	}
+	p := &Process{ctl: ctl, flushing: atomic.NewBool(false), id: id, cfg: cfg, stopCh: stopCh, stats: stats, brb: brb, neighbours: nmap}
 
 	return p, nil
 }
 
-func createSocket(id, endpoint string) (*zmq4.Socket, error) {
-	s, err := zmq4.NewSocket(zmq4.ROUTER)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create ZeroMQ socket")
-	}
-
-	if err := s.SetSndhwm(0); err != nil {
-		return nil, errors.Wrap(err, "unable to set send HWM")
-	}
-	if err := s.SetRcvhwm(0); err != nil {
-		return nil, errors.Wrap(err, "unable to set recv HWM")
-	}
-
-	if err := s.SetLinger(0); err != nil {
-		return nil, errors.Wrap(err, "unable to set linger")
-	}
-
-	if err := s.SetRouterMandatory(1); err != nil {
-		return nil, errors.Wrap(err, "unable to set mandatory routing flag")
-	}
-
-	if err := s.SetIdentity(id); err != nil {
-		return nil, errors.Wrap(err, "unable to set ZeroMQ identity")
-	}
-
-	if err := s.Connect(endpoint); err != nil {
-		return nil, errors.Wrapf(err, "unable to connect to socket %v", endpoint)
-	}
-
-	return s, nil
-}
-
-func (p *Process) start() error {
-	s, err := createSocket(IdToString(p.id), p.cfg.CtrlSock)
-	if err != nil {
-		return errors.Wrap(err, "unable to create socket")
-	}
-
-	p.s = s
-
-	if err := p.s.Bind(fmt.Sprintf(p.cfg.Sock, p.id)); err != nil {
-		return errors.Wrapf(err, "unable to bind to socket %v", fmt.Sprintf(p.cfg.Sock, p.id))
-	}
-
-	// Make a map indicating readiness
-	for n, _ := range p.neighbours {
-		if err := s.Connect(fmt.Sprintf(p.cfg.Sock, n)); err != nil {
-			return errors.Wrapf(err, "unable to connect to neighbour %v", n)
-		}
-	}
+func (p *Process) Start(channels map[uint64]chan Message) error {
+	p.channels = channels
 
 	if err := p.waitForConnection(); err != nil {
 		return errors.Wrap(err, "unable to communicate with controller")
@@ -123,21 +73,29 @@ func (p *Process) start() error {
 	return nil
 }
 
-func (p *Process) checkNeighbours() {
-	m := &msg.RunnerStatus{ID: p.id}
-	b, err := m.Encode()
-	if err != nil {
-		errMsg := &msg.RunnerFailure{ID: p.id, Err: errors.Wrap(err, "unable to encode ready message")}
-		if b, err = errMsg.Encode(); err != nil {
-			fmt.Printf("process %v is unable to encode failure message: %v\n", p.id, err)
-			os.Exit(1)
+func (p *Process) send(id uint64, t uint8, b interface{}, ctrl bool) error {
+	m := Message{
+		Src:  p.id,
+		Type: t,
+		Data: b,
+	}
+
+	if ctrl {
+		p.ctl <- m
+	} else if !p.flushing.Load() {
+		c, ok := p.channels[id]
+		if !ok {
+			return errors.Errorf("proc %v is not connected to %v", p.id, id)
 		}
 
-		if _, err = p.s.SendMessage(p.cfg.CtrlID, []byte{msg.RunnerFailedType}, b); err != nil {
-			fmt.Printf("process %v is unable to send failure message: %v\n", p.id, err)
-			os.Exit(1)
-		}
+		c <- m
 	}
+
+	return nil
+}
+
+func (p *Process) checkNeighbours() {
+	m := msg.RunnerStatus{ID: p.id}
 
 	waiting := true
 	for waiting {
@@ -150,8 +108,7 @@ func (p *Process) checkNeighbours() {
 		waiting = false
 		for nid, n := range p.neighbours {
 			if !n {
-				_, err = p.s.SendMessage(IdToString(nid), []byte{msg.RunnerPingType}, []byte{0x00})
-				if err != nil {
+				if err := p.send(nid, msg.RunnerPingType, []byte{0x00}, false); err != nil {
 					//fmt.Printf("proc %v got err to %v: %v\n", p.id, nid, err)
 					waiting = true
 					time.Sleep(p.cfg.NeighbourDelay)
@@ -162,21 +119,19 @@ func (p *Process) checkNeighbours() {
 		}
 	}
 
-	_, err = p.s.SendMessage(p.cfg.CtrlID, []byte{msg.RunnerReadyType}, b)
+	if err := p.send(0, msg.RunnerReadyType, m, true); err != nil {
+		fmt.Printf("process %v is unable to send ready message: %v\n", p.id, err)
+		os.Exit(1)
+	}
 }
 
 func (p *Process) waitForConnection() error {
-	m := &msg.RunnerStatus{ID: p.id}
-	b, err := m.Encode()
-	if err != nil {
-		return errors.Wrap(err, "unable to encode alive message")
-	}
+	m := msg.RunnerStatus{ID: p.id}
 
 	retries := 0
 
 	for {
-		_, err = p.s.SendMessage(p.cfg.CtrlID, []byte{msg.RunnerAliveType}, b)
-		if err != nil {
+		if err := p.send(0, msg.RunnerAliveType, m, true); err != nil {
 			// TODO: better error matching
 			if err.Error() == "no route to host" {
 				//fmt.Printf("socket not yet ready: %v\n", err)
@@ -197,6 +152,28 @@ func (p *Process) waitForConnection() error {
 	}
 }
 
+func (p *Process) Flush() {
+	p.flushing.Store(true)
+
+	go func() {
+		for {
+			select {
+			case <-p.channels[p.id]:
+				continue
+			default:
+				if !p.flushing.Load() {
+					return
+				}
+				time.Sleep(time.Millisecond * 200)
+			}
+		}
+	}()
+}
+
+func (p *Process) StopFlush() {
+	p.flushing.Store(false)
+}
+
 func (p *Process) run() {
 	for {
 		select {
@@ -205,73 +182,45 @@ func (p *Process) run() {
 		default:
 		}
 
-		m, err := p.s.RecvMessageBytes(0)
-
-		if err != nil {
-			fmt.Printf("err while reading: %v\n", err)
-		} else if len(m) >= 3 {
-			p.handleMsg(binary.BigEndian.Uint64(m[0]), m[1][0], m[2], len(m) >= 4 && m[3][0] == ControlIdMagic)
-		} else {
-			fmt.Printf("discarding bogus message: %v\n", m)
+		m := <-p.channels[p.id]
+		if p.flushing.Load() {
+			continue
 		}
+
+		p.handleMsg(m.Src, m.Type, m.Data, m.Ctl)
 	}
 }
 
-func (p *Process) handleMsg(src uint64, t uint8, b []byte, ctrl bool) {
+func (p *Process) handleMsg(src uint64, t uint8, b interface{}, ctrl bool) {
 	//if ctrl {
-	//	fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, p.cfg.CtrlID, t, len(b))
+	//	fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, p.cfg.CtrlID, t, b)
 	//} else {
-	//	fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, src, t, len(b))
+	//	fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, src, t, b)
 	//}
 
 	switch t {
 	case msg.WrapperDataType:
-		var r msg.WrapperDataMessage
-		if err := r.Decode(b); err != nil {
-			fmt.Printf("failed to decode msg: %v\n", err)
-			return
-		}
+		r := b.(msg.WrapperDataMessage)
 
 		p.brb.Receive(r.T, src, r.Id, r.Data)
 	case msg.TriggerMessageType:
-		var r msg.TriggerMessage
-		if err := r.Decode(b); err != nil {
-			fmt.Printf("failed to decode msg: %v\n", err)
-			return
-		}
+		r := b.(msg.TriggerMessage)
 
 		p.stats.MsgSent[r.Id] = 0
 		p.brb.Send(r.Id, r.Payload)
 	}
 }
 
-func (p *Process) send(id uint64, t uint8, b []byte, ctrl bool) error {
-	dest := IdToString(id)
-
-	if ctrl {
-		dest = p.cfg.CtrlID
-	}
-
-	_, err := p.s.SendMessage(dest, []byte{t}, b)
-	return err
-}
-
 // Adding abstraction for BRB protocols
 func (p *Process) Deliver(uid uint32, payload []byte) {
 	//fmt.Printf("process %v got delivered (%v): %v\n", p.id, uid, string(payload))
 
-	m := &msg.MessageDelivered{
+	m := msg.MessageDelivered{
 		Id:      uid,
 		Payload: payload,
 	}
-	b, err := m.Encode()
-	if err != nil {
-		// TODO: send to controller
-		fmt.Printf("process %v failed to encode deliver message: %v\n", p.id, err)
-		os.Exit(1)
-	}
 
-	err = p.send(0, msg.MessageDeliveredType, b, true)
+	err := p.send(0, msg.MessageDeliveredType, m, true)
 	if err != nil {
 		fmt.Printf("process %v failed to send deliver message: %v\n", p.id, err)
 		os.Exit(1)
@@ -282,21 +231,16 @@ func (p *Process) Deliver(uid uint32, payload []byte) {
 	p.sLock.Unlock()
 }
 
-func (p *Process) Send(t uint8, dest uint64, uid uint32, data []byte) {
+func (p *Process) Send(t uint8, dest uint64, uid uint32, data interface{}) {
 	//fmt.Printf("process %v is sending %v bytes (type=%v, id=%v) to %v\n", p.id, len(data), t, uid, dest)
 
-	m := &msg.WrapperDataMessage{
+	m := msg.WrapperDataMessage{
 		T:    t,
 		Id:   uid,
 		Data: data,
 	}
-	b, err := m.Encode()
-	if err != nil {
-		fmt.Printf("process %v failed to encode wrapper data message: %v\n", p.id, err)
-		os.Exit(1)
-	}
 
-	err = p.send(dest, msg.WrapperDataType, b, false)
+	err := p.send(dest, msg.WrapperDataType, m, false)
 	if err != nil {
 		fmt.Printf("process %v failed to send wrapper data message to %v: %v\n", p.id, dest, err)
 		os.Exit(1)

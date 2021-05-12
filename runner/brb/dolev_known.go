@@ -1,16 +1,12 @@
 package brb
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/gob"
 	"fmt"
-	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph/simple"
 	"os"
 	"rp-runner/graphs"
 	"strconv"
-	"time"
 )
 
 type dolevPath struct {
@@ -58,9 +54,9 @@ func (d *DolevKnown) Init(n Network, app Application, cfg Config) {
 		}
 
 		if d.cfg.Id == 0 {
-			fmt.Println(d.routes)
+			//fmt.Println(d.routes)
 			fmt.Println(d.cfg.Neighbours)
-			graphs.PrintGraphviz(graphs.Directed(cfg.Graph))
+			//graphs.PrintGraphviz(graphs.Directed(cfg.Graph))
 		}
 	}
 
@@ -99,16 +95,9 @@ func (d *DolevKnown) sendMergedMessage(uid uint32, m DolevKnownMessage) error {
 	//fmt.Printf("proc %v: %v\n", d.cfg.Id, next)
 
 	for dst, p := range next {
-		b := bytes.NewBuffer(make([]byte, 0, 20))
-		enc := gob.NewEncoder(b)
-
 		m.Paths = p
-		if err := enc.Encode(m); err != nil {
-			return errors.Wrapf(err, "process %v errored while encoding dolev (known) message", d.cfg.Id)
-		}
 
-		time.Sleep(time.Millisecond * 5)
-		d.n.Send(0, dst, uid, b.Bytes())
+		d.n.Send(0, dst, uid, m)
 	}
 
 	return nil
@@ -117,26 +106,20 @@ func (d *DolevKnown) sendMergedMessage(uid uint32, m DolevKnownMessage) error {
 func (d *DolevKnown) sendInitialMessage(uid uint32, payload []byte) error {
 	next := combinePaths(d.broadcast)
 
-	fmt.Println(next)
+	//fmt.Println(next)
 
-	m := &DolevKnownMessage{
+	m := DolevKnownMessage{
 		Src:     d.cfg.Id,
 		Payload: payload,
 	}
 
 	//fmt.Println("initial send start")
 	for dst, p := range next {
-		b := bytes.NewBuffer(make([]byte, 0, 20))
-		enc := gob.NewEncoder(b)
-
 		m.Paths = p
-		if err := enc.Encode(m); err != nil {
-			return errors.Wrapf(err, "process %v errored while encoding dolev (known) message", d.cfg.Id)
-		}
 
 		//fmt.Printf("%v -> %v\n", dst, p)
 
-		d.n.Send(0, dst, uid, b.Bytes())
+		d.n.Send(0, dst, uid, m)
 	}
 
 	//fmt.Println("initial send done")
@@ -148,18 +131,13 @@ func (d *DolevKnown) hasDelivered(uid uint32) bool {
 	return ok
 }
 
-func (d *DolevKnown) Receive(_ uint8, src uint64, uid uint32, data []byte) {
+func (d *DolevKnown) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
 	if d.cfg.Byz {
 		// TODO: better byzantine behaviour?
 		return
 	}
 
-	var m DolevKnownMessage
-	dec := gob.NewDecoder(bytes.NewBuffer(data))
-	if err := dec.Decode(&m); err != nil {
-		fmt.Printf("process %v errored while decoding dolev (known) message: %v\n", d.cfg.Id, err)
-		os.Exit(1)
-	}
+	m := data.(DolevKnownMessage)
 
 	// Add paths to mem for this message
 	id := dolevIdentifier{

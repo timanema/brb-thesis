@@ -1,12 +1,9 @@
 package brb
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/gob"
 	"fmt"
 	"gonum.org/v1/gonum/graph/simple"
-	"os"
 	"rp-runner/graphs"
 )
 
@@ -43,24 +40,19 @@ func (d *Dolev) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func (d *Dolev) send(uid uint32, data []byte, to []uint64) {
+func (d *Dolev) send(uid uint32, data interface{}, to []uint64) {
 	for _, n := range to {
 		d.n.Send(0, n, uid, data)
 	}
 }
 
-func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data []byte) {
+func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
 	if d.cfg.Byz {
 		// TODO: better byzantine behaviour?
 		return
 	}
 
-	var m DolevMessage
-	dec := gob.NewDecoder(bytes.NewBuffer(data))
-	if err := dec.Decode(&m); err != nil {
-		fmt.Printf("process %v errored while decoding dolev message: %v\n", d.cfg.Id, err)
-		os.Exit(1)
-	}
+	m := data.(DolevMessage)
 
 	traversed := make(map[uint64]struct{}, len(m.Path))
 	for _, e := range m.Path {
@@ -80,19 +72,14 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 	}
 
 	// Send to neighbours (except origin)
-	b := bytes.NewBuffer(make([]byte, 0, 20))
-	enc := gob.NewEncoder(b)
-	if err := enc.Encode(m); err != nil {
-		fmt.Printf("process %v errored while encoding dolev message: %v\n", d.cfg.Id, err)
-		os.Exit(1)
-	}
-
 	to := make([]uint64, 0, len(d.cfg.Neighbours))
 	for _, n := range d.cfg.Neighbours {
 		if _, ok := traversed[n]; n != src && !ok {
 			to = append(to, n)
 		}
 	}
+
+	//fmt.Printf("proc %v is sending %v %v bytes (%v)\n", d.cfg.Id, to, len(b.Bytes()), m.Path)
 
 	if _, ok := d.delivered[uid]; !ok {
 		d.paths[id] = append(d.paths[id], m.Path)
@@ -107,7 +94,7 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data []byte) {
 		}
 	}
 
-	d.send(uid, b.Bytes(), to)
+	d.send(uid, m, to)
 }
 
 func (d *Dolev) Send(uid uint32, payload []byte) {
@@ -121,19 +108,12 @@ func (d *Dolev) Send(uid uint32, payload []byte) {
 		d.paths[id] = make([]graphs.Path, d.cfg.F*2+1)
 		d.app.Deliver(uid, payload)
 
-		m := &DolevMessage{
+		m := DolevMessage{
 			Src:     d.cfg.Id,
 			Path:    nil,
 			Payload: payload,
 		}
 
-		b := bytes.NewBuffer(make([]byte, 0, 20))
-		enc := gob.NewEncoder(b)
-		if err := enc.Encode(m); err != nil {
-			fmt.Printf("process %v errored while encoding dolev message: %v\n", d.cfg.Id, err)
-			os.Exit(1)
-		}
-
-		d.send(uid, b.Bytes(), d.cfg.Neighbours)
+		d.send(uid, m, d.cfg.Neighbours)
 	}
 }

@@ -31,7 +31,7 @@ func (r *TriggerMessage) Decode(b []byte) error {
 type WrapperDataMessage struct {
 	T    uint8
 	Id   uint32
-	Data []byte
+	Data interface{}
 }
 
 func (r *WrapperDataMessage) Encode() ([]byte, error) {

@@ -10,10 +10,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"rp-runner/brb"
 	"rp-runner/ctrl"
 	"rp-runner/graphs"
 	"rp-runner/process"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -64,9 +66,9 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 100, 5, 0
-	m := graphs.GeneralizedWheelGenerator{}
-	if err := runSimpleTest(info, 5, n, k, f, m, cfg, &brb.DolevKnown{}); err != nil {
+	n, k, f := 150, 4, 1
+	m := graphs.MultiPartiteWheelGenerator{}
+	if err := runSimpleTest(info, 15, n, k, f, m, cfg, &brb.DolevKnownImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
@@ -121,26 +123,27 @@ func runSimpleTest(info ctrl.ControllerInfo, runs int, n, k, f int, gen graphs.G
 			os.Exit(1)
 		}
 
-		uid2, err := ctl.TriggerMessageSend(0, []byte(fmt.Sprintf("run_%v", i)))
-		if err != nil {
-			fmt.Printf("err while sending payload msg: %v\n", err)
-			os.Exit(1)
-		}
+		//uid2, err := ctl.TriggerMessageSend(0, []byte(fmt.Sprintf("run_%v", i)))
+		//if err != nil {
+		//	fmt.Printf("err while sending payload msg: %v\n", err)
+		//	os.Exit(1)
+		//}
 
-		fmt.Printf("sent message (%v & %v, round %v), waiting for deliver\n", uid1, uid2, i)
+		fmt.Printf("sent message (%v, round %v), waiting for deliver\n", uid1, i)
 		stats := ctl.WaitForDeliver(uid1)
 		fmt.Printf("statistics (%v, %v):\n  last delivery latency: %v\n  messages sent: %v\n", uid1, i,
 			stats.Latency, stats.MsgCount)
-		stats2 := ctl.WaitForDeliver(uid2)
-		fmt.Printf("statistics (%v, %v):\n  last delivery latency: %v\n  messages sent: %v\n", uid2, i,
-			stats2.Latency, stats2.MsgCount)
+		//stats2 := ctl.WaitForDeliver(uid2)
+		//fmt.Printf("statistics (%v, %v):\n  last delivery latency: %v\n  messages sent: %v\n", uid2, i,
+		//	stats2.Latency, stats2.MsgCount)
 
 		lat += stats.Latency
 		lats = append(lats, int(stats.Latency))
 		msg += stats.MsgCount
 		cnts = append(cnts, stats.MsgCount)
 
-		time.Sleep(time.Second * 2)
+		ctl.FlushProcesses()
+		runtime.GC()
 	}
 
 	fmt.Println("average stats:")
@@ -153,7 +156,8 @@ func runSimpleTest(info ctrl.ControllerInfo, runs int, n, k, f int, gen graphs.G
 	fmt.Printf("  messages:\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", mMean, mSd, mRsd)
 
 	fmt.Println("config:")
-	fmt.Printf("  nodes: %v\n  connectivity (k): %v\n  byzantine nodes (f): %v\n  runs: %v\n", n, k, f, runs)
+	fmt.Printf("  nodes: %v\n  connectivity (k): %v\n  byzantine nodes (f): %v"+
+		"\n  runs: %v\n  protocol: %v\n", n, k, f, runs, reflect.TypeOf(bp).Elem().Name())
 
 	return nil
 }

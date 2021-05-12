@@ -56,7 +56,7 @@ func (b *Bracha) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func (b *Bracha) send(messageType uint8, uid uint32, data []byte) {
+func (b *Bracha) send(messageType uint8, uid uint32, data interface{}) {
 	// Only send one echo per message
 	if _, ok := b.echoSent[uid]; ok && messageType == BrachaEcho {
 		return
@@ -77,22 +77,22 @@ func (b *Bracha) hasDelivered(uid uint32) bool {
 	return ok
 }
 
-func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data []byte) {
+func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interface{}) {
 	if b.cfg.Byz {
 		// TODO: better byzantine behaviour?
 		return
 	}
 
-	var m BrachaMessage
-	dec := gob.NewDecoder(bytes.NewBuffer(data))
-	if err := dec.Decode(&m); err != nil {
-		fmt.Printf("process %v errored while decoding bracha message: %v\n", b.cfg.Id, err)
-		os.Exit(1)
-	}
+	m := data.(BrachaMessage)
+	//dec := gob.NewDecoder(bytes.NewBuffer(data))
+	//if err := dec.Decode(&m); err != nil {
+	//	fmt.Printf("process %v errored while decoding bracha message: %v\n", b.cfg.Id, err)
+	//	os.Exit(1)
+	//}
 
 	id := brachaIdentifier{
 		Id:   uid,
-		Hash: sha256.Sum256(data),
+		Hash: sha256.Sum256(m.Payload),
 	}
 
 	_, echoMade := b.echo[id]
