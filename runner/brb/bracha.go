@@ -98,7 +98,9 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interfa
 	switch messageType {
 	case BrachaSend:
 		b.send(BrachaEcho, uid, id, data)
+
 		b.echoSent[id] = struct{}{}
+		b.echo[id][b.cfg.Id] = struct{}{}
 	case BrachaEcho:
 		if !del {
 			b.echo[id][src] = struct{}{}
@@ -110,8 +112,10 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interfa
 	}
 
 	// Send ready if enough ((n + f + 1) / 2) echos, or if enough readys
-	if len(b.echo[id]) > int(math.Ceil((float64(b.cfg.N)+float64(b.cfg.F)+1)/2)) || len(b.ready[id]) >= b.cfg.F+1 {
+	if len(b.echo[id]) >= int(math.Ceil((float64(b.cfg.N)+float64(b.cfg.F)+1)/2)) || len(b.ready[id]) >= b.cfg.F+1 {
 		b.send(BrachaReady, uid, id, data)
+
+		b.ready[id][b.cfg.Id] = struct{}{}
 		b.readySent[id] = struct{}{}
 	}
 
@@ -148,5 +152,6 @@ func (b *Bracha) Send(uid uint32, payload []byte) {
 		}
 
 		b.send(BrachaSend, uid, id, m)
+		b.send(BrachaEcho, uid, id, m)
 	}
 }

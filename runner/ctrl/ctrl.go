@@ -107,8 +107,11 @@ func (c *Controller) FlushProcesses() {
 
 // TODO: random byzantine nodes?
 func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirected, bp brb.Protocol, F int, byzEx []uint64) error {
-	byzLeft := F
 	nodes := g.Nodes()
+
+	byzLeft := F
+	N := nodes.Len()
+
 	for nodes.Next() {
 		n := nodes.Node()
 		to := g.From(n.ID())
@@ -130,6 +133,7 @@ func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirect
 		pcfg.ByzConfig = brb.Config{
 			Byz:           byz,
 			F:             F,
+			N:             N,
 			Id:            uint64(n.ID()),
 			Neighbours:    neighbours,
 			Graph:         pg,
@@ -199,7 +203,7 @@ func (c *Controller) WaitForReady() error {
 			if p.err != nil {
 				return errors.Wrapf(p.err, "process %v failed", pic)
 			} else if !p.ready {
-				fmt.Printf("waiting for %v ready\n", pic)
+				//fmt.Printf("waiting for %v ready\n", pic)
 				waiting = true
 				time.Sleep(c.cfg.PollDelay)
 				break
@@ -270,6 +274,10 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 
 func (c *Controller) Close() {
 	close(c.stopCh)
+
+	for _, ch := range c.channels {
+		close(ch)
+	}
 }
 
 func (c *Controller) send(id uint64, t uint8, b interface{}) {
@@ -312,7 +320,7 @@ func (c *Controller) handleMsg(src uint64, t uint8, b interface{}) {
 		c.al += 1
 		c.pLock.Unlock()
 
-		fmt.Printf("runner %v is alive (%v)\n", src, c.al)
+		//fmt.Printf("runner %v is alive (%v)\n", src, c.al)
 	case msg.RunnerReadyType:
 		r := b.(msg.RunnerStatus)
 		//if err := r.Decode(b); err != nil {
@@ -327,7 +335,7 @@ func (c *Controller) handleMsg(src uint64, t uint8, b interface{}) {
 		c.rdy += 1
 		c.pLock.Unlock()
 
-		fmt.Printf("runner %v is ready (%v/%v)\n", src, c.rdy, len(c.p))
+		//fmt.Printf("runner %v is ready (%v/%v)\n", src, c.rdy, len(c.p))
 	case msg.RunnerFailedType:
 		r := b.(msg.RunnerFailure)
 		//if err := r.Decode(b); err != nil {
@@ -341,7 +349,7 @@ func (c *Controller) handleMsg(src uint64, t uint8, b interface{}) {
 		c.p[r.ID] = p
 		c.pLock.Unlock()
 
-		fmt.Printf("runner %v failed: %v\n", r.ID, r.Err)
+		//fmt.Printf("runner %v failed: %v\n", r.ID, r.Err)
 	case msg.MessageDeliveredType:
 		r := b.(msg.MessageDelivered)
 		//if err := r.Decode(b); err != nil {
@@ -357,11 +365,11 @@ func (c *Controller) handleMsg(src uint64, t uint8, b interface{}) {
 		}
 
 		c.deliverMap[r.Id][src] = struct{}{}
-		del := len(c.deliverMap[r.Id])
+		//del := len(c.deliverMap[r.Id])
 		c.dLock.Unlock()
 
 		c.pLock.Lock()
-		fmt.Printf("runner %v has delivered %v (%v/%v-F)\n", src, r.Id, del, len(c.p))
+		//fmt.Printf("runner %v has delivered %v (%v/%v-F)\n", src, r.Id, del, len(c.p))
 		c.pLock.Unlock()
 	}
 }

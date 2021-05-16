@@ -18,7 +18,7 @@ type DolevKnownImproved struct {
 
 	delivered map[uint32]struct{}
 	paths     map[dolevIdentifier][]graphs.Path
-	routes    map[uint64][]graphs.Path
+	//routes    map[uint64][]graphs.Path
 	broadcast []graphs.Path
 }
 
@@ -29,7 +29,12 @@ func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 	d.delivered = make(map[uint32]struct{})
 	d.paths = make(map[dolevIdentifier][]graphs.Path)
 
-	if d.routes == nil {
+	if cfg.Byz {
+		fmt.Printf("process %v is a Dolev Byzantine node\n", cfg.Id)
+		return
+	}
+
+	if d.broadcast == nil {
 		// Additional modification (based on bonomi 7): Accept messages from origin immediately, neighbours only need one path
 		routes, err := graphs.BuildLookupTable(cfg.Graph, graphs.Node{
 			Id:   int64(d.cfg.Id),
@@ -39,16 +44,11 @@ func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 			fmt.Printf("process %v errored while building lookup table: %v\n", d.cfg.Id, err)
 			os.Exit(1)
 		}
-		d.routes = routes
-		d.broadcast = make([]graphs.Path, 0, len(d.routes))
+		d.broadcast = make([]graphs.Path, 0, len(routes))
 
-		for _, g := range d.routes {
+		for _, g := range routes {
 			d.broadcast = append(d.broadcast, g...)
 		}
-	}
-
-	if cfg.Byz {
-		fmt.Printf("process %v is a Dolev Byzantine node\n", cfg.Id)
 	}
 }
 

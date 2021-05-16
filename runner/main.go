@@ -64,12 +64,65 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 50, 50, 1
-	m := graphs.FullyConnectedGenerator{}
-	if err := runSimpleTest(info, 5, n, k, f, m, cfg, &brb.BrachaImproved{}); err != nil {
+	n, k, f := 150, 6, 2
+	m := graphs.GeneralizedWheelGenerator{}
+	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
+	fmt.Println("==========")
+	time.Sleep(time.Second * 5)
+	runtime.GC()
+
+	n, k, f = 150, 16, 7
+	m = graphs.GeneralizedWheelGenerator{}
+	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
+		fmt.Printf("err while running simple test: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("==========")
+	time.Sleep(time.Second * 5)
+	runtime.GC()
+
+	n, k, f = 150, 30, 14
+	m = graphs.GeneralizedWheelGenerator{}
+	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
+		fmt.Printf("err while running simple test: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("==========")
+	time.Sleep(time.Second * 5)
+	runtime.GC()
+
+	n, k, f = 150, 46, 22
+	m = graphs.GeneralizedWheelGenerator{}
+	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
+		fmt.Printf("err while running simple test: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("==========")
+	time.Sleep(time.Second * 5)
+	runtime.GC()
+
+	n, k, f = 150, 60, 29
+	m = graphs.GeneralizedWheelGenerator{}
+	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
+		fmt.Printf("err while running simple test: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("==========")
+	time.Sleep(time.Second * 5)
+	runtime.GC()
+
+	n, k, f = 150, 74, 36
+	m = graphs.GeneralizedWheelGenerator{}
+	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
+		fmt.Printf("err while running simple test: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("==========")
+	time.Sleep(time.Second * 5)
+	runtime.GC()
 
 	fmt.Println("done")
 	<-stopCh
@@ -79,6 +132,14 @@ func RunnerMain() {
 func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator, cfg process.Config, bp brb.Protocol) error {
 	if k < 2*f+1 {
 		return errors.Errorf("network is not 2f+1 connected (k=%v, f=%v)", k, f)
+	}
+
+	if float64(f) >= float64(n)/3 {
+		_, b := bp.(*brb.Bracha)
+		_, bi := bp.(*brb.BrachaImproved)
+		if b || bi {
+			return errors.Errorf("f >= n/3 (k=%v, f=%v)", k, f)
+		}
 	}
 
 	g, err := gen.Generate(n, k)
@@ -94,7 +155,7 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 	}
 
 	fmt.Println("starting processes")
-	err = ctl.StartProcesses(cfg, g, bp, f, []uint64{0, 1})
+	err = ctl.StartProcesses(cfg, g, bp, f, []uint64{3})
 	if err != nil {
 		return errors.Wrap(err, "unable to start processes")
 	}
@@ -115,7 +176,7 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 			return errors.Wrap(err, "err while waiting for ready")
 		}
 
-		uid1, err := ctl.TriggerMessageSend(0, []byte(fmt.Sprintf("run_%v", i)))
+		uid1, err := ctl.TriggerMessageSend(3, []byte(fmt.Sprintf("run_%v", i)))
 		if err != nil {
 			fmt.Printf("err while sending payload msg: %v\n", err)
 			os.Exit(1)
@@ -156,6 +217,10 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 	fmt.Println("config:")
 	fmt.Printf("  nodes: %v\n  connectivity (k): %v\n  byzantine nodes (f): %v"+
 		"\n  runs: %v\n  protocol: %v\n", n, k, f, runs, reflect.TypeOf(bp).Elem().Name())
+
+	ctl.FlushProcesses()
+	runtime.GC()
+	ctl.Close()
 
 	return nil
 }

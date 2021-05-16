@@ -38,6 +38,11 @@ func (d *DolevKnown) Init(n Network, app Application, cfg Config) {
 	d.delivered = make(map[uint32]struct{})
 	d.paths = make(map[dolevIdentifier][]graphs.Path)
 
+	if cfg.Byz {
+		fmt.Printf("process %v is a Dolev Byzantine node\n", cfg.Id)
+		return
+	}
+
 	if d.routes == nil {
 		routes, err := graphs.BuildLookupTable(cfg.Graph, graphs.Node{
 			Id:   int64(d.cfg.Id),
@@ -59,10 +64,6 @@ func (d *DolevKnown) Init(n Network, app Application, cfg Config) {
 			fmt.Println(d.cfg.Neighbours)
 			//graphs.PrintGraphviz(graphs.Directed(cfg.Graph))
 		}
-	}
-
-	if cfg.Byz {
-		fmt.Printf("process %v is a Dolev Byzantine node\n", cfg.Id)
 	}
 }
 

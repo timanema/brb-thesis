@@ -6,6 +6,11 @@ import (
 	"math"
 )
 
+type BrachaImprovedMessage struct {
+	BrachaMessage
+	Included []uint64
+}
+
 // Improved version for RP Tim Anema
 type BrachaImproved struct {
 	n   Network
@@ -19,6 +24,10 @@ type BrachaImproved struct {
 
 	echoSent  map[brachaIdentifier]struct{}
 	readySent map[brachaIdentifier]struct{}
+
+	// Modification Bracha 2: Only a subset of nodes are participating in the agreement
+	participatingEcho  map[brachaIdentifier]bool
+	participatingReady map[brachaIdentifier]bool
 }
 
 func (b *BrachaImproved) Init(n Network, app Application, cfg Config) {
@@ -30,25 +39,29 @@ func (b *BrachaImproved) Init(n Network, app Application, cfg Config) {
 	b.ready = make(map[brachaIdentifier]map[uint64]struct{})
 	b.echoSent = make(map[brachaIdentifier]struct{})
 	b.readySent = make(map[brachaIdentifier]struct{})
+	b.participatingEcho = make(map[brachaIdentifier]bool)
+	b.participatingReady = make(map[brachaIdentifier]bool)
 
 	if cfg.Byz {
 		fmt.Printf("process %v is a Bracha Byzantine node\n", cfg.Id)
 	}
 }
 
-func (b *BrachaImproved) send(messageType uint8, uid uint32, id brachaIdentifier, data interface{}) {
-	// Only send one echo per message
-	if _, ok := b.echoSent[id]; ok && messageType == BrachaEcho {
+func (b *BrachaImproved) send(messageType uint8, uid uint32, id brachaIdentifier, data interface{}, to []uint64) {
+	// Only send one echo per message, and only if included
+	if _, ok := b.echoSent[id]; messageType == BrachaEcho && (ok || !b.participatingEcho[id]) {
 		return
 	}
 
-	// Only send one ready per message
-	if _, ok := b.readySent[id]; ok && messageType == BrachaReady {
+	// Only send one ready per message, and only if included
+	if _, ok := b.readySent[id]; messageType == BrachaReady && (ok || !b.participatingReady[id]) {
 		return
 	}
 
-	for _, n := range b.cfg.Neighbours {
-		b.n.Send(messageType, n, uid, data)
+	for _, n := range to {
+		if n != b.cfg.Id {
+			b.n.Send(messageType, n, uid, data)
+		}
 	}
 }
 
@@ -63,7 +76,7 @@ func (b *BrachaImproved) Receive(messageType uint8, src uint64, uid uint32, data
 		return
 	}
 
-	m := data.(BrachaMessage)
+	m := data.(BrachaImprovedMessage)
 
 	id := brachaIdentifier{
 		Id:   uid,
@@ -77,10 +90,38 @@ func (b *BrachaImproved) Receive(messageType uint8, src uint64, uid uint32, data
 		b.ready[id] = make(map[uint64]struct{})
 	}
 
+	// Not yet known if participating
+	if _, ok := b.participatingEcho[id]; !ok {
+		// If included list is empty, not participating (Bracha modification 3?)
+		if len(m.Included) == 0 {
+			b.participatingEcho[id] = false
+			b.participatingReady[id] = false
+		}
+
+		found := false
+		for i, pid := range m.Included {
+			if pid == b.cfg.Id {
+				b.participatingEcho[id] = true
+				b.participatingReady[id] = i <= b.cfg.F*2+1+b.cfg.F
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			b.participatingEcho[id] = false
+			b.participatingReady[id] = false
+		}
+	}
+
 	del := b.hasDelivered(uid)
 	switch messageType {
 	case BrachaSend:
-		b.send(BrachaEcho, uid, id, data)
+		// Modification Bracha 1: Use implicit echo messages
+		b.send(BrachaEcho, uid, id, data, m.Included)
+
+		b.echo[id][src] = struct{}{}
+		b.echo[id][b.cfg.Id] = struct{}{}
 		b.echoSent[id] = struct{}{}
 	case BrachaEcho:
 		if !del {
@@ -93,8 +134,10 @@ func (b *BrachaImproved) Receive(messageType uint8, src uint64, uid uint32, data
 	}
 
 	// Send ready if enough ((n + f + 1) / 2) echos, or if enough readys
-	if len(b.echo[id]) > int(math.Ceil((float64(b.cfg.N)+float64(b.cfg.F)+1)/2)) || len(b.ready[id]) >= b.cfg.F+1 {
-		b.send(BrachaReady, uid, id, data)
+	if len(b.echo[id]) >= int(math.Ceil((float64(b.cfg.N)+float64(b.cfg.F)+1)/2)) || len(b.ready[id]) >= b.cfg.F+1 {
+		b.send(BrachaReady, uid, id, data, b.cfg.Neighbours)
+
+		b.ready[id][b.cfg.Id] = struct{}{}
 		b.readySent[id] = struct{}{}
 	}
 
@@ -125,11 +168,32 @@ func (b *BrachaImproved) Send(uid uint32, payload []byte) {
 			b.cfg.Id: {},
 		}
 
-		m := BrachaMessage{
-			Src:     b.cfg.Id,
-			Payload: payload,
+		b.participatingEcho[id] = true
+		b.participatingReady[id] = true
+
+		// TODO: use ID for now, switch to minimum cost later
+		echoReq := int(math.Ceil((float64(b.cfg.N)+float64(b.cfg.F)+1)/2)) + b.cfg.F
+		included := make([]uint64, 0, echoReq+1)
+
+		included = append(included, b.cfg.Id)
+
+		for _, pid := range b.cfg.Neighbours {
+			included = append(included, pid)
+			echoReq -= 1
+
+			if echoReq == 0 {
+				break
+			}
 		}
 
-		b.send(BrachaSend, uid, id, m)
+		m := BrachaImprovedMessage{
+			BrachaMessage: BrachaMessage{
+				Src:     b.cfg.Id,
+				Payload: payload,
+			},
+			Included: included,
+		}
+
+		b.send(BrachaSend, uid, id, m, included)
 	}
 }
