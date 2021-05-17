@@ -62,7 +62,7 @@ func TestSimple(t *testing.T) {
 	k := 2
 
 	// Get paths
-	paths, err := DisjointPaths(Directed(gr), a, d, k, nil)
+	paths, err := DisjointPaths(Directed(gr), a, d, k, nil, false)
 
 	assert.NoError(t, err)
 	assert.Len(t, paths, 2)
@@ -115,7 +115,7 @@ func TestSimpleTrap(t *testing.T) {
 	k := 2
 
 	// Get paths
-	paths, err := DisjointPaths(Directed(gr), a, d, k, nil)
+	paths, err := DisjointPaths(Directed(gr), a, d, k, nil, false)
 
 	assert.NoError(t, err)
 	assert.Len(t, paths, 2)
@@ -153,7 +153,7 @@ func TestImpossible(t *testing.T) {
 	k := 2
 
 	// Get paths
-	_, err := DisjointPaths(Directed(gr), a, d, k, nil)
+	_, err := DisjointPaths(Directed(gr), a, d, k, nil, false)
 	assert.Error(t, err)
 }
 
@@ -180,7 +180,7 @@ func TestWithMultiPartiteWheelGenerator(test *testing.T) {
 
 		s, t := g.Node(int64(start)), g.Node(int64(end))
 
-		paths, err := DisjointPaths(Directed(g), s, t, f, nil)
+		paths, err := DisjointPaths(Directed(g), s, t, f, nil, false)
 		assert.NoError(test, err)
 		assert.Len(test, paths, f)
 		assert.True(test, VerifySolution(Directed(g), s, t, f, paths))
@@ -205,7 +205,7 @@ func TestWithGeneralizedWheelGenerator(test *testing.T) {
 
 		s, t := g.Node(int64(start)), g.Node(int64(end))
 
-		paths, err := DisjointPaths(Directed(g), s, t, f, nil)
+		paths, err := DisjointPaths(Directed(g), s, t, f, nil, false)
 		assert.NoError(test, err)
 		assert.Len(test, paths, f)
 		assert.True(test, VerifySolution(Directed(g), s, t, f, paths))
@@ -234,7 +234,7 @@ func benchWithGenerator(n, k int, m Generator, b *testing.B) {
 
 	gd := Directed(g)
 	for i := 0; i < b.N; i++ {
-		p, _ = DisjointPaths(gd, s, t, k, nil)
+		p, _ = DisjointPaths(gd, s, t, k, nil, false)
 	}
 
 	paths = p
@@ -297,7 +297,7 @@ func benchTable(n, k int, m Generator, b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		res, _ = BuildLookupTable(g, s, k, false)
+		res, _ = BuildLookupTable(g, s, k, 0, false)
 	}
 
 	table = res

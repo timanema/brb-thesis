@@ -9,7 +9,12 @@ import (
 	"strconv"
 )
 
-// TODO: fix after Dolev known is 100% working
+type DolevKnownImprovedMessage struct {
+	Src     uint64
+	Payload []byte
+	Paths   []dolevPath
+}
+
 // Dolev with routing and additional optimizations for RP Tim Anema
 type DolevKnownImproved struct {
 	n   Network
@@ -19,7 +24,7 @@ type DolevKnownImproved struct {
 	delivered map[uint32]struct{}
 	paths     map[dolevIdentifier][]graphs.Path
 	//routes    map[uint64][]graphs.Path
-	broadcast []graphs.Path
+	broadcast map[uint64][]graphs.Path
 }
 
 func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
@@ -39,20 +44,46 @@ func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 		routes, err := graphs.BuildLookupTable(cfg.Graph, graphs.Node{
 			Id:   int64(d.cfg.Id),
 			Name: strconv.Itoa(int(d.cfg.Id)),
-		}, d.cfg.F*2+1, true)
+		}, d.cfg.F*2+1, 5, true)
 		if err != nil {
 			fmt.Printf("process %v errored while building lookup table: %v\n", d.cfg.Id, err)
 			os.Exit(1)
 		}
-		d.broadcast = make([]graphs.Path, 0, len(routes))
+		br := make([]graphs.Path, 0, len(routes))
 
 		for _, g := range routes {
-			d.broadcast = append(d.broadcast, g...)
+			br = append(br, g...)
 		}
+
+		d.broadcast = combinePaths(graphs.FilterSubpaths(br))
 	}
 }
 
-func (d *DolevKnownImproved) sendMergedMessage(uid uint32, m DolevKnownMessage) error {
+func combinePaths(paths []graphs.Path) map[uint64][]graphs.Path {
+	res := make(map[uint64][]graphs.Path)
+
+	for _, p := range paths {
+		next := uint64(p[0].To().ID())
+		res[next] = append(res[next], p)
+	}
+
+	return res
+}
+
+func combineDolevPaths(paths []dolevPath) map[uint64][]dolevPath {
+	res := make(map[uint64][]dolevPath)
+
+	for _, p := range paths {
+		if cur := len(p.Actual); len(p.Desired) > cur {
+			next := uint64(p.Desired[cur].To().ID())
+			res[next] = append(res[next], p)
+		}
+	}
+
+	return res
+}
+
+func (d *DolevKnownImproved) sendMergedMessage(uid uint32, m DolevKnownImprovedMessage) error {
 	next := combineDolevPaths(m.Paths)
 
 	for dst, p := range next {
@@ -64,15 +95,19 @@ func (d *DolevKnownImproved) sendMergedMessage(uid uint32, m DolevKnownMessage) 
 }
 
 func (d *DolevKnownImproved) sendInitialMessage(uid uint32, payload []byte) error {
-	next := combinePaths(d.broadcast)
-
-	m := DolevKnownMessage{
+	m := DolevKnownImprovedMessage{
 		Src:     d.cfg.Id,
 		Payload: payload,
 	}
 
-	for dst, p := range next {
-		m.Paths = p
+	for dst, p := range d.broadcast {
+		dp := make([]dolevPath, len(p))
+
+		for i, d := range p {
+			dp[i] = dolevPath{Desired: d}
+		}
+
+		m.Paths = dp
 		d.n.Send(0, dst, uid, m)
 	}
 
@@ -90,7 +125,7 @@ func (d *DolevKnownImproved) Receive(_ uint8, src uint64, uid uint32, data inter
 		return
 	}
 
-	m := data.(DolevKnownMessage)
+	m := data.(DolevKnownImprovedMessage)
 
 	// Add paths to mem for this message
 	id := dolevIdentifier{

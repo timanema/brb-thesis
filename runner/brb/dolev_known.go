@@ -16,7 +16,7 @@ type dolevPath struct {
 type DolevKnownMessage struct {
 	Src     uint64
 	Payload []byte
-	Paths   []dolevPath
+	Paths   dolevPath
 }
 
 // Dolev with routing for RP Tim Anema
@@ -27,7 +27,7 @@ type DolevKnown struct {
 
 	delivered map[uint32]struct{}
 	paths     map[dolevIdentifier][]graphs.Path
-	routes    map[uint64][]graphs.Path
+
 	broadcast []graphs.Path
 }
 
@@ -43,19 +43,18 @@ func (d *DolevKnown) Init(n Network, app Application, cfg Config) {
 		return
 	}
 
-	if d.routes == nil {
+	if d.broadcast == nil {
 		routes, err := graphs.BuildLookupTable(cfg.Graph, graphs.Node{
 			Id:   int64(d.cfg.Id),
 			Name: strconv.Itoa(int(d.cfg.Id)),
-		}, d.cfg.F*2+1, false)
+		}, d.cfg.F*2+1, 0, false)
 		if err != nil {
 			fmt.Printf("process %v errored while building lookup table: %v\n", d.cfg.Id, err)
 			os.Exit(1)
 		}
-		d.routes = routes
-		d.broadcast = make([]graphs.Path, 0, len(d.routes))
+		d.broadcast = make([]graphs.Path, 0, len(routes))
 
-		for _, g := range d.routes {
+		for _, g := range routes {
 			d.broadcast = append(d.broadcast, g...)
 		}
 
@@ -67,54 +66,25 @@ func (d *DolevKnown) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func combinePaths(paths []graphs.Path) map[uint64][]dolevPath {
-	res := make(map[uint64][]dolevPath)
-
-	for _, p := range paths {
-		next := uint64(p[0].To().ID())
-		res[next] = append(res[next], dolevPath{Desired: p})
+func (d *DolevKnown) sendMessage(uid uint32, m DolevKnownMessage) {
+	if cur := len(m.Paths.Actual); len(m.Paths.Desired) > cur {
+		d.n.Send(0, uint64(m.Paths.Desired[cur].To().ID()), uid, m)
 	}
-
-	return res
-}
-
-func combineDolevPaths(paths []dolevPath) map[uint64][]dolevPath {
-	res := make(map[uint64][]dolevPath)
-
-	for _, p := range paths {
-		if cur := len(p.Actual); len(p.Desired) > cur {
-			next := uint64(p.Desired[cur].To().ID())
-			res[next] = append(res[next], p)
-		}
-	}
-
-	return res
-}
-
-func (d *DolevKnown) sendMergedMessage(uid uint32, m DolevKnownMessage) error {
-	next := combineDolevPaths(m.Paths)
-
-	for dst, p := range next {
-		m.Paths = p
-
-		d.n.Send(0, dst, uid, m)
-	}
-
-	return nil
 }
 
 func (d *DolevKnown) sendInitialMessage(uid uint32, payload []byte) error {
-	next := combinePaths(d.broadcast)
-
 	m := DolevKnownMessage{
 		Src:     d.cfg.Id,
 		Payload: payload,
 	}
 
-	for dst, p := range next {
-		m.Paths = p
+	for _, p := range d.broadcast {
+		m.Paths = dolevPath{
+			Desired: p,
+			Actual:  nil,
+		}
 
-		d.n.Send(0, dst, uid, m)
+		d.n.Send(0, uint64(p[0].To().ID()), uid, m)
 	}
 
 	return nil
@@ -140,23 +110,17 @@ func (d *DolevKnown) Receive(_ uint8, src uint64, uid uint32, data interface{}) 
 	}
 
 	// Add latest edge to path for message
-	for i, p := range m.Paths {
-		p.Actual = append(p.Actual, simple.WeightedEdge{
-			F: simple.Node(src),
-			T: simple.Node(d.cfg.Id),
-		})
-		m.Paths[i] = p
+	m.Paths.Actual = append(m.Paths.Actual, simple.WeightedEdge{
+		F: simple.Node(src),
+		T: simple.Node(d.cfg.Id),
+	})
 
-		if !d.hasDelivered(uid) {
-			d.paths[id] = append(d.paths[id], p.Actual)
-		}
+	if !d.hasDelivered(uid) {
+		d.paths[id] = append(d.paths[id], m.Paths.Actual)
 	}
 
 	// Send to next hops
-	if err := d.sendMergedMessage(uid, m); err != nil {
-		fmt.Printf("process %v errored while sending dolev (known) message: %v\n", d.cfg.Id, err)
-		os.Exit(1)
-	}
+	d.sendMessage(uid, m)
 
 	if !d.hasDelivered(uid) {
 		if graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {

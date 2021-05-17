@@ -86,7 +86,15 @@ func (p *Process) send(id uint64, t uint8, b interface{}, ctrl bool) error {
 			return errors.Errorf("proc %v is not connected to %v", p.id, id)
 		}
 
-		c <- m
+		select {
+		case c <- m:
+			break
+		default:
+			// Allows runs to go over proc limit, at the expensive of exploding memory usage
+			go func() {
+				c <- m
+			}()
+		}
 	}
 
 	return nil

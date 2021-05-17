@@ -64,65 +64,13 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 150, 6, 2
-	m := graphs.GeneralizedWheelGenerator{}
-	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
+	n, k, f := 50, 50, 10
+	m := graphs.FullyConnectedGenerator{}
+	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.BrachaImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("==========")
-	time.Sleep(time.Second * 5)
-	runtime.GC()
-
-	n, k, f = 150, 16, 7
-	m = graphs.GeneralizedWheelGenerator{}
-	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
-		fmt.Printf("err while running simple test: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println("==========")
-	time.Sleep(time.Second * 5)
-	runtime.GC()
-
-	n, k, f = 150, 30, 14
-	m = graphs.GeneralizedWheelGenerator{}
-	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
-		fmt.Printf("err while running simple test: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println("==========")
-	time.Sleep(time.Second * 5)
-	runtime.GC()
-
-	n, k, f = 150, 46, 22
-	m = graphs.GeneralizedWheelGenerator{}
-	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
-		fmt.Printf("err while running simple test: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println("==========")
-	time.Sleep(time.Second * 5)
-	runtime.GC()
-
-	n, k, f = 150, 60, 29
-	m = graphs.GeneralizedWheelGenerator{}
-	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
-		fmt.Printf("err while running simple test: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println("==========")
-	time.Sleep(time.Second * 5)
-	runtime.GC()
-
-	n, k, f = 150, 74, 36
-	m = graphs.GeneralizedWheelGenerator{}
-	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevImproved{}); err != nil {
-		fmt.Printf("err while running simple test: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Println("==========")
-	time.Sleep(time.Second * 5)
-	runtime.GC()
+	//time.Sleep(time.Second * 5)
 
 	fmt.Println("done")
 	<-stopCh
@@ -219,8 +167,10 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 		"\n  runs: %v\n  protocol: %v\n", n, k, f, runs, reflect.TypeOf(bp).Elem().Name())
 
 	ctl.FlushProcesses()
-	runtime.GC()
 	ctl.Close()
+
+	fmt.Println("==========")
+	runtime.GC()
 
 	return nil
 }
