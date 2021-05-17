@@ -11,6 +11,8 @@ type Flooding struct {
 	seen map[uint32]struct{}
 }
 
+var _ Protocol = (*Flooding)(nil)
+
 func (f *Flooding) Init(n Network, app Application, cfg Config) {
 	f.n = n
 	f.app = app
@@ -22,7 +24,7 @@ func (f *Flooding) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func (f *Flooding) flood(uid uint32, data []byte, ex uint64) {
+func (f *Flooding) flood(uid uint32, data interface{}, ex uint64) {
 	for _, n := range f.cfg.Neighbours {
 		if n != ex {
 			f.n.Send(0, n, uid, data)
@@ -30,23 +32,23 @@ func (f *Flooding) flood(uid uint32, data []byte, ex uint64) {
 	}
 }
 
-func (f *Flooding) Receive(_ uint8, src uint64, uid uint32, data []byte) {
+func (f *Flooding) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
 	if f.cfg.Byz {
 		return
 	}
 
 	if _, ok := f.seen[uid]; !ok {
 		f.seen[uid] = struct{}{}
-		f.app.Deliver(uid, data)
+		f.app.Deliver(uid, data, src)
 
 		f.flood(uid, data, src)
 	}
 }
 
-func (f *Flooding) Send(uid uint32, payload []byte) {
+func (f *Flooding) Broadcast(uid uint32, payload interface{}) {
 	if _, ok := f.seen[uid]; !ok {
 		f.seen[uid] = struct{}{}
-		f.app.Deliver(uid, payload)
+		f.app.Deliver(uid, payload, 0)
 
 		f.flood(uid, payload, f.cfg.Id)
 	}

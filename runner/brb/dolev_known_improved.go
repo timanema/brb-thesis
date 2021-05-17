@@ -1,7 +1,6 @@
 package brb
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"gonum.org/v1/gonum/graph/simple"
 	"os"
@@ -11,7 +10,8 @@ import (
 
 type DolevKnownImprovedMessage struct {
 	Src     uint64
-	Payload []byte
+	Id      uint32
+	Payload interface{}
 	Paths   []dolevPath
 }
 
@@ -21,20 +21,24 @@ type DolevKnownImproved struct {
 	app Application
 	cfg Config
 
-	delivered map[uint32]struct{}
+	cnt uint32
+
+	delivered map[dolevIdentifier]struct{}
 	paths     map[dolevIdentifier][]graphs.Path
 	//routes    map[uint64][]graphs.Path
 	broadcast map[uint64][]graphs.Path
 }
 
+var _ Protocol = (*DolevKnownImproved)(nil)
+
 func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 	d.n = n
 	d.app = app
 	d.cfg = cfg
-	d.delivered = make(map[uint32]struct{})
+	d.delivered = make(map[dolevIdentifier]struct{})
 	d.paths = make(map[dolevIdentifier][]graphs.Path)
 
-	if cfg.Byz {
+	if !cfg.Silent && cfg.Byz {
 		fmt.Printf("process %v is a Dolev Byzantine node\n", cfg.Id)
 		return
 	}
@@ -94,7 +98,7 @@ func (d *DolevKnownImproved) sendMergedMessage(uid uint32, m DolevKnownImprovedM
 	return nil
 }
 
-func (d *DolevKnownImproved) sendInitialMessage(uid uint32, payload []byte) error {
+func (d *DolevKnownImproved) sendInitialMessage(uid uint32, payload interface{}) error {
 	m := DolevKnownImprovedMessage{
 		Src:     d.cfg.Id,
 		Payload: payload,
@@ -114,8 +118,8 @@ func (d *DolevKnownImproved) sendInitialMessage(uid uint32, payload []byte) erro
 	return nil
 }
 
-func (d *DolevKnownImproved) hasDelivered(uid uint32) bool {
-	_, ok := d.delivered[uid]
+func (d *DolevKnownImproved) hasDelivered(id dolevIdentifier) bool {
+	_, ok := d.delivered[id]
 	return ok
 }
 
@@ -129,8 +133,10 @@ func (d *DolevKnownImproved) Receive(_ uint8, src uint64, uid uint32, data inter
 
 	// Add paths to mem for this message
 	id := dolevIdentifier{
-		Id:   uid,
-		Hash: sha256.Sum256(m.Payload),
+		Src:        m.Src,
+		Id:         m.Id,
+		TrackingId: uid,
+		Hash:       MustHash(m.Payload),
 	}
 
 	// Add latest edge to path for message
@@ -141,7 +147,7 @@ func (d *DolevKnownImproved) Receive(_ uint8, src uint64, uid uint32, data inter
 		})
 		m.Paths[i] = p
 
-		if !d.hasDelivered(uid) {
+		if !d.hasDelivered(id) {
 			d.paths[id] = append(d.paths[id], p.Actual)
 		}
 	}
@@ -152,12 +158,16 @@ func (d *DolevKnownImproved) Receive(_ uint8, src uint64, uid uint32, data inter
 		os.Exit(1)
 	}
 
-	if !d.hasDelivered(uid) {
+	if d.cfg.Id == m.Src {
+		panic("received message from self, should have been delivered already")
+	}
+
+	if !d.hasDelivered(id) {
 		// Additional modification (based on bonomi 7): Accept messages from origin immediately
 		if m.Src == src || graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
 			//fmt.Printf("proc %v is delivering %v at %v\n", d.cfg.Id, id, time.Now())
-			d.delivered[uid] = struct{}{}
-			d.app.Deliver(uid, m.Payload)
+			d.delivered[id] = struct{}{}
+			d.app.Deliver(uid, m.Payload, m.Src)
 
 			// Memory cleanup
 			delete(d.paths, id)
@@ -165,20 +175,23 @@ func (d *DolevKnownImproved) Receive(_ uint8, src uint64, uid uint32, data inter
 	}
 }
 
-func (d *DolevKnownImproved) Send(uid uint32, payload []byte) {
-	if _, ok := d.delivered[uid]; !ok {
-		id := dolevIdentifier{
-			Id:   uid,
-			Hash: sha256.Sum256(payload),
-		}
+func (d *DolevKnownImproved) Broadcast(uid uint32, payload interface{}) {
+	id := dolevIdentifier{
+		Src:        d.cfg.Id,
+		Id:         d.cnt,
+		TrackingId: uid,
+		Hash:       MustHash(payload),
+	}
 
-		d.delivered[uid] = struct{}{}
+	if _, ok := d.delivered[id]; !ok {
+		d.delivered[id] = struct{}{}
 		d.paths[id] = make([]graphs.Path, d.cfg.F*2+1)
-		d.app.Deliver(uid, payload)
+		d.app.Deliver(uid, payload, 0)
 
 		if err := d.sendInitialMessage(uid, payload); err != nil {
 			fmt.Printf("process %v errored while broadcasting dolev (known, improved) message: %v\n", d.cfg.Id, err)
 			os.Exit(1)
 		}
+		d.cnt += 1
 	}
 }

@@ -8,7 +8,7 @@ import (
 // uid is used for tracking the message throughout the network (for statistics)
 
 type Application interface {
-	Deliver(uid uint32, payload []byte)
+	Deliver(uid uint32, payload interface{}, src uint64)
 }
 
 type Network interface {
@@ -22,6 +22,8 @@ type Config struct {
 	Neighbours    []uint64
 	Graph         *simple.WeightedUndirectedGraph
 	KnownTopology bool
+
+	Silent bool
 }
 
 type Protocol interface {
@@ -31,5 +33,5 @@ type Protocol interface {
 
 	Receive(messageType uint8, src uint64, uid uint32, data interface{})
 
-	Send(uid uint32, payload []byte)
+	Broadcast(uid uint32, payload interface{})
 }

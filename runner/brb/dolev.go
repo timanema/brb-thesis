@@ -9,14 +9,15 @@ import (
 
 type DolevMessage struct {
 	Src     uint64
+	Id      uint32
 	Path    graphs.Path
-	Payload []byte
+	Payload interface{}
 }
 
-// TODO: cheating by using statistics tracking uid as dolev id, should probably change before using eval
 type dolevIdentifier struct {
-	Id   uint32
-	Hash [sha256.Size]byte
+	Src            uint64
+	Id, TrackingId uint32
+	Hash           [sha256.Size]byte
 }
 
 // Original Dolev Protocol
@@ -25,18 +26,22 @@ type Dolev struct {
 	app Application
 	cfg Config
 
-	delivered map[uint32]struct{}
+	cnt uint32
+
+	delivered map[dolevIdentifier]struct{}
 	paths     map[dolevIdentifier][]graphs.Path
 }
+
+var _ Protocol = (*Dolev)(nil)
 
 func (d *Dolev) Init(n Network, app Application, cfg Config) {
 	d.n = n
 	d.app = app
 	d.cfg = cfg
-	d.delivered = make(map[uint32]struct{})
+	d.delivered = make(map[dolevIdentifier]struct{})
 	d.paths = make(map[dolevIdentifier][]graphs.Path)
 
-	if cfg.Byz {
+	if !cfg.Silent && cfg.Byz {
 		fmt.Printf("process %v is a Dolev Byzantine node\n", cfg.Id)
 	}
 }
@@ -68,8 +73,10 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
 
 	// Add paths to mem for this message
 	id := dolevIdentifier{
-		Id:   uid,
-		Hash: sha256.Sum256(m.Payload),
+		Src:        m.Src,
+		Id:         m.Id,
+		TrackingId: uid,
+		Hash:       MustHash(m.Payload),
 	}
 
 	// Send to neighbours (except origin)
@@ -82,13 +89,13 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
 
 	//fmt.Printf("proc %v is sending %v %v bytes (%v)\n", d.cfg.Id, to, len(b.Bytes()), m.Path)
 
-	if _, ok := d.delivered[uid]; !ok {
+	if _, ok := d.delivered[id]; !ok {
 		d.paths[id] = append(d.paths[id], m.Path)
 
 		if graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
 			//fmt.Printf("proc %v is delivering %v at %v\n", d.cfg.Id, id, time.Now())
-			d.delivered[uid] = struct{}{}
-			d.app.Deliver(uid, m.Payload)
+			d.delivered[id] = struct{}{}
+			d.app.Deliver(uid, m.Payload, m.Src)
 
 			// Memory cleanup
 			delete(d.paths, id)
@@ -98,23 +105,27 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
 	d.send(uid, m, to)
 }
 
-func (d *Dolev) Send(uid uint32, payload []byte) {
-	if _, ok := d.delivered[uid]; !ok {
-		id := dolevIdentifier{
-			Id:   uid,
-			Hash: sha256.Sum256(payload),
-		}
+func (d *Dolev) Broadcast(uid uint32, payload interface{}) {
+	id := dolevIdentifier{
+		Src:        d.cfg.Id,
+		Id:         d.cnt,
+		TrackingId: uid,
+		Hash:       MustHash(payload),
+	}
 
-		d.delivered[uid] = struct{}{}
+	if _, ok := d.delivered[id]; !ok {
+		d.delivered[id] = struct{}{}
 		d.paths[id] = make([]graphs.Path, d.cfg.F*2+1)
-		d.app.Deliver(uid, payload)
+		d.app.Deliver(uid, payload, 0)
 
 		m := DolevMessage{
 			Src:     d.cfg.Id,
+			Id:      d.cnt,
 			Path:    nil,
 			Payload: payload,
 		}
 
 		d.send(uid, m, d.cfg.Neighbours)
+		d.cnt += 1
 	}
 }

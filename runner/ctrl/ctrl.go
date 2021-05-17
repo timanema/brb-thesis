@@ -1,7 +1,6 @@
 package ctrl
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph"
@@ -39,7 +38,7 @@ type Controller struct {
 	p     map[uint64]proc
 	pLock sync.Mutex
 
-	payloadMap map[uint32][]byte
+	payloadMap map[uint32]interface{}
 	deliverMap map[uint32]map[uint64]struct{}
 	sendMap    map[uint32]time.Time
 	dLock      sync.Mutex
@@ -54,7 +53,7 @@ func StartController(cfg Config) (*Controller, error) {
 		cfg:        cfg,
 		stopCh:     make(chan struct{}),
 		p:          make(map[uint64]proc),
-		payloadMap: make(map[uint32][]byte),
+		payloadMap: make(map[uint32]interface{}),
 		deliverMap: make(map[uint32]map[uint64]struct{}),
 		sendMap:    make(map[uint32]time.Time),
 	}
@@ -156,7 +155,7 @@ func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirect
 	return nil
 }
 
-func (c *Controller) TriggerMessageSend(id uint64, payload []byte) (uint32, error) {
+func (c *Controller) TriggerMessageSend(id uint64, payload interface{}) (uint32, error) {
 	uid := rand.Uint32()
 
 	m := msg.TriggerMessage{Id: uid, Payload: payload}
@@ -164,6 +163,13 @@ func (c *Controller) TriggerMessageSend(id uint64, payload []byte) (uint32, erro
 	//if err != nil {
 	//	return 0, errors.Wrap(err, "failed to encode payload message")
 	//}
+
+	c.pLock.Lock()
+	if _, ok := c.channels[id]; !ok {
+		c.pLock.Unlock()
+		return 0, errors.New("invalid origin node")
+	}
+	c.pLock.Unlock()
 
 	c.dLock.Lock()
 	c.payloadMap[uid] = payload
@@ -180,6 +186,7 @@ func (c *Controller) WaitForAlive() error {
 	waiting := true
 	for waiting {
 		waiting = false
+		c.pLock.Lock()
 		for pic, p := range c.p {
 			if p.err != nil {
 				return errors.Wrapf(p.err, "process %v failed", pic)
@@ -190,6 +197,7 @@ func (c *Controller) WaitForAlive() error {
 				break
 			}
 		}
+		c.pLock.Unlock()
 	}
 
 	return nil
@@ -199,6 +207,7 @@ func (c *Controller) WaitForReady() error {
 	waiting := true
 	for waiting {
 		waiting = false
+		c.pLock.Lock()
 		for pic, p := range c.p {
 			if p.err != nil {
 				return errors.Wrapf(p.err, "process %v failed", pic)
@@ -209,6 +218,7 @@ func (c *Controller) WaitForReady() error {
 				break
 			}
 		}
+		c.pLock.Unlock()
 	}
 
 	return nil
@@ -358,7 +368,7 @@ func (c *Controller) handleMsg(src uint64, t uint8, b interface{}) {
 		//}
 
 		c.dLock.Lock()
-		if bytes.Compare(r.Payload, c.payloadMap[r.Id]) != 0 {
+		if !reflect.DeepEqual(r.Payload, c.payloadMap[r.Id]) {
 			fmt.Printf("process %v delived invalid payload, BRB guarantees violated: got %v, wanted %v\n",
 				src, r.Payload, c.payloadMap[r.Id])
 			os.Exit(1)

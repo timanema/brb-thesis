@@ -64,9 +64,9 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 50, 50, 10
-	m := graphs.FullyConnectedGenerator{}
-	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.BrachaImproved{}); err != nil {
+	n, k, f := 50, 30, 10
+	m := graphs.GeneralizedWheelGenerator{}
+	if err := runSimpleTest(info, 10, n, k, f, m, cfg, &brb.BrachaDolevKnown{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
@@ -103,7 +103,7 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 	}
 
 	fmt.Println("starting processes")
-	err = ctl.StartProcesses(cfg, g, bp, f, []uint64{3})
+	err = ctl.StartProcesses(cfg, g, bp, f, []uint64{0})
 	if err != nil {
 		return errors.Wrap(err, "unable to start processes")
 	}
@@ -124,7 +124,7 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 			return errors.Wrap(err, "err while waiting for ready")
 		}
 
-		uid1, err := ctl.TriggerMessageSend(3, []byte(fmt.Sprintf("run_%v", i)))
+		uid1, err := ctl.TriggerMessageSend(0, []byte(fmt.Sprintf("run_%v", i)))
 		if err != nil {
 			fmt.Printf("err while sending payload msg: %v\n", err)
 			os.Exit(1)

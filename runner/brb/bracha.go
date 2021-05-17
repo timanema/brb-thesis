@@ -14,13 +14,14 @@ const (
 
 type BrachaMessage struct {
 	Src     uint64
-	Payload []byte
+	Id      uint32
+	Payload interface{}
 }
 
-// TODO: same as with Dolev, not really fair
 type brachaIdentifier struct {
-	Id   uint32
-	Hash [sha256.Size]byte
+	Src            uint64
+	Id, TrackingId uint32
+	Hash           [sha256.Size]byte
 }
 
 // Original Bracha Protocol
@@ -29,7 +30,9 @@ type Bracha struct {
 	app Application
 	cfg Config
 
-	delivered map[uint32]struct{}
+	cnt uint32
+
+	delivered map[brachaIdentifier]struct{}
 
 	echo  map[brachaIdentifier]map[uint64]struct{}
 	ready map[brachaIdentifier]map[uint64]struct{}
@@ -38,17 +41,19 @@ type Bracha struct {
 	readySent map[brachaIdentifier]struct{}
 }
 
+var _ Protocol = (*Bracha)(nil)
+
 func (b *Bracha) Init(n Network, app Application, cfg Config) {
 	b.n = n
 	b.app = app
 	b.cfg = cfg
-	b.delivered = make(map[uint32]struct{})
+	b.delivered = make(map[brachaIdentifier]struct{})
 	b.echo = make(map[brachaIdentifier]map[uint64]struct{})
 	b.ready = make(map[brachaIdentifier]map[uint64]struct{})
 	b.echoSent = make(map[brachaIdentifier]struct{})
 	b.readySent = make(map[brachaIdentifier]struct{})
 
-	if cfg.Byz {
+	if !cfg.Silent && cfg.Byz {
 		fmt.Printf("process %v is a Bracha Byzantine node\n", cfg.Id)
 	}
 }
@@ -69,8 +74,8 @@ func (b *Bracha) send(messageType uint8, uid uint32, id brachaIdentifier, data i
 	}
 }
 
-func (b *Bracha) hasDelivered(uid uint32) bool {
-	_, ok := b.delivered[uid]
+func (b *Bracha) hasDelivered(id brachaIdentifier) bool {
+	_, ok := b.delivered[id]
 	return ok
 }
 
@@ -83,8 +88,10 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interfa
 	m := data.(BrachaMessage)
 
 	id := brachaIdentifier{
-		Id:   uid,
-		Hash: sha256.Sum256(m.Payload),
+		Src:        m.Src,
+		Id:         m.Id,
+		TrackingId: uid,
+		Hash:       MustHash(m.Payload),
 	}
 
 	_, echoMade := b.echo[id]
@@ -94,7 +101,7 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interfa
 		b.ready[id] = make(map[uint64]struct{})
 	}
 
-	del := b.hasDelivered(uid)
+	del := b.hasDelivered(id)
 	switch messageType {
 	case BrachaSend:
 		b.send(BrachaEcho, uid, id, data)
@@ -115,14 +122,16 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interfa
 	if len(b.echo[id]) >= int(math.Ceil((float64(b.cfg.N)+float64(b.cfg.F)+1)/2)) || len(b.ready[id]) >= b.cfg.F+1 {
 		b.send(BrachaReady, uid, id, data)
 
-		b.ready[id][b.cfg.Id] = struct{}{}
-		b.readySent[id] = struct{}{}
+		if !b.hasDelivered(id) {
+			b.ready[id][b.cfg.Id] = struct{}{}
+			b.readySent[id] = struct{}{}
+		}
 	}
 
 	// Deliver if enough readys
-	if !b.hasDelivered(uid) && len(b.ready[id]) >= b.cfg.F*2+1 {
-		b.delivered[uid] = struct{}{}
-		b.app.Deliver(uid, m.Payload)
+	if !b.hasDelivered(id) && len(b.ready[id]) >= b.cfg.F*2+1 {
+		b.delivered[id] = struct{}{}
+		b.app.Deliver(uid, m.Payload, m.Src)
 
 		// Memory cleanup
 		delete(b.echo, id)
@@ -132,13 +141,15 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interfa
 	}
 }
 
-func (b *Bracha) Send(uid uint32, payload []byte) {
-	if _, ok := b.delivered[uid]; !ok {
-		id := brachaIdentifier{
-			Id:   uid,
-			Hash: sha256.Sum256(payload),
-		}
+func (b *Bracha) Broadcast(uid uint32, payload interface{}) {
+	id := brachaIdentifier{
+		Src:        b.cfg.Id,
+		Id:         b.cnt,
+		TrackingId: uid,
+		Hash:       MustHash(payload),
+	}
 
+	if _, ok := b.delivered[id]; !ok {
 		b.echo[id] = map[uint64]struct{}{
 			b.cfg.Id: {},
 		}
@@ -148,10 +159,13 @@ func (b *Bracha) Send(uid uint32, payload []byte) {
 
 		m := BrachaMessage{
 			Src:     b.cfg.Id,
+			Id:      b.cnt,
 			Payload: payload,
 		}
 
 		b.send(BrachaSend, uid, id, m)
 		b.send(BrachaEcho, uid, id, m)
+		b.echoSent[id] = struct{}{}
+		b.cnt += 1
 	}
 }

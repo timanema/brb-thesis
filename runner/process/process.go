@@ -199,9 +199,9 @@ func (p *Process) run() {
 
 func (p *Process) handleMsg(src uint64, t uint8, b interface{}, ctrl bool) {
 	//if ctrl {
-	//	fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, p.cfg.CtrlID, t, b)
+	//	fmt.Printf("process %v got data from controller (type=%v): %v\n", p.id, t, b)
 	//} else {
-	//	fmt.Printf("process %v got data from %v (type=%v): %v\n", p.id, src, t, b)
+	//	fmt.Printf("process %v got data from %v (type=%v): %+v\n", p.id, src, t, b)
 	//}
 
 	switch t {
@@ -213,12 +213,12 @@ func (p *Process) handleMsg(src uint64, t uint8, b interface{}, ctrl bool) {
 		r := b.(msg.TriggerMessage)
 
 		p.stats.MsgSent[r.Id] = 0
-		p.brb.Send(r.Id, r.Payload)
+		p.brb.Broadcast(r.Id, r.Payload)
 	}
 }
 
 // Adding abstraction for BRB protocols
-func (p *Process) Deliver(uid uint32, payload []byte) {
+func (p *Process) Deliver(uid uint32, payload interface{}, src uint64) {
 	//fmt.Printf("process %v got delivered (%v): %v\n", p.id, uid, string(payload))
 
 	m := msg.MessageDelivered{
@@ -238,7 +238,7 @@ func (p *Process) Deliver(uid uint32, payload []byte) {
 }
 
 func (p *Process) Send(t uint8, dest uint64, uid uint32, data interface{}) {
-	//fmt.Printf("process %v is sending %v bytes (type=%v, id=%v) to %v\n", p.id, len(data), t, uid, dest)
+	//fmt.Printf("process %v is sending %+v (type=%v, id=%v) to %v\n", p.id, data, t, uid, dest)
 
 	m := msg.WrapperDataMessage{
 		T:    t,

@@ -1,6 +1,7 @@
 package graphs
 
 import (
+	"fmt"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
 )
@@ -109,10 +110,15 @@ func bfs(g graph.WeightedDirected, s, t graph.Node) Path {
 }
 
 func findDisjointPaths(g *simple.WeightedDirectedGraph, s, t graph.Node) int {
+	if s.ID() == t.ID() {
+		fmt.Println("Should not happen: s == t for findDisjointPaths()")
+		return -1
+	}
+
 	flow := 0
 	for {
 		p := bfs(g, s, t)
-		if p == nil {
+		if p == nil || len(p) == 0 {
 			return flow
 		}
 		flow += 1
