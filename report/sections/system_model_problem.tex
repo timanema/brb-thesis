@@ -25,7 +25,7 @@ A Byzantine Reliable Broadcast (BRB) protocol guarantees the following propertie
     \item \textbf{Validity}: If process $p_i \in \Delta$ broadcasts message $m$, then every correct process $p_j \in \Delta$ delivers $m$ at some point.
     \item \textbf{No duplication}: A message $m$ broadcast by process $p_i \in \Delta$ is not delivered more than once by every correct process $p_j \in \Delta$.
     \item \textbf{Integrity}: If process $p_j \in \Delta$ delivers message $m$ with sender $p_i$, process $p_i$ has broadcast $m$ in the past.
-    \item \textbf{Agreement}: If process $p_i \in Delta$ delivers message $m$, then $m$ will eventually be delivered by every correct process $p_j \in \Delta$.
+    \item \textbf{Agreement}: If process $p_i \in \Delta$ delivers message $m$, then $m$ will eventually be delivered by every correct process $p_j \in \Delta$.
 \end{itemize}
 
 We will be introducing improvements to both Dolev~\cite{dolev}, Bracha~\cite{bracha}, and Bracha-Dolev~\cite{bracha-dolev}, which make different assumptions about the network $G$ and the BRB guarantees.
@@ -37,16 +37,31 @@ Bracha assumes a fully connected network $G$, i.e. for every pair $v_i,v_j \in V
 Bracha-Dolev is a combination of the previous protocols, and assumes a $2f+1$-connected network $G$, while giving all BRB guarantees.
 
 \subsection*{Background}
-TODO?
+In this section we will explain Dolev's and Bracha's protocols, and how they can be combined intro Bracha-Dolev.
 
 \subsubsection{Dolev}
-TODO?
+Dolev's protocol provides reliable communication when the network has authenticated links and is at least $2f+1$-connected.
+
+When a message traverses the network, processes leverage the authenticated links to build a traversal path for each message. Said paths have two purposes: avoiding transmitting loops and message verification. 
+The former is at play when processes relay messages to their neighbours; a message is forwarded to all neighbours, except to the transmitter and processes which are already present in the path. This is required in order to avoid messages circulating through the network indefinitely.
+The paths are also used for verification; a message is delivered whenever it has been received over $f+1$ disjoint paths.
+
+The basis for the correctness for Dolev's protocol lies in Menger's theorem~\citationneeded which shows there exist $2f+1$ disjoint paths if a network is $2f+1$-connected, and the fact that at most $f$ of those paths can contain one or more Byzantine processes. This follows from the fact that a single process can only be in a single path, otherwise said path would not be disjoint, so the worst case is that all $f$ Byzantine processes are spread over all the $2f+1$ disjoint paths, which leaves $f+1$ paths not containing a Byzantine process.
+
+Pseudocode for Dolev's protocol is provided in XXX.
 
 \subsubsection{Bracha}
-TODO?
+Unlike Dolev's protocol, Bracha's protocol requires a fully connected network while giving all BRB guarantees. The protocol has three phases: \textit{send}, \textit{echo}, and \textit{ready}.
+
+When a process wants to broadcast a message it sends the payload in a \textit{send} message to all processes, including itself. When a process receives a \textit{send} messages, it responds by transmitting an \textit{echo} message to all processes with the corresponding content. Every process then waits for a quorum of \textit{echo} messages, which is $\ceil{\frac{N+f+1}{2}}$. 
+After this quorum has been reached, or $f+1$ \textit{ready} messages have been received, a process will transmit its own \textit{ready} message to all processes. Finally, a message will be delivered when $2f+1$ corresponding \textit{ready} messages have been received.
 
 \subsubsection{Bracha-Dolev}
-TODO?
+Dolev's and Bracha's protocol can be combined to achieve BRB guarantees in a multi-hop network, as described in \cite{bracha-dolev}. 
+
+This works by layering the two protocols, where Dolev's protocol forms the bottom layer. This means every Bracha broadcast is replaced by a Dolev broadcast, and every Bracha receive by a Dolev deliver. This process is shown in figure XXX.
+
+By layering Bracha and Dolev, the latter emulates a fully connected network by enabling the former to reliably reach all processes. However, this means the message complexity of both protocols, $\mathcal{O}(n^2)$ and $\mathcal{O}(n!)$ respectively, is essentially multiplied.
 
 \subsection*{Reducing the amount of messages}
 While all mentioned protocols work well in their designed environments, there is naturally a substantial amount of redundant work.
@@ -57,4 +72,4 @@ For Bracha there are similar inefficiencies. For example, Bracha uses all nodes 
 
 The optimizations can be combined and applied to Bracha-Dolev, also reducing the amount of required messages for that protocol.
 
-The aim of this paper is to reduce the amount of messages being transmitted even further, assuming the processes know the network topology. In addition to this, it might be possible to improve the delivery complexity of Dolev in the process by taking advantage of the fact that messages will traverse fixed paths.
+The aim of this paper is to reduce the amount of messages being transmitted even further, assuming the processes know the network topology. In addition to this, it might be possible to improve the delivery complexity of Dolev in the process by taking advantage of the fact that messages will traverse fixed paths. Furthermore, while the general process for handling known topologies for Dolev has been described in the original paper~\cite{dolev}, no actual implementation has been provided, which is something this paper will also do.

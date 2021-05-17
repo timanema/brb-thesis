@@ -1,4 +1,4 @@
-\section{Your contribution}
+% \section{Your contribution}
 % In computer science typically the third section contains an exposition of the main ideas, for example the development of a theory, the analysis of the problem (some proofs), a new algorithm, and potentially some theoretical analysis of the properties of the algorithm.
 
 % Do not forget to give this section another name, for example after the method or idea you are presenting.
@@ -10,3 +10,66 @@
 
 % \subsection*{Improvement of an idea}
 % In this case, you would need to explain in detail how the improvement works. If it is based on some observation that can be proven, this is a good place to provide that proof (e.g., of the correctness of your approach). 
+
+\section{Dolev on known topologies}
+In this section we will describe the algorithms required to leverage the potential of topology knowledge, how Dolev can be modified to run on known topologies, and XXX novel modifications to the resulting protocol.
+
+\subsection{Finding k-disjoint paths}
+In order to build a routing table, one has to find $k$ vertex-disjoint paths to every $p_i \in \Delta$. Formally this problem is known as the \textit{min-sum disjoint paths problem}.
+
+A straight-forward solution would be to repeatedly find the shortest path, remove the edges in the path, and repeat this process $k$ times. However, even though this algorithm would work on most graphs, there exist so-called \textit{trap topologies} for which this algorithm would fail to find a solution. In said topologies there exists a path with a minimal sum, which traverses multiple disjoint paths, effectively blocking off more disjoint paths than needed. An example of a trap topology can be found in figure XXX.
+
+A solution which is able to handle trap topologies was introduced by Bhandari~\citationneeded. This algorithm finds $k$ edge-disjoint paths in a directed weighted graph by repeatedly finding the shortest path and inverting the resulting edges. To find the result, all complementing edges are removed from the set with all edges in the paths. The final paths can then easily be retrieved from the resulting sets, as every edge will only have two or less matching edges.
+
+Note that this algorithm only returns $k$ edge-disjoint paths, not $k$ vertex-disjoint paths. This problem can be solved by applying a process called \textit{vertex splitting}, which as the name implies splits every vertex with the exception of source and sink into two distinct vertices. 
+A vertex is split into an 'in' vertex, and an 'out' vertex. Every incoming edge will be directed to the former, while every outgoing edge will be directed to the latter. The two vertices are connected by a directed edge with a weight of zero from the 'in' vertex to the 'out' vertex. This process is visualized in figure XXX. Note that this change forces every path which uses a vertex to use the interconnecting edge, limiting the amount of times every vertex can be used to one. This means the algorithm will now find $k$ vertex-disjoint paths.
+
+In order to build the full routing table, this process has to be completed for every process, resulting in $n * (2f+1)$ paths which will reach every process over $2f+1$ node-disjoint paths.
+
+\subsubsection{Implementation}
+As noted in the algorithm outline, one has to find the shortest path in the graph often. Performance analysis shows path finding is the most computationally expensive part of the algorithm, so care has to be taken when picking and implementing a path finding algorithm. Furthermore, the algorithm needs to be able to handle negative weights as edges are inverted, which means their weights are inverted and the direction is reversed. TODO: discuss negative cycles?
+
+For this paper we have chosen the Shortest Path Faster Algorithm or SPFA~\cite{spfa-moore,spfa-fanding}, which is a queue-based Bellman-Ford~\cite{bf-bellman,bf-ford} variation.
+
+The pseudocode for the entire procedure can be found in Algorithm~XXX.
+
+\subsection{Modifying Dolev}
+We can distinguish between two options for the routing table in a modified verion of Dolev's protocol. 
+In one version every process only uses the edge weights without any modifications to calculate the routing table. Note that this results in routing tables where $paths(p_i, p_j) == reverse\_paths(p_j, p_i)$ where $p_i, p_j \in \Delta$, i.e. for every pair of arbitrary processes $p_i$ and $p_j$ the paths of $p_i$ to $p_j$ all have reverse paths\footnote{Let us recall that a reverse path is simply a path traversed backwards} in the set of paths from $p_j$ to $p_i$.
+Another version allows for individual processes to make changes to their edge weights, so messages might traverse different paths from $p_i$ to $p_j$ than from $p_j$ to $p_i$.
+
+The former allows for trivial message verification as every node is aware of the paths a message should traverse. However, processes can not deviate from the original edge weights, which might be undesirable for future improvements. The second option allows processes to change weights and have dynamic routing tables, but does require more care when verifying messages.
+
+In both cases there is still another decision to make. Should every process compute the routing tables of all other processes, or should every process only compute their own routing table? Both cases are valid, but they differ in their computational complexity and their bandwidth usage. Computing every routing table is a computationally expensive operation, but allows for information to be removed from the messages, reducing the amount of required bandwidth.
+
+In this paper we have opted for the protocol where every process only computes its own routing table and they are allowed to change edge weights.
+
+\subsubsection{Modifications}
+The protocol is changed in several places, in order to maximally leverage topology knowledge. 
+
+The messages do not change significantly, all original information is retained. In addition to the traversed path, a message will now also contain a desired path. Instead of relaying messages to most neighbours, a message will now only be relayed to the next hop in the desired path. In order to prevent Byzantine processes from flooding the network, messages will be dropped in the actual path contains loops or if the desired path has a length of more than $n$.
+
+This version of Dolev's protocol knows two possible verification algorithms. 
+Since a process $p_i$ is initially unaware of the paths used by process $p_j$, it must fall back on basic Dolev verification, where every message has to be received over at least $f+1$ disjoint paths. This problem can be solved by modeling the paths as a flow network where every edge has a capacity of one. The maximum flow through the network from source $p_j$ to sink $p_i$ is then equal to the amount of disjoint paths. In this paper we use the Edmonds-Karp algorithm~\citationneeded to find the maximum flow through the flow network. This algorithm can be found in Algorithm~XXX.
+When a process $p_i$ has delivered a message from $p_j$, it can save the paths used to memory. Since we assume these paths never change, they can be used to verify any message in the future in a more efficient manner. Any incoming message is accepted when it has arrived over at least $f+1$ unique paths saved in memory. For the sake of completeness, this algorithm is described in Algorithm~XXX.
+
+\subsection{Optimizations}
+In addition to providing a base implementation for Dolev's protocol with routing, we also introduce several optimizations in order to further reduce the amount of messages transmitted. In order to avoid confusion we use the identifier \textbf{ORD.1-XXX} for our optimizations.
+
+\subsubsection{ORD.1: Avoid transmitting subpaths}
+When process $p$ is building its routing table, it can discard all routes which are a subpath of other routes. The messages related to said paths can be dropped without loss of information, as it is guaranteed another message will traverse the path in full.
+
+\subsubsection{ORD.2: Use a single route for direct neighbours}
+Bonomi et al.~\cite{bonomi2019multihop} showed that direct neighbours can directly deliver messages originating from the source. A similar change can be made to the routed version of Dolev's protocol, by accepting only one path to direct neighbours. This can be done by assigning an extremely negative weight on the outgoing edges of the source, or by adding routes for neighbours later.
+
+\subsubsection{ORD.3: Merge next hops when possible}
+When process $p$ is transmitting the initial broadcast messages, it can merge all messages which have the same first hop into a single message. This process can then be continued by all relaying nodes until only a single base message remains. This means the desired and traversed path form a pair which needs to be maintained throughout the entire network. 
+
+\subsubsection{ORD.4: Reuse paths when possible}
+When messages traverse the same path, processes can attempt to merge messages as explained in \textbf{ORD.3}. For this reason routes should be as similar as possible. This can be achieved by adding weights to unused edges after each iteration of the disjoint k-paths solver, which corresponds to line XXX in Algorithm~XXX.
+
+Additional care has to be taken when \textbf{ORD.2} is also applied, to avoid routing messages to neighbours over intermediate nodes.
+
+\section{Bracha on known topologies}
+
+\section{Bracha-Dolev on known topologies}
