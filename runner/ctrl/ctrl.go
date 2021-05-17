@@ -105,11 +105,14 @@ func (c *Controller) FlushProcesses() {
 }
 
 // TODO: random byzantine nodes?
-func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirected, bp brb.Protocol, F int, byzEx []uint64) error {
+func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirected, bp brb.Protocol, F int, possibleTransmitters []uint64) error {
 	nodes := g.Nodes()
-
 	byzLeft := F
 	N := nodes.Len()
+
+	if r := len(possibleTransmitters); N-r < F {
+		return errors.Errorf("not enough nodes to support %v possible transmitters with %v byzantine nodes", r, F)
+	}
 
 	for nodes.Next() {
 		n := nodes.Node()
@@ -123,7 +126,8 @@ func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirect
 		pg := simple.NewWeightedUndirectedGraph(0, 0)
 		graph.CopyWeighted(pg, g)
 
-		byz := byzLeft > 0 && !c.contains(uint64(n.ID()), byzEx)
+		possibleTransmitter := c.contains(uint64(n.ID()), possibleTransmitters)
+		byz := byzLeft > 0 && !possibleTransmitter
 		if byz {
 			byzLeft -= 1
 		}
@@ -137,6 +141,7 @@ func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirect
 			Neighbours:    neighbours,
 			Graph:         pg,
 			KnownTopology: true,
+			Unused:        !possibleTransmitter,
 		}
 
 		if err := c.startProcess(pcfg, reflect.New(reflect.ValueOf(bp).Elem().Type()).Interface().(brb.Protocol)); err != nil {
@@ -159,10 +164,6 @@ func (c *Controller) TriggerMessageSend(id uint64, payload interface{}) (uint32,
 	uid := rand.Uint32()
 
 	m := msg.TriggerMessage{Id: uid, Payload: payload}
-	//b, err := m.Encode()
-	//if err != nil {
-	//	return 0, errors.Wrap(err, "failed to encode payload message")
-	//}
 
 	c.pLock.Lock()
 	if _, ok := c.channels[id]; !ok {

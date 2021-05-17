@@ -43,7 +43,7 @@ func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 		return
 	}
 
-	if d.broadcast == nil {
+	if d.broadcast == nil && !d.cfg.Unused {
 		// Additional modification (based on bonomi 7): Accept messages from origin immediately, neighbours only need one path
 		routes, err := graphs.BuildLookupTable(cfg.Graph, graphs.Node{
 			Id:   int64(d.cfg.Id),

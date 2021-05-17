@@ -126,8 +126,6 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data interface{
 
 		if graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
 			d.deliver(uid, id, m)
-		} else {
-			//fmt.Printf("proc %v is NOT delivering %+v\n", d.cfg.Id, id)
 		}
 	}
 

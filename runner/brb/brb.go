@@ -23,7 +23,7 @@ type Config struct {
 	Graph         *simple.WeightedUndirectedGraph
 	KnownTopology bool
 
-	Silent bool
+	Silent, Unused bool
 }
 
 type Protocol interface {

@@ -47,7 +47,7 @@ func (d *DolevKnown) Init(n Network, app Application, cfg Config) {
 		return
 	}
 
-	if d.broadcast == nil {
+	if d.broadcast == nil && !d.cfg.Unused {
 		routes, err := graphs.BuildLookupTable(cfg.Graph, graphs.Node{
 			Id:   int64(d.cfg.Id),
 			Name: strconv.Itoa(int(d.cfg.Id)),

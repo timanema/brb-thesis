@@ -7,6 +7,7 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 	"log"
 	"math"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -64,9 +65,9 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 50, 30, 10
-	m := graphs.GeneralizedWheelGenerator{}
-	if err := runSimpleTest(info, 10, n, k, f, m, cfg, &brb.BrachaDolevKnown{}); err != nil {
+	n, k, f := 200, 50, 12
+	m := graphs.MultiPartiteWheelGenerator{}
+	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevKnownImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
@@ -75,6 +76,25 @@ func RunnerMain() {
 	fmt.Println("done")
 	<-stopCh
 	fmt.Println("server stop")
+}
+
+func pickRandom(i int, max int) []uint64 {
+	res := make([]uint64, 0, i)
+	used := make(map[uint64]struct{})
+
+	for len(res) < i {
+		rand.Seed(time.Now().UnixNano())
+		next := uint64(rand.Intn(max))
+
+		if _, ok := used[next]; ok {
+			continue
+		}
+
+		used[next] = struct{}{}
+		res = append(res, next)
+	}
+
+	return res
 }
 
 func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator, cfg process.Config, bp brb.Protocol) error {
@@ -90,6 +110,7 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 		}
 	}
 
+	ra := pickRandom(runs, n)
 	g, err := gen.Generate(n, k)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate graph for test")
@@ -102,8 +123,8 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 		return errors.Wrap(err, "unable to start controller")
 	}
 
-	fmt.Println("starting processes")
-	err = ctl.StartProcesses(cfg, g, bp, f, []uint64{0})
+	fmt.Printf("starting processes\nselected as possible transmitters: %v\n", ra)
+	err = ctl.StartProcesses(cfg, g, bp, f, ra)
 	if err != nil {
 		return errors.Wrap(err, "unable to start processes")
 	}
@@ -124,7 +145,8 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 			return errors.Wrap(err, "err while waiting for ready")
 		}
 
-		uid1, err := ctl.TriggerMessageSend(0, []byte(fmt.Sprintf("run_%v", i)))
+		id := ra[i]
+		uid1, err := ctl.TriggerMessageSend(id, []byte(fmt.Sprintf("run_%v", i)))
 		if err != nil {
 			fmt.Printf("err while sending payload msg: %v\n", err)
 			os.Exit(1)
@@ -136,7 +158,7 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 		//	os.Exit(1)
 		//}
 
-		fmt.Printf("sent message (%v, round %v), waiting for deliver\n", uid1, i)
+		fmt.Printf("sent message (%v, round %v, origin %v), waiting for deliver\n", uid1, i, id)
 		stats := ctl.WaitForDeliver(uid1)
 		fmt.Printf("statistics (%v, %v):\n  last delivery latency: %v\n  messages sent: %v\n", uid1, i,
 			stats.Latency, stats.MsgCount)
