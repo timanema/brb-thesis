@@ -10,6 +10,8 @@ const (
 	BrachaSend  uint8 = 1
 	BrachaEcho  uint8 = 2
 	BrachaReady uint8 = 3
+
+	BrachaEveryone int = iota
 )
 
 type BrachaMessage struct {
@@ -30,7 +32,8 @@ type Bracha struct {
 	app Application
 	cfg Config
 
-	cnt uint32
+	cnt  uint32
+	bcId int
 
 	delivered map[brachaIdentifier]struct{}
 
@@ -70,8 +73,13 @@ func (b *Bracha) send(messageType uint8, uid uint32, id brachaIdentifier, data i
 	}
 
 	for _, n := range b.cfg.Neighbours {
-		b.n.Send(messageType, n, uid, data)
+		b.n.Send(messageType, n, uid, data, BroadcastInfo{
+			Type: BrachaEveryone,
+			Id:   b.bcId,
+		})
 	}
+
+	b.bcId += 1
 }
 
 func (b *Bracha) hasDelivered(id brachaIdentifier) bool {
@@ -153,9 +161,7 @@ func (b *Bracha) Broadcast(uid uint32, payload interface{}) {
 		b.echo[id] = map[uint64]struct{}{
 			b.cfg.Id: {},
 		}
-		b.ready[id] = map[uint64]struct{}{
-			b.cfg.Id: {},
-		}
+		b.ready[id] = make(map[uint64]struct{})
 
 		m := BrachaMessage{
 			Src:     b.cfg.Id,
@@ -168,4 +174,8 @@ func (b *Bracha) Broadcast(uid uint32, payload interface{}) {
 		b.echoSent[id] = struct{}{}
 		b.cnt += 1
 	}
+}
+
+func (b *Bracha) Category() ProtocolCategory {
+	return BrachaCat
 }

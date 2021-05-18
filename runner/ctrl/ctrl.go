@@ -105,7 +105,7 @@ func (c *Controller) FlushProcesses() {
 }
 
 // TODO: random byzantine nodes?
-func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirected, bp brb.Protocol, F int, possibleTransmitters []uint64) error {
+func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirected, bp brb.Protocol, F int, possibleTransmitters []uint64, allTransmit bool) error {
 	nodes := g.Nodes()
 	byzLeft := F
 	N := nodes.Len()
@@ -142,6 +142,10 @@ func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirect
 			Graph:         pg,
 			KnownTopology: true,
 			Unused:        !possibleTransmitter,
+		}
+
+		if allTransmit {
+			pcfg.ByzConfig.Unused = false
 		}
 
 		if err := c.startProcess(pcfg, reflect.New(reflect.ValueOf(bp).Elem().Type()).Interface().(brb.Protocol)); err != nil {

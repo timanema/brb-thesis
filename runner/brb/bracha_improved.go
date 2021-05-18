@@ -16,7 +16,8 @@ type BrachaImproved struct {
 	app Application
 	cfg Config
 
-	cnt uint32
+	cnt  uint32
+	bcId int
 
 	delivered map[brachaIdentifier]struct{}
 
@@ -61,9 +62,14 @@ func (b *BrachaImproved) send(messageType uint8, uid uint32, id brachaIdentifier
 		return
 	}
 
+	i := b.bcId
+	b.bcId += 1
 	for _, n := range to {
 		if n != b.cfg.Id {
-			b.n.Send(messageType, n, uid, data)
+			b.n.Send(messageType, n, uid, data, BroadcastInfo{
+				Type: BrachaEveryone,
+				Id:   i,
+			})
 		}
 	}
 }
@@ -173,9 +179,7 @@ func (b *BrachaImproved) Broadcast(uid uint32, payload interface{}) {
 		b.echo[id] = map[uint64]struct{}{
 			b.cfg.Id: {},
 		}
-		b.ready[id] = map[uint64]struct{}{
-			b.cfg.Id: {},
-		}
+		b.ready[id] = make(map[uint64]struct{})
 
 		b.participatingEcho[id] = true
 		b.participatingReady[id] = true
@@ -185,6 +189,7 @@ func (b *BrachaImproved) Broadcast(uid uint32, payload interface{}) {
 		included := make([]uint64, 0, echoReq+1)
 
 		included = append(included, b.cfg.Id)
+		echoReq -= 1
 
 		for _, pid := range b.cfg.Neighbours {
 			included = append(included, pid)
@@ -195,6 +200,10 @@ func (b *BrachaImproved) Broadcast(uid uint32, payload interface{}) {
 			}
 		}
 
+		if echoReq > 0 {
+			panic("incorrect bracha_improved nodes")
+		}
+
 		m := BrachaImprovedMessage{
 			BrachaMessage: BrachaMessage{
 				Src:     b.cfg.Id,
@@ -203,8 +212,14 @@ func (b *BrachaImproved) Broadcast(uid uint32, payload interface{}) {
 			},
 			Included: included,
 		}
+		b.cnt += 1
 
 		b.send(BrachaSend, uid, id, m, included)
-		b.cnt += 1
+		b.echoSent[id] = struct{}{}
+
 	}
+}
+
+func (b *BrachaImproved) Category() ProtocolCategory {
+	return BrachaCat
 }

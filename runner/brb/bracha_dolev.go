@@ -16,6 +16,8 @@ type BrachaDolev struct {
 	n   Network
 	app Application
 	cfg Config
+
+	brachaBroadcast map[int]struct{}
 }
 
 var _ Protocol = (*BrachaDolev)(nil)
@@ -26,6 +28,7 @@ func (bd *BrachaDolev) Init(n Network, app Application, cfg Config) {
 	bd.n = n
 	bd.app = app
 	bd.cfg = cfg
+	bd.brachaBroadcast = make(map[int]struct{})
 
 	sil := cfg.Silent
 	if !cfg.Silent && cfg.Byz {
@@ -49,13 +52,18 @@ func (bd *BrachaDolev) Init(n Network, app Application, cfg Config) {
 	cfg.Silent = sil
 }
 
-func (bd *BrachaDolev) Send(messageType uint8, src uint64, uid uint32, data interface{}) {
-	// Bracha is sending a message through Dolev
-	bd.d.Broadcast(uid, brachaWrapper{
-		messageType: messageType,
-		msg:         data,
-	})
-	//fmt.Printf("proc %v is broadcasting %v (%v for %v) through dolev with type %v\n", bd.cfg.Id, data, reflect.TypeOf(data).Name(), src, messageType)
+func (bd *BrachaDolev) Send(messageType uint8, _ uint64, uid uint32, data interface{}, bc BroadcastInfo) {
+	if _, ok := bd.brachaBroadcast[bc.Id]; !ok {
+		// Bracha is sending a message through Dolev
+		bd.d.Broadcast(uid, brachaWrapper{
+			messageType: messageType,
+			msg:         data,
+		})
+		//fmt.Printf("proc %v is broadcasting %v (%v for %v) through dolev with type %v\n", bd.cfg.Id, data, reflect.TypeOf(data).Name(), src, messageType)
+
+		// A message is broadcast only once to all
+		bd.brachaBroadcast[bc.Id] = struct{}{}
+	}
 }
 
 func (bd *BrachaDolev) Deliver(uid uint32, payload interface{}, src uint64) {
@@ -73,4 +81,8 @@ func (bd *BrachaDolev) Receive(_ uint8, src uint64, uid uint32, data interface{}
 func (bd *BrachaDolev) Broadcast(uid uint32, payload interface{}) {
 	// Application is requesting a broadcast, pass to Bracha
 	bd.b.Broadcast(uid, payload)
+}
+
+func (bd *BrachaDolev) Category() ProtocolCategory {
+	return BrachaDolevCat
 }

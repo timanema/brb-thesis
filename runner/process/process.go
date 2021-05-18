@@ -237,11 +237,11 @@ func (p *Process) Deliver(uid uint32, payload interface{}, src uint64) {
 	p.sLock.Unlock()
 }
 
-func (p *Process) Send(t uint8, dest uint64, uid uint32, data interface{}) {
+func (p *Process) Send(messageType uint8, dest uint64, uid uint32, data interface{}, _ brb.BroadcastInfo) {
 	//fmt.Printf("process %v is sending %+v (type=%v, id=%v) to %v\n", p.id, data, t, uid, dest)
 
 	m := msg.WrapperDataMessage{
-		T:    t,
+		T:    messageType,
 		Id:   uid,
 		Data: data,
 	}

@@ -48,7 +48,7 @@ func (d *Dolev) Init(n Network, app Application, cfg Config) {
 
 func (d *Dolev) send(uid uint32, data interface{}, to []uint64) {
 	for _, n := range to {
-		d.n.Send(0, n, uid, data)
+		d.n.Send(0, n, uid, data, BroadcastInfo{})
 	}
 }
 
@@ -128,4 +128,8 @@ func (d *Dolev) Broadcast(uid uint32, payload interface{}) {
 		d.send(uid, m, d.cfg.Neighbours)
 		d.cnt += 1
 	}
+}
+
+func (d *Dolev) Category() ProtocolCategory {
+	return DolevCat
 }

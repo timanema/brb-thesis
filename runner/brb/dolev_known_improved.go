@@ -39,7 +39,7 @@ func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 	d.paths = make(map[dolevIdentifier][]graphs.Path)
 
 	if !cfg.Silent && cfg.Byz {
-		fmt.Printf("process %v is a Dolev Byzantine node\n", cfg.Id)
+		fmt.Printf("process %v is a Dolev (known improved) Byzantine node\n", cfg.Id)
 		return
 	}
 
@@ -92,7 +92,7 @@ func (d *DolevKnownImproved) sendMergedMessage(uid uint32, m DolevKnownImprovedM
 
 	for dst, p := range next {
 		m.Paths = p
-		d.n.Send(0, dst, uid, m)
+		d.n.Send(0, dst, uid, m, BroadcastInfo{})
 	}
 
 	return nil
@@ -101,6 +101,7 @@ func (d *DolevKnownImproved) sendMergedMessage(uid uint32, m DolevKnownImprovedM
 func (d *DolevKnownImproved) sendInitialMessage(uid uint32, payload interface{}) error {
 	m := DolevKnownImprovedMessage{
 		Src:     d.cfg.Id,
+		Id:      d.cnt,
 		Payload: payload,
 	}
 
@@ -112,7 +113,7 @@ func (d *DolevKnownImproved) sendInitialMessage(uid uint32, payload interface{})
 		}
 
 		m.Paths = dp
-		d.n.Send(0, dst, uid, m)
+		d.n.Send(0, dst, uid, m, BroadcastInfo{})
 	}
 
 	return nil
@@ -130,8 +131,6 @@ func (d *DolevKnownImproved) Receive(_ uint8, src uint64, uid uint32, data inter
 	}
 
 	m := data.(DolevKnownImprovedMessage)
-
-	// Add paths to mem for this message
 	id := dolevIdentifier{
 		Src:        m.Src,
 		Id:         m.Id,
@@ -147,6 +146,7 @@ func (d *DolevKnownImproved) Receive(_ uint8, src uint64, uid uint32, data inter
 		})
 		m.Paths[i] = p
 
+		// Add paths to mem for this message
 		if !d.hasDelivered(id) {
 			d.paths[id] = append(d.paths[id], p.Actual)
 		}
@@ -186,12 +186,17 @@ func (d *DolevKnownImproved) Broadcast(uid uint32, payload interface{}) {
 	if _, ok := d.delivered[id]; !ok {
 		d.delivered[id] = struct{}{}
 		d.paths[id] = make([]graphs.Path, d.cfg.F*2+1)
-		d.app.Deliver(uid, payload, 0)
+		d.app.Deliver(uid, payload, d.cfg.Id)
 
 		if err := d.sendInitialMessage(uid, payload); err != nil {
 			fmt.Printf("process %v errored while broadcasting dolev (known, improved) message: %v\n", d.cfg.Id, err)
 			os.Exit(1)
 		}
+
 		d.cnt += 1
 	}
+}
+
+func (d *DolevKnownImproved) Category() ProtocolCategory {
+	return DolevCat
 }

@@ -72,7 +72,7 @@ func (d *DolevKnown) Init(n Network, app Application, cfg Config) {
 
 func (d *DolevKnown) sendMessage(uid uint32, m DolevKnownMessage) {
 	if cur := len(m.Paths.Actual); len(m.Paths.Desired) > cur {
-		d.n.Send(0, uint64(m.Paths.Desired[cur].To().ID()), uid, m)
+		d.n.Send(0, uint64(m.Paths.Desired[cur].To().ID()), uid, m, BroadcastInfo{})
 	}
 }
 
@@ -88,7 +88,7 @@ func (d *DolevKnown) sendInitialMessage(uid uint32, payload interface{}) error {
 			Actual:  nil,
 		}
 
-		d.n.Send(0, uint64(p[0].To().ID()), uid, m)
+		d.n.Send(0, uint64(p[0].To().ID()), uid, m, BroadcastInfo{})
 	}
 
 	return nil
@@ -159,4 +159,8 @@ func (d *DolevKnown) Broadcast(uid uint32, payload interface{}) {
 
 		d.cnt += 1
 	}
+}
+
+func (d *DolevKnown) Category() ProtocolCategory {
+	return DolevCat
 }

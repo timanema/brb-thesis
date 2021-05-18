@@ -65,7 +65,7 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 200, 50, 12
+	n, k, f := 61, 30, 9
 	m := graphs.MultiPartiteWheelGenerator{}
 	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevKnownImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
@@ -98,16 +98,12 @@ func pickRandom(i int, max int) []uint64 {
 }
 
 func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator, cfg process.Config, bp brb.Protocol) error {
-	if k < 2*f+1 {
+	if k < 2*f+1 && bp.Category() != brb.BrachaCat {
 		return errors.Errorf("network is not 2f+1 connected (k=%v, f=%v)", k, f)
 	}
 
-	if float64(f) >= float64(n)/3 {
-		_, b := bp.(*brb.Bracha)
-		_, bi := bp.(*brb.BrachaImproved)
-		if b || bi {
-			return errors.Errorf("f >= n/3 (k=%v, f=%v)", k, f)
-		}
+	if float64(f) >= float64(n)/3 && bp.Category() != brb.DolevCat {
+		return errors.Errorf("f >= n/3 (k=%v, f=%v)", k, f)
 	}
 
 	ra := pickRandom(runs, n)
@@ -124,7 +120,7 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 	}
 
 	fmt.Printf("starting processes\nselected as possible transmitters: %v\n", ra)
-	err = ctl.StartProcesses(cfg, g, bp, f, ra)
+	err = ctl.StartProcesses(cfg, g, bp, f, ra, bp.Category() != brb.DolevCat)
 	if err != nil {
 		return errors.Wrap(err, "unable to start processes")
 	}

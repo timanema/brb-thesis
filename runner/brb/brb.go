@@ -11,8 +11,12 @@ type Application interface {
 	Deliver(uid uint32, payload interface{}, src uint64)
 }
 
+type BroadcastInfo struct {
+	Type, Id int
+}
+
 type Network interface {
-	Send(messageType uint8, dest uint64, uid uint32, data interface{})
+	Send(messageType uint8, dest uint64, uid uint32, data interface{}, bc BroadcastInfo)
 }
 
 type Config struct {
@@ -26,6 +30,14 @@ type Config struct {
 	Silent, Unused bool
 }
 
+type ProtocolCategory int
+
+const (
+	DolevCat ProtocolCategory = iota
+	BrachaCat
+	BrachaDolevCat
+)
+
 type Protocol interface {
 	// Can be used to do some initial work (processes will wait for this to
 	// be completed before announcing that they're ready)
@@ -34,4 +46,6 @@ type Protocol interface {
 	Receive(messageType uint8, src uint64, uid uint32, data interface{})
 
 	Broadcast(uid uint32, payload interface{})
+
+	Category() ProtocolCategory
 }

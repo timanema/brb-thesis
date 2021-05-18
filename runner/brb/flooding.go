@@ -27,7 +27,7 @@ func (f *Flooding) Init(n Network, app Application, cfg Config) {
 func (f *Flooding) flood(uid uint32, data interface{}, ex uint64) {
 	for _, n := range f.cfg.Neighbours {
 		if n != ex {
-			f.n.Send(0, n, uid, data)
+			f.n.Send(0, n, uid, data, BroadcastInfo{})
 		}
 	}
 }
@@ -52,4 +52,8 @@ func (f *Flooding) Broadcast(uid uint32, payload interface{}) {
 
 		f.flood(uid, payload, f.cfg.Id)
 	}
+}
+
+func (f *Flooding) Category() ProtocolCategory {
+	return BrachaCat
 }
