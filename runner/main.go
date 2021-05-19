@@ -65,16 +65,14 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 61, 30, 9
-	m := graphs.MultiPartiteWheelGenerator{}
-	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevKnownImproved{}); err != nil {
+	n, k, f := 15,15,3
+	m := graphs.FullyConnectedGenerator{}
+	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.Bracha{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
-	//time.Sleep(time.Second * 5)
 
 	fmt.Println("done")
-	<-stopCh
 	fmt.Println("server stop")
 }
 

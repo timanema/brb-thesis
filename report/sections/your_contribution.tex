@@ -71,5 +71,37 @@ When messages traverse the same path, processes can attempt to merge messages as
 Additional care has to be taken when \textbf{ORD.2} is also applied, to avoid routing messages to neighbours over intermediate nodes.
 
 \section{Bracha on known topologies}
+In the case of Bracha's protocol, topology knowledge is not as useful as with Dolev's protocol. This is because Bracha assumes a fully connected network, which means the topology is known anyways. The only knowledge processes gain is the weight of edges representing links between other processes. We will try to use this knowledge for our optimizations
+
+Similar to Dolev's optimizations, we will use \textbf{ORB.1-XXX} to identify different optimizations.
+
+\subsubsection{ORB.1: Implicit echo messages}
+Instead of sending a \textit{send} message and an \textit{echo} message separately, a process can send a single \textit{send} message and others will interpret that as a combined \textit{send} and \textit{echo} message.
+
+\subsubsection{ORB.2: Use minimal subset of neighbours}
+Bracha's protocol requires $\ceil{\frac{N+f+1}{2}} + f$ participants in the \textit{echo} phase and $3f+1$ for the \textit{ready} phase. This means that for overprovisioned networks, i.e. networks where $f < \floor{\frac{N}{3}} - 1$, we can avoid using all processes in said phases.
+
+This is similar to the optimization \textbf{MBD.11} from \cite{bonomi2021practical}, however we can improve overall latency by assigning a cost to every neighbour based on their outgoing edges and then making a selection. 
+
+There are several ways to assign a cost to a process. Simple heuristics include finding the minimum sum of weights of edges used, finding the minimum sum of weights for all edges, and several other similar approaches. There is also the possibility of finding the optimal combination, but that is outside the scope of this paper, but can be added later.
+
+Using the chosen heuristic, every process calculates a Bracha routing table which contains all \textit{echo} and \textit{ready} participants for every message origin.
 
 \section{Bracha-Dolev on known topologies}
+In this section we will describe how our previous optimizations for Dolev and Bracha can be applied to Bracha-Dolev, and additional cross-layer optimizations.
+
+\subsection{Applying optimizations from Dolev}
+As Dolev is used as the lowest layer, all \textbf{ORD} optimizations can be applied as is to our improved version of Bracha-Dolev.
+
+\subsection{Applying optimizations from Bracha}
+Bracha is used as the upper layer in Bracha-Dolev, and as such we can not directly apply \textbf{ORB.2}, since it assumes a fully connected network. However, we can use a different way of selecting processes, by simply selecting the closest processes in the network.
+
+The other Bracha optimization, \textbf{ORB.1}, can be directly applied as it does not rely on topology knowledge.
+
+\subsection{Optimizations}
+In addition to applying all \textbf{ORD} and (modified) \textbf{ORB} optimizations, we can also apply some new modifications. These are identified by \textbf{ORBD.1-XXX}.
+
+\subsubsection{ORBD.1: Using partial Dolev broadcast}
+In order to take full advantage of \textbf{ORB.2} the underlying Dolev layer should avoid sending messages to processes not included in the current \textit{echo} or \textit{ready} phase. This can be achieved by using partial broadcasts, i.e. not all processes deliver a message. While this would normally violate the RC protocols of Dolev, it doesn't in this case as Bracha-Dolev as a whole still upholds the BRB guarantees.
+
+This modification can be added by replacing the usual Dolev routing table, by two pre-computed routing tables which take the Bracha phase and message origin into account, or by reusing the regular Dolev routing table and compute the resulting routes on the fly. The former uses more memory to store all routing tables, while the latter increases the latency of the protocol.
