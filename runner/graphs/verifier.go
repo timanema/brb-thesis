@@ -109,9 +109,9 @@ func bfs(g graph.WeightedDirected, s, t graph.Node) Path {
 	return res
 }
 
-func findDisjointPaths(g *simple.WeightedDirectedGraph, s, t graph.Node) int {
+func maxFlow(g *simple.WeightedDirectedGraph, s, t graph.Node) int {
 	if s.ID() == t.ID() {
-		fmt.Println("Should not happen: s == t for findDisjointPaths()")
+		fmt.Println("Should not happen: s == t for maxFlow()")
 		return -1
 	}
 
@@ -141,27 +141,7 @@ func VerifyDisjointPaths(paths []Path, s, t graph.Node, k int) bool {
 		}
 	}
 
-	return findDisjointPaths(g, s, t) >= k
-}
-
-type pair struct {
-	a, b int64
-}
-
-func findPairs(xs []int64) []pair {
-	res := make([]pair, 0, len(xs)*len(xs))
-
-	for i := 0; i < len(xs); i++ {
-		for j := 0; j < len(xs); j++ {
-			if i == j {
-				continue
-			}
-
-			res = append(res, pair{a: xs[i], b: xs[j]})
-		}
-	}
-
-	return res
+	return maxFlow(g, s, t) >= k
 }
 
 func FindConnectedness(g graph.Undirected) int {

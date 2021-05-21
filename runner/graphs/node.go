@@ -27,9 +27,17 @@ func NewNodeUndirected(g *simple.WeightedUndirectedGraph, name string) graph.Nod
 	}
 }
 
-func NewNodeSplit(g *simple.WeightedDirectedGraph, name string, original graph.Node) graph.Node {
+func NewNodeSplit(name string, original graph.Node, in bool, n int64) graph.Node {
+	if in {
+		return Node{
+			Id:       original.ID(),
+			Name:     name,
+			original: original,
+		}
+	}
+
 	return Node{
-		Id:       g.NewNode().ID(),
+		Id:       original.ID() + n,
 		Name:     name,
 		original: original,
 	}

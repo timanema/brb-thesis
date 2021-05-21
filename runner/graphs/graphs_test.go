@@ -62,7 +62,7 @@ func TestSimple(t *testing.T) {
 	k := 2
 
 	// Get paths
-	paths, err := DisjointPaths(Directed(gr), a, d, k, nil, false)
+	paths, err := DisjointPaths(Directed(gr), nil, a, d, k, nil, false)
 
 	assert.NoError(t, err)
 	assert.Len(t, paths, 2)
@@ -115,7 +115,7 @@ func TestSimpleTrap(t *testing.T) {
 	k := 2
 
 	// Get paths
-	paths, err := DisjointPaths(Directed(gr), a, d, k, nil, false)
+	paths, err := DisjointPaths(Directed(gr), nil, a, d, k, nil, false)
 
 	assert.NoError(t, err)
 	assert.Len(t, paths, 2)
@@ -153,7 +153,7 @@ func TestImpossible(t *testing.T) {
 	k := 2
 
 	// Get paths
-	_, err := DisjointPaths(Directed(gr), a, d, k, nil, false)
+	_, err := DisjointPaths(Directed(gr), nil, a, d, k, nil, false)
 	assert.Error(t, err)
 }
 
@@ -180,7 +180,7 @@ func TestWithMultiPartiteWheelGenerator(test *testing.T) {
 
 		s, t := g.Node(int64(start)), g.Node(int64(end))
 
-		paths, err := DisjointPaths(Directed(g), s, t, f, nil, false)
+		paths, err := DisjointPaths(Directed(g), nil, s, t, f, nil, false)
 		assert.NoError(test, err)
 		assert.Len(test, paths, f)
 		assert.True(test, VerifySolution(Directed(g), s, t, f, paths))
@@ -205,7 +205,7 @@ func TestWithGeneralizedWheelGenerator(test *testing.T) {
 
 		s, t := g.Node(int64(start)), g.Node(int64(end))
 
-		paths, err := DisjointPaths(Directed(g), s, t, f, nil, false)
+		paths, err := DisjointPaths(Directed(g), nil, s, t, f, nil, false)
 		assert.NoError(test, err)
 		assert.Len(test, paths, f)
 		assert.True(test, VerifySolution(Directed(g), s, t, f, paths))
@@ -234,7 +234,7 @@ func benchWithGenerator(n, k int, m Generator, b *testing.B) {
 
 	gd := Directed(g)
 	for i := 0; i < b.N; i++ {
-		p, _ = DisjointPaths(gd, s, t, k, nil, false)
+		p, _ = DisjointPaths(gd, nil, s, t, k, nil, false)
 	}
 
 	paths = p
@@ -456,6 +456,8 @@ BenchmarkTable100Nodes50Connected-12                            	       1	176098
 
 /*
 Benches for presentation
+1: Original
+2: Shared splitting (omitted for single)
 */
 
 // 143493 ns/op == 0.14ms
@@ -568,72 +570,84 @@ func BenchmarkSingle1000Nodes50ConnectedPres(b *testing.B) {
 
 /// TABLES
 // 1791754 ns/op == 0.002s
+//  736889 ns/op == 0.001s
 func BenchmarkTable10Nodes5ConnectedPres(b *testing.B) {
 	n, k := 10, 5
 	benchTable(n, k, GeneralizedWheelGenerator{}, b)
 }
 
 // 45860642 ns/op == 0.05s
+// 20607372 ns/op == 0.02s
 func BenchmarkTable50Nodes5ConnectedPres(b *testing.B) {
 	n, k := 50, 5
 	benchTable(n, k, GeneralizedWheelGenerator{}, b)
 }
 
 // 336122326 ns/op == 0.3s
+// 128501648 ns/op == 0.1s
 func BenchmarkTable100Nodes5ConnectedPres(b *testing.B) {
 	n, k := 100, 5
 	benchTable(n, k, GeneralizedWheelGenerator{}, b)
 }
 
 // 1100778497 ns/op == 1.1s
+//  392548520 ns/op == 0.4s
 func BenchmarkTable150Nodes5ConnectedPres(b *testing.B) {
 	n, k := 150, 5
 	benchTable(n, k, GeneralizedWheelGenerator{}, b)
 }
 
 // 2012939823 ns/op == 2s
+// 1010175436 ns/op == 1s
 func BenchmarkTable200Nodes5ConnectedPres(b *testing.B) {
 	n, k := 200, 5
 	benchTable(n, k, GeneralizedWheelGenerator{}, b)
 }
 
 // 264568676 ns/op == 0.26s
+//  89267417 ns/op == 0.09s
 func BenchmarkTable50Nodes25ConnectedPres(b *testing.B) {
 	n, k := 50, 25
 	benchTable(n, k, GeneralizedWheelGenerator{}, b)
 }
 
 // 1285495798 ns/op == 1.3s
+//  442782281 ns/op == 0.4s
 func BenchmarkTable100Nodes25ConnectedPres(b *testing.B) {
 	n, k := 100, 25
 	benchTable(n, k, GeneralizedWheelGenerator{}, b)
 }
 
 // 3634130785 ns/op == 3.6s
+// 1141679816 ns/op == 1.1s
 func BenchmarkTable150Nodes25ConnectedPres(b *testing.B) {
 	n, k := 150, 25
 	benchTable(n, k, GeneralizedWheelGenerator{}, b)
 }
 
 // 7110399176 ns/op == 7.1s
+// 2704483226 ns/op == 2.7s
 func BenchmarkTable200Nodes25ConnectedPres(b *testing.B) {
 	n, k := 200, 25
 	benchTable(n, k, GeneralizedWheelGenerator{}, b)
 }
 
 // 2561879285 ns/op == 2.56s
+// 1011124576 ns/op == 1s
 func BenchmarkTable100Nodes50ConnectedPres(b *testing.B) {
 	n, k := 100, 50
 	benchTable(n, k, GeneralizedWheelGenerator{}, b)
 }
 
 // 7065331046 ns/op == 7s
+// 2548691751 ns/op == 2.5s
 func BenchmarkTable150Nodes50ConnectedPres(b *testing.B) {
 	n, k := 150, 50
 	benchTable(n, k, GeneralizedWheelGenerator{}, b)
 }
 
 // 13072465481 ns/op == 13.1s
+//  5126578600 ns/op == 5.1s
 func BenchmarkTable200Nodes50ConnectedPres(b *testing.B) {
 	n, k := 200, 50
 	benchTable(n, k, GeneralizedWheelGenerator{}, b)

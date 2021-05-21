@@ -47,13 +47,13 @@ func benchTableTest() {
 
 	fmt.Println("Result:")
 	for to, paths := range res {
-		fmt.Printf("%v -> %v\n", to, paths)
+		fmt.Printf("%v -> %v\n\n", to, paths)
 	}
-	PrintGraphvizHighlightRoutes(Directed(g), res)
+	//PrintGraphvizHighlightRoutes(Directed(g), res)
 }
 
 func benchSingleTest() {
-	n, k := 10, 2
+	n, k := 30, 15
 	m := GeneralizedWheelGenerator{}
 
 	g, err := m.Generate(n, k)
@@ -65,7 +65,8 @@ func benchSingleTest() {
 	start := rand.Intn(n)
 
 	s := g.Node(int64(start))
-	t := g.Node(int64(math.Min(1, float64(start-1))))
+	t := g.Node(int64(math.Max(1, float64(start-1))))
+	f := int(math.Ceil((float64(k) - 1) / 2))
 	//PrintGraphviz(Directed(g))
 
 	additionalWeight := make(map[uint64]map[uint64]int)
@@ -78,19 +79,19 @@ func benchSingleTest() {
 		}
 	}
 	nodes.Reset()
-
-	res, err := DisjointPaths(Directed(g), s, t, int(math.Ceil((float64(k)-1)/2)), additionalWeight, false)
+	fmt.Printf("%v, %v\n", start, math.Max(1, float64(start-1)))
+	res, err := DisjointPaths(Directed(g), nil, s, t, f, additionalWeight, false)
 	if err != nil {
-		fmt.Printf("failed to build paths table for %v: %v\n", start, err)
+		fmt.Printf("failed to build single path for %v: %v\n", start, err)
 		os.Exit(1)
 	}
 
 	PrintGraphvizHighlightPaths(Directed(g), res)
-	fmt.Printf("Result:\n%v\n", res)
+	fmt.Printf("Result (%s -> %s over %v paths):\n%v\n", s, t, f, res)
 
-	_, err = DisjointPaths(Directed(g), s, t, k, additionalWeight, false)
+	_, err = DisjointPaths(Directed(g), nil, s, t, k, additionalWeight, false)
 	if err != nil {
-		fmt.Printf("failed to build paths table for %v: %v\n", start, err)
+		fmt.Printf("failed to build single path for %v: %v\n", start, err)
 		os.Exit(1)
 	}
 }
@@ -100,25 +101,25 @@ func GraphsMain() {
 	//	log.Println(http.ListenAndServe("localhost:6060", nil))
 	//}()
 
-	//benchSingleTest()
-	//return
-
-	p := []Path{
-		{simple.WeightedEdge{
-			F: simple.Node(0),
-			T: simple.Node(1),
-		}},
-		{simple.WeightedEdge{
-			F: simple.Node(0),
-			T: simple.Node(1),
-		}, simple.WeightedEdge{
-			F: simple.Node(1),
-			T: simple.Node(2),
-		}},
-	}
-	fmt.Println(p)
-	fmt.Println(FilterSubpaths(p))
+	benchTableTest()
 	return
+
+	//p := []Path{
+	//	{simple.WeightedEdge{
+	//		F: simple.Node(0),
+	//		T: simple.Node(1),
+	//	}},
+	//	{simple.WeightedEdge{
+	//		F: simple.Node(0),
+	//		T: simple.Node(1),
+	//	}, simple.WeightedEdge{
+	//		F: simple.Node(1),
+	//		T: simple.Node(2),
+	//	}},
+	//}
+	//fmt.Println(p)
+	//fmt.Println(FilterSubpaths(p))
+	//return
 
 	//x := GeneralizedWheelGenerator{}
 	//gx, err := x.Generate(5, 2)
@@ -229,7 +230,7 @@ func GraphsMain() {
 		}
 	*/
 
-	edges, err := DisjointEdges(g, s, t, f, nil, false)
+	edges, err := DisjointEdges(g, nil, s, t, f, nil, false)
 	if err != nil {
 		fmt.Printf("unable to find disjoint edges: %v\n", err)
 		os.Exit(1)
@@ -417,7 +418,7 @@ func alt() {
 
 	k := 3
 	s, t := a, h
-	edges, err := DisjointEdges(gd, s, t, k, nil, false)
+	edges, err := DisjointEdges(gd, nil, s, t, k, nil, false)
 	if err != nil {
 		fmt.Printf("unable to find disjoint edges: %v\n", err)
 		os.Exit(1)
@@ -441,6 +442,8 @@ func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int, w
 
 	additionalWeight := make(map[uint64]map[uint64]int)
 
+	split := NodeSplitting(g, additionalWeight)
+
 	for nodes.Next() {
 		n := nodes.Node()
 		nid := uint64(n.ID())
@@ -461,7 +464,7 @@ func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int, w
 			continue
 		}
 
-		paths, err := DisjointPaths(g, s, n, k, additionalWeight, skipNeighbour)
+		paths, err := DisjointPaths(g, split, s, n, k, additionalWeight, skipNeighbour)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to build paths to %v", n)
 		}
@@ -479,8 +482,8 @@ func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int, w
 	return res, nil
 }
 
-func DisjointPaths(g *simple.WeightedDirectedGraph, s, t graph.Node, k int, additionalWeight map[uint64]map[uint64]int, neighbourHop bool) ([]Path, error) {
-	edges, err := DisjointEdges(g, s, t, k, additionalWeight, neighbourHop)
+func DisjointPaths(g *simple.WeightedDirectedGraph, split *SplitGraph, s, t graph.Node, k int, additionalWeight map[uint64]map[uint64]int, neighbourHop bool) ([]Path, error) {
+	edges, err := DisjointEdges(g, split, s, t, k, additionalWeight, neighbourHop)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to find disjoint edges")
 	}
@@ -490,18 +493,22 @@ func DisjointPaths(g *simple.WeightedDirectedGraph, s, t graph.Node, k int, addi
 	return BuildPaths(filtered, s, t, k), nil
 }
 
-func DisjointEdges(g *simple.WeightedDirectedGraph, s, t graph.Node, k int, additionalWeight map[uint64]map[uint64]int, neighbourHop bool) ([]graph.WeightedEdge, error) {
+func DisjointEdges(g *simple.WeightedDirectedGraph, split *SplitGraph, s, t graph.Node, k int, additionalWeight map[uint64]map[uint64]int, neighbourHop bool) ([]graph.WeightedEdge, error) {
 	// If direct neighbour hopping is used, check if that can be used
 	if neighbourHop && g.HasEdgeFromTo(s.ID(), t.ID()) {
 		return []graph.WeightedEdge{g.WeightedEdge(s.ID(), t.ID())}, nil
 	}
 
-	g2, nodes := NodeSplitting(g, s, t, additionalWeight)
+	if split == nil {
+		split = NodeSplitting(g, additionalWeight)
+	}
 	res := make([]graph.WeightedEdge, 0, k)
 
-	edges := FindAdjMap(g2, nodes[len(nodes)-1])
+	source, sink := s.ID()+int64(len(split.nodes)/2), t.ID()
+
+	edges := FindAdjMap(split.g, int64(len(split.nodes)))
 	for i := 0; i < k; i++ {
-		path, err := ShortestPath(g2, s.ID(), t.ID(), nodes, edges)
+		path, err := ShortestPath(split.g, source, sink, split.nodes, edges)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to find %vnd path", k)
 		}
@@ -513,20 +520,34 @@ func DisjointEdges(g *simple.WeightedDirectedGraph, s, t graph.Node, k int, addi
 		for _, e := range path {
 			// Add edge to path if this is not an internal transfer (in->out)
 			if e.To().(Node).original.ID() != e.From().(Node).original.ID() {
-				res = append(res, g2.NewWeightedEdge(e.From().(Node).original, e.To().(Node).original, e.Weight()))
+				res = append(res, split.g.NewWeightedEdge(e.From().(Node).original, e.To().(Node).original, e.Weight()))
 			}
 
-			eR := InverseLink(g2, e)
+			//_ = InverseLink(split.g, e)
 
 			// Update adj map
-			//delete(edges[e.From().ID()], e.To().ID())
-			//delete(edges[e.To().ID()], e.From().ID())
-			edges[e.To().ID()][e.From().ID()] = eR
+			edges[e.To().ID()][e.From().ID()] = g.NewWeightedEdge(e.To(), e.From(), e.Weight()*-1)
 			edges[e.From().ID()][e.To().ID()] = nil
 		}
 	}
 
 	return res, nil
+}
+
+func InverseLink(g *simple.WeightedDirectedGraph, e graph.WeightedEdge) graph.WeightedEdge {
+	w := e.Weight() * -1
+	f, t := e.To(), e.From()
+	fid, tid := f.ID(), t.ID()
+
+	// Remove edges
+	g.RemoveEdge(fid, tid)
+	g.RemoveEdge(tid, fid)
+
+	// Add inverse edge
+	eR := g.NewWeightedEdge(f, t, w)
+	g.SetWeightedEdge(eR)
+
+	return eR
 }
 
 func FindAdjMap(g *simple.WeightedDirectedGraph, max int64) [][]graph.WeightedEdge {
@@ -535,10 +556,6 @@ func FindAdjMap(g *simple.WeightedDirectedGraph, max int64) [][]graph.WeightedEd
 
 	for edges.Next() {
 		e := edges.Edge().(graph.WeightedEdge)
-
-		//if _, ok := res[e.From().ID()]; !ok {
-		//	res[e.From().ID()] = make(map[int64]graph.WeightedEdge)
-		//}
 
 		if res[e.From().ID()] == nil {
 			res[e.From().ID()] = make([]graph.WeightedEdge, max+1)
@@ -673,56 +690,39 @@ func ShortestPath(g *simple.WeightedDirectedGraph, s, t int64, nodes []int64, ed
 			return nil, errors.New("no path")
 		}
 
-		res = append(res, g.WeightedEdge(next, cur))
+		res = append(res, edges[next][cur])
 		cur = next
 	}
 
 	return res, nil
 }
 
-func NodeSplitting(g *simple.WeightedDirectedGraph, s, t graph.Node, additionalWeight map[uint64]map[uint64]int) (*simple.WeightedDirectedGraph, []int64) {
+type SplitGraph struct {
+	g     *simple.WeightedDirectedGraph
+	nodes []int64
+}
+
+func NodeSplitting(g *simple.WeightedDirectedGraph, additionalWeight map[uint64]map[uint64]int) *SplitGraph {
+	nodes := g.Nodes()
+	cnt := nodes.Len()
+
 	g2 := simple.NewWeightedDirectedGraph(0, 0)
-	res := make([]int64, 0)
+	res := make([]int64, 0, cnt*2)
 
-	s, t = Node{
-		Id:       s.ID(),
-		Name:     s.(Node).Name,
-		original: s,
-	}, Node{
-		Id:       t.ID(),
-		Name:     t.(Node).Name,
-		original: t,
-	}
-
-	g2.AddNode(s)
-	g2.AddNode(t)
-	res = append(res, s.ID(), t.ID())
 	outMap := make(map[string]graph.Node)
 	inMap := make(map[string]graph.Node)
 
-	inMap[s.(Node).Name] = s
-	outMap[s.(Node).Name] = s
-
-	inMap[t.(Node).Name] = t
-	outMap[t.(Node).Name] = t
-
-	nodes := g.Nodes()
 	// Add splitted nodes
 	for nodes.Next() {
 		n := nodes.Node()
 
-		// Source and sink do not have to be split
-		if n.ID() == s.ID() || n.ID() == t.ID() {
-			continue
-		}
-
 		// Add new nodes and copies
 		name := n.(Node).Name
 
-		inNode := NewNodeSplit(g2, name+"_in", n)
+		inNode := NewNodeSplit(name+"_in", n, true, int64(cnt))
 		g2.AddNode(inNode)
 		inMap[name] = inNode
-		outNode := NewNodeSplit(g2, name+"_out", n)
+		outNode := NewNodeSplit(name+"_out", n, false, int64(cnt))
 		g2.AddNode(outNode)
 		outMap[name] = outNode
 
@@ -766,23 +766,10 @@ func NodeSplitting(g *simple.WeightedDirectedGraph, s, t graph.Node, additionalW
 		}
 	}
 
-	return g2, res
-}
-
-func InverseLink(g *simple.WeightedDirectedGraph, e graph.WeightedEdge) graph.WeightedEdge {
-	w := e.Weight() * -1
-	f, t := e.To(), e.From()
-	fid, tid := f.ID(), t.ID()
-
-	// Remove edges
-	g.RemoveEdge(fid, tid)
-	g.RemoveEdge(tid, fid)
-
-	// Add inverse edge
-	eR := g.NewWeightedEdge(f, t, w)
-	g.SetWeightedEdge(eR)
-
-	return eR
+	return &SplitGraph{
+		g:     g2,
+		nodes: res,
+	}
 }
 
 // Helper to make life easier
