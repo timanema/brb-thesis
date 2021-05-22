@@ -172,3 +172,11 @@ func (r RandomRegularGenerator) checkConnected(g *simple.WeightedUndirectedGraph
 func (r RandomRegularGenerator) Generate(n, k int) (*simple.WeightedUndirectedGraph, error) {
 	return nil, nil
 }
+
+type BasicGenerator struct {
+	G *simple.WeightedUndirectedGraph
+}
+
+func (r BasicGenerator) Generate(_, _ int) (*simple.WeightedUndirectedGraph, error) {
+	return r.G, nil
+}

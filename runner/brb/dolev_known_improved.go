@@ -60,7 +60,10 @@ func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 		}
 
 		d.broadcast = combinePaths(graphs.FilterSubpaths(br))
+		// TODO: check if there can be a case where a node is in multiple next-hop chains (if so, merging them later on can improve perf).
 	}
+
+	fmt.Printf("")
 }
 
 func combinePaths(paths []graphs.Path) map[uint64][]graphs.Path {
@@ -90,9 +93,12 @@ func combineDolevPaths(paths []dolevPath) map[uint64][]dolevPath {
 func (d *DolevKnownImproved) sendMergedMessage(uid uint32, m DolevKnownImprovedMessage) error {
 	next := combineDolevPaths(m.Paths)
 
+	if len(next) > 0 {
+		d.n.TriggerStat(uid, StartRelay)
+	}
+
 	for dst, p := range next {
 		m.Paths = p
-		d.n.TriggerStat(uid, StartRelay)
 		d.n.Send(0, dst, uid, m, BroadcastInfo{})
 	}
 
@@ -201,3 +207,13 @@ func (d *DolevKnownImproved) Broadcast(uid uint32, payload interface{}) {
 func (d *DolevKnownImproved) Category() ProtocolCategory {
 	return DolevCat
 }
+
+/*
+
+2:[[{5 2} {2 1}] [{5 2} {2 4}] [{5 2} {2 0} {0 9}] [{5 2} {2 0} {0 8}]]
+3:[[{5 3} {3 1}] [{5 3} {3 4}] [{5 3} {3 0}]]
+6:[[{5 6} {6 8} {8 1}] [{5 6} {6 4}] [{5 6} {6 9}] [{5 6} {6 8} {8 0}]]
+7:[[{5 7} {7 9}] [{5 7} {7 8}]]
+
+
+*/

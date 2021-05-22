@@ -64,9 +64,54 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 10, 4, 1
+	// TEMP
+	//
+	//gr := simple.NewWeightedUndirectedGraph(0, 0)
+	////Create nodes
+	//a := graphs.NewNodeUndirected(gr, "a")
+	//gr.AddNode(a)
+	//b := graphs.NewNodeUndirected(gr, "b")
+	//gr.AddNode(b)
+	//c := graphs.NewNodeUndirected(gr, "c")
+	//gr.AddNode(c)
+	//d := graphs.NewNodeUndirected(gr, "d")
+	//gr.AddNode(d)
+	//e := graphs.NewNodeUndirected(gr, "e")
+	//gr.AddNode(e)
+	//f := graphs.NewNodeUndirected(gr, "f")
+	//gr.AddNode(f)
+	//g := graphs.NewNodeUndirected(gr, "g")
+	//gr.AddNode(g)
+	//
+	//ab := gr.NewWeightedEdge(a, b, 1)
+	//ac := gr.NewWeightedEdge(a, c, 1)
+	//ad := gr.NewWeightedEdge(a, d, 1)
+	//bc := gr.NewWeightedEdge(b, c, 1)
+	//dc := gr.NewWeightedEdge(d, c, 1)
+	//be := gr.NewWeightedEdge(b, e, 1)
+	//ce := gr.NewWeightedEdge(c, e, 1)
+	//cf := gr.NewWeightedEdge(c, f, 1)
+	//cg := gr.NewWeightedEdge(c, g, 1)
+	//ef := gr.NewWeightedEdge(e, f, 1)
+	//fg := gr.NewWeightedEdge(f, g, 1)
+	//dg := gr.NewWeightedEdge(d, g, 1)
+	//
+	//gr.SetWeightedEdge(ab)
+	//gr.SetWeightedEdge(ac)
+	//gr.SetWeightedEdge(ad)
+	//gr.SetWeightedEdge(bc)
+	//gr.SetWeightedEdge(dc)
+	//gr.SetWeightedEdge(be)
+	//gr.SetWeightedEdge(ce)
+	//gr.SetWeightedEdge(cf)
+	//gr.SetWeightedEdge(cg)
+	//gr.SetWeightedEdge(ef)
+	//gr.SetWeightedEdge(fg)
+	//gr.SetWeightedEdge(dg)
+
+	n, k, f := 200, 80, 35
 	m := graphs.MultiPartiteWheelGenerator{}
-	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevKnown{}); err != nil {
+	if err := runSimpleTest(info, 1, n, k, f, m, cfg, &brb.DolevKnownImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}

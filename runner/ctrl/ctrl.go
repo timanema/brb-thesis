@@ -284,6 +284,8 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 		recv += rec
 		cnt += s.MsgSent[uid]
 
+		//fmt.Printf("%v: %v\n", p.p.Id, rec)
+
 		if rec > maxRecv {
 			maxRecv = rec
 		} else if rec < minRecv || minRecv == -1 {

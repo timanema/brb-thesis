@@ -28,7 +28,7 @@ type Process struct {
 	ctl      chan Message
 	flushing *atomic.Bool
 
-	id     uint64
+	Id     uint64
 	cfg    Config
 	stopCh <-chan struct{}
 
@@ -47,7 +47,7 @@ func StartProcess(id uint64, cfg Config, stopCh <-chan struct{}, neighbours []ui
 	}
 
 	stats := Stats{Deliveries: make(map[uint32]time.Time), MsgSent: make(map[uint32]int), Relayed: make(map[uint32]int)}
-	p := &Process{ctl: ctl, flushing: atomic.NewBool(false), id: id, cfg: cfg, stopCh: stopCh, stats: stats, brb: brb, neighbours: nmap}
+	p := &Process{ctl: ctl, flushing: atomic.NewBool(false), Id: id, cfg: cfg, stopCh: stopCh, stats: stats, brb: brb, neighbours: nmap}
 
 	return p, nil
 }
@@ -62,9 +62,9 @@ func (p *Process) Start(channels map[uint64]chan Message) error {
 	go p.run()
 
 	go func() {
-		//fmt.Printf("init %v\n", p.id)
+		//fmt.Printf("init %v\n", p.Id)
 		p.brb.Init(p, p, p.cfg.ByzConfig)
-		//fmt.Printf("done init %v\n", p.id)
+		//fmt.Printf("done init %v\n", p.Id)
 
 		p.checkNeighbours()
 	}()
@@ -74,7 +74,7 @@ func (p *Process) Start(channels map[uint64]chan Message) error {
 
 func (p *Process) send(id uint64, t uint8, b interface{}, ctrl bool) error {
 	m := Message{
-		Src:  p.id,
+		Src:  p.Id,
 		Type: t,
 		Data: b,
 	}
@@ -84,7 +84,7 @@ func (p *Process) send(id uint64, t uint8, b interface{}, ctrl bool) error {
 	} else if !p.flushing.Load() {
 		c, ok := p.channels[id]
 		if !ok {
-			return errors.Errorf("proc %v is not connected to %v", p.id, id)
+			return errors.Errorf("proc %v is not connected to %v", p.Id, id)
 		}
 
 		select {
@@ -102,7 +102,7 @@ func (p *Process) send(id uint64, t uint8, b interface{}, ctrl bool) error {
 }
 
 func (p *Process) checkNeighbours() {
-	m := msg.RunnerStatus{ID: p.id}
+	m := msg.RunnerStatus{ID: p.Id}
 
 	waiting := true
 	for waiting {
@@ -116,7 +116,7 @@ func (p *Process) checkNeighbours() {
 		for nid, n := range p.neighbours {
 			if !n {
 				if err := p.send(nid, msg.RunnerPingType, []byte{0x00}, false); err != nil {
-					//fmt.Printf("proc %v got err to %v: %v\n", p.id, nid, err)
+					//fmt.Printf("proc %v got err to %v: %v\n", p.Id, nid, err)
 					waiting = true
 					time.Sleep(p.cfg.NeighbourDelay)
 				} else {
@@ -127,13 +127,13 @@ func (p *Process) checkNeighbours() {
 	}
 
 	if err := p.send(0, msg.RunnerReadyType, m, true); err != nil {
-		fmt.Printf("process %v is unable to send ready message: %v\n", p.id, err)
+		fmt.Printf("process %v is unable to send ready message: %v\n", p.Id, err)
 		os.Exit(1)
 	}
 }
 
 func (p *Process) waitForConnection() error {
-	m := msg.RunnerStatus{ID: p.id}
+	m := msg.RunnerStatus{ID: p.Id}
 
 	retries := 0
 
@@ -165,7 +165,7 @@ func (p *Process) Flush() {
 	go func() {
 		for {
 			select {
-			case <-p.channels[p.id]:
+			case <-p.channels[p.Id]:
 				continue
 			default:
 				if !p.flushing.Load() {
@@ -189,7 +189,7 @@ func (p *Process) run() {
 		default:
 		}
 
-		m := <-p.channels[p.id]
+		m := <-p.channels[p.Id]
 		if p.flushing.Load() {
 			continue
 		}
@@ -200,9 +200,9 @@ func (p *Process) run() {
 
 func (p *Process) handleMsg(src uint64, t uint8, b interface{}, ctrl bool) {
 	//if ctrl {
-	//	fmt.Printf("process %v got data from controller (type=%v): %v\n", p.id, t, b)
+	//	fmt.Printf("process %v got data from controller (type=%v): %v\n", p.Id, t, b)
 	//} else {
-	//	fmt.Printf("process %v got data from %v (type=%v): %+v\n", p.id, src, t, b)
+	//	fmt.Printf("process %v got data from %v (type=%v): %+v\n", p.Id, src, t, b)
 	//}
 
 	switch t {
@@ -221,7 +221,7 @@ func (p *Process) handleMsg(src uint64, t uint8, b interface{}, ctrl bool) {
 
 // Adding abstraction for BRB protocols
 func (p *Process) Deliver(uid uint32, payload interface{}, _ uint64) {
-	//fmt.Printf("process %v got delivered (%v): %v\n", p.id, uid, string(payload))
+	//fmt.Printf("process %v got delivered (%v): %v\n", p.Id, uid, string(payload))
 
 	m := msg.MessageDelivered{
 		Id:      uid,
@@ -230,7 +230,7 @@ func (p *Process) Deliver(uid uint32, payload interface{}, _ uint64) {
 
 	err := p.send(0, msg.MessageDeliveredType, m, true)
 	if err != nil {
-		fmt.Printf("process %v failed to send deliver message: %v\n", p.id, err)
+		fmt.Printf("process %v failed to send deliver message: %v\n", p.Id, err)
 		os.Exit(1)
 	}
 
@@ -240,7 +240,7 @@ func (p *Process) Deliver(uid uint32, payload interface{}, _ uint64) {
 }
 
 func (p *Process) Send(messageType uint8, dest uint64, uid uint32, data interface{}, _ brb.BroadcastInfo) {
-	//fmt.Printf("process %v is sending %+v (type=%v, id=%v) to %v\n", p.id, data, messageType, uid, dest)
+	//fmt.Printf("process %v is sending %+v (type=%v, Id=%v) to %v\n", p.Id, data, messageType, uid, dest)
 
 	m := msg.WrapperDataMessage{
 		T:    messageType,
@@ -250,7 +250,7 @@ func (p *Process) Send(messageType uint8, dest uint64, uid uint32, data interfac
 
 	err := p.send(dest, msg.WrapperDataType, m, false)
 	if err != nil {
-		fmt.Printf("process %v failed to send wrapper data message to %v: %v\n", p.id, dest, err)
+		fmt.Printf("process %v failed to send wrapper data message to %v: %v\n", p.Id, dest, err)
 		os.Exit(1)
 	}
 
