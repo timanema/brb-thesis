@@ -161,3 +161,14 @@ func (f FullyConnectedGenerator) Generate(n, k int) (*simple.WeightedUndirectedG
 
 	return g, nil
 }
+
+// https://mediatum.ub.tum.de/doc/1315533/file.pdf
+type RandomRegularGenerator struct{}
+
+func (r RandomRegularGenerator) checkConnected(g *simple.WeightedUndirectedGraph, k int) bool {
+	return FindConnectedness(g) >= k
+}
+
+func (r RandomRegularGenerator) Generate(n, k int) (*simple.WeightedUndirectedGraph, error) {
+	return nil, nil
+}

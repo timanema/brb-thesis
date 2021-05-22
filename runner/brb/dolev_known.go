@@ -76,6 +76,7 @@ func (d *DolevKnown) sendMessage(uid uint32, m DolevKnownMessage) {
 		copy(path, m.Paths.Actual)
 		m.Paths.Actual = path
 
+		d.n.TriggerStat(uid, StartRelay)
 		d.n.Send(0, uint64(m.Paths.Desired[cur].To().ID()), uid, m, BroadcastInfo{})
 	}
 }

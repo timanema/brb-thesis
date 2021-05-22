@@ -92,6 +92,7 @@ func (d *DolevKnownImproved) sendMergedMessage(uid uint32, m DolevKnownImprovedM
 
 	for dst, p := range next {
 		m.Paths = p
+		d.n.TriggerStat(uid, StartRelay)
 		d.n.Send(0, dst, uid, m, BroadcastInfo{})
 	}
 

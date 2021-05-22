@@ -17,7 +17,15 @@ type BroadcastInfo struct {
 
 type Network interface {
 	Send(messageType uint8, dest uint64, uid uint32, data interface{}, bc BroadcastInfo)
+
+	TriggerStat(uid uint32, n NetworkStat)
 }
+
+type NetworkStat int
+
+const (
+	StartRelay NetworkStat = iota
+)
 
 type Config struct {
 	Byz           bool

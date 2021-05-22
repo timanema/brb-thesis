@@ -64,9 +64,9 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 150, 40, 19
+	n, k, f := 10, 4, 1
 	m := graphs.MultiPartiteWheelGenerator{}
-	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevKnownImproved{}); err != nil {
+	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevKnown{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
@@ -145,7 +145,7 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 			os.Exit(1)
 		}
 
-		//uid2, err := ctl.TriggerMessageSend(0, []byte(fmt.Sprintf("run_%v", i)))
+		//uid2, err := ctl.TriggerMessageSend(id, []byte(fmt.Sprintf("run_%v", i)))
 		//if err != nil {
 		//	fmt.Printf("err while sending payload msg: %v\n", err)
 		//	os.Exit(1)
@@ -153,8 +153,8 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 
 		fmt.Printf("sent message (%v, round %v, origin %v), waiting for deliver\n", uid1, i, id)
 		stats := ctl.WaitForDeliver(uid1)
-		fmt.Printf("statistics (%v, %v):\n  last delivery latency: %v\n  messages sent: %v\n", uid1, i,
-			stats.Latency, stats.MsgCount)
+		fmt.Printf("statistics (%v, %v):\n  last delivery latency: %v\n  messages sent: %v\n  recv: %v (%v - %v - %v)\n", uid1, i,
+			stats.Latency, stats.MsgCount, stats.MeanRelayCount, stats.RelayCnt, stats.MinRelayCnt, stats.MaxRelayCnt)
 		//stats2 := ctl.WaitForDeliver(uid2)
 		//fmt.Printf("statistics (%v, %v):\n  last delivery latency: %v\n  messages sent: %v\n", uid2, i,
 		//	stats2.Latency, stats2.MsgCount)

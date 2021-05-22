@@ -86,3 +86,7 @@ func (bd *BrachaDolev) Broadcast(uid uint32, payload interface{}) {
 func (bd *BrachaDolev) Category() ProtocolCategory {
 	return BrachaDolevCat
 }
+
+func (bd *BrachaDolev) TriggerStat(uid uint32, n NetworkStat) {
+	bd.n.TriggerStat(uid, n)
+}

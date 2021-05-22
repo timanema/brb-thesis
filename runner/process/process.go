@@ -20,6 +20,7 @@ type Config struct {
 type Stats struct {
 	Deliveries map[uint32]time.Time
 	MsgSent    map[uint32]int
+	Relayed    map[uint32]int
 }
 
 type Process struct {
@@ -45,7 +46,7 @@ func StartProcess(id uint64, cfg Config, stopCh <-chan struct{}, neighbours []ui
 		nmap[n] = false
 	}
 
-	stats := Stats{Deliveries: make(map[uint32]time.Time), MsgSent: make(map[uint32]int)}
+	stats := Stats{Deliveries: make(map[uint32]time.Time), MsgSent: make(map[uint32]int), Relayed: make(map[uint32]int)}
 	p := &Process{ctl: ctl, flushing: atomic.NewBool(false), id: id, cfg: cfg, stopCh: stopCh, stats: stats, brb: brb, neighbours: nmap}
 
 	return p, nil
@@ -213,6 +214,7 @@ func (p *Process) handleMsg(src uint64, t uint8, b interface{}, ctrl bool) {
 		r := b.(msg.TriggerMessage)
 
 		p.stats.MsgSent[r.Id] = 0
+		p.stats.Relayed[r.Id] = 0
 		p.brb.Broadcast(r.Id, r.Payload)
 	}
 }
@@ -263,4 +265,10 @@ func (p *Process) Stats() Stats {
 
 	s := p.stats
 	return s
+}
+
+func (p *Process) TriggerStat(uid uint32, n brb.NetworkStat) {
+	p.sLock.Lock()
+	p.stats.Relayed[uid] += 1
+	p.sLock.Unlock()
 }
