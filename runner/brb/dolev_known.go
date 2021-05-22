@@ -72,6 +72,10 @@ func (d *DolevKnown) Init(n Network, app Application, cfg Config) {
 
 func (d *DolevKnown) sendMessage(uid uint32, m DolevKnownMessage) {
 	if cur := len(m.Paths.Actual); len(m.Paths.Desired) > cur {
+		path := make(graphs.Path, len(m.Paths.Actual))
+		copy(path, m.Paths.Actual)
+		m.Paths.Actual = path
+
 		d.n.Send(0, uint64(m.Paths.Desired[cur].To().ID()), uid, m, BroadcastInfo{})
 	}
 }

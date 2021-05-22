@@ -34,7 +34,6 @@ func main() {
 	RunnerMain()
 }
 
-// TODO: keep in mind high water mark
 func RunnerMain() {
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
@@ -65,7 +64,7 @@ func RunnerMain() {
 		NeighbourDelay: time.Millisecond * 300,
 	}
 
-	n, k, f := 200, 60, 15
+	n, k, f := 150, 40, 19
 	m := graphs.MultiPartiteWheelGenerator{}
 	if err := runSimpleTest(info, 3, n, k, f, m, cfg, &brb.DolevKnownImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)

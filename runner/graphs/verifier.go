@@ -68,83 +68,95 @@ func VerifySolution(g graph.WeightedDirected, s, t graph.Node, k int, paths []Pa
 	return true
 }
 
-func bfs(g graph.WeightedDirected, s, t graph.Node) Path {
-	visited := make(map[int64]struct{}, g.Nodes().Len())
-	parent := make(map[int64]int64, g.Nodes().Len())
+func bfs(edges [][]graph.WeightedEdge, s, t int64) Path {
+	visited := make([]bool, len(edges))
+	parent := make([]int64, len(edges))
 	queue := make([]int64, 0)
 
-	queue = append(queue, s.ID())
-	visited[s.ID()] = struct{}{}
+	queue = append(queue, s)
+	visited[s] = true
 
 	for len(queue) > 0 {
 		n := queue[0]
 		queue = queue[1:]
 
-		adj := g.From(n)
-		for adj.Next() {
-			a := adj.Node().ID()
-			w := g.WeightedEdge(n, a).Weight()
+		for _, e := range edges[n] {
+			if e == nil {
+				continue
+			}
+			adj := e.To().ID()
 
-			if _, ok := visited[a]; !ok && w > 0 {
-				queue = append(queue, a)
-				visited[a] = struct{}{}
-				parent[a] = n
+			if !visited[adj] && e.Weight() > 0 {
+				queue = append(queue, adj)
+				visited[adj] = true
+				parent[adj] = n + 1
 			}
 		}
 	}
 
 	res := make([]graph.WeightedEdge, 0)
-	cur := t.ID()
+	cur := t
 
-	for cur != s.ID() {
-		next, ok := parent[cur]
-		if !ok {
+	for cur != s {
+		next := parent[cur]
+		if next == 0 {
 			return nil
 		}
 
-		res = append(res, g.WeightedEdge(next, cur))
-		cur = next
+		res = append(res, edges[next-1][cur])
+		cur = next - 1
 	}
 
 	return res
 }
 
-func maxFlow(g *simple.WeightedDirectedGraph, s, t graph.Node) int {
-	if s.ID() == t.ID() {
+func maxFlow(edges [][]graph.WeightedEdge, s, t int64) int {
+	if s == t {
 		fmt.Println("Should not happen: s == t for maxFlow()")
 		return -1
 	}
 
 	flow := 0
 	for {
-		p := bfs(g, s, t)
+		p := bfs(edges, s, t)
 		if p == nil || len(p) == 0 {
 			return flow
 		}
 		flow += 1
 
 		for _, e := range p {
-			g.SetWeightedEdge(g.NewWeightedEdge(e.From(), e.To(), e.Weight()-1))
-			g.SetWeightedEdge(g.NewWeightedEdge(e.To(), e.From(), e.Weight()+1))
+			edges[e.From().ID()][e.To().ID()] = simple.WeightedEdge{F: e.From(), T: e.To(), W: e.Weight() - 1}
+			edges[e.To().ID()][e.From().ID()] = simple.WeightedEdge{F: e.To(), T: e.From(), W: e.Weight() + 1}
 		}
 	}
 }
 
 // Verifies there are k disjoint paths through the graph
 func VerifyDisjointPaths(paths []Path, s, t graph.Node, k int) bool {
+	// TODO: reuse aux data structures
 	g := simple.NewWeightedDirectedGraph(0, 0)
+	max := s.ID()
+
+	if id := t.ID(); id > max {
+		max = id
+	}
 
 	for _, path := range paths {
 		for _, e := range path {
 			g.SetWeightedEdge(g.NewWeightedEdge(e.From(), e.To(), 1))
 			g.SetWeightedEdge(g.NewWeightedEdge(e.To(), e.From(), 1))
+
+			if id := e.To().ID(); id > max {
+				max = id
+			}
+
+			if id := e.From().ID(); id > max {
+				max = id
+			}
 		}
 	}
 
-	return maxFlow(g, s, t) >= k
-}
+	edges := FindAdjMap(g, max)
 
-func FindConnectedness(g graph.Undirected) int {
-	// TODO: implement
-	return 0
+	return maxFlow(edges, s.ID(), t.ID()) >= k
 }

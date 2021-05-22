@@ -34,9 +34,12 @@ func (d *DolevImproved) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func (d *DolevImproved) send(uid uint32, data interface{}, to []uint64) {
+func (d *DolevImproved) send(uid uint32, m DolevMessage, to []uint64) {
 	for _, n := range to {
-		d.n.Send(0, n, uid, data, BroadcastInfo{})
+		path := make(graphs.Path, len(m.Path))
+		copy(path, m.Path)
+		m.Path = path
+		d.n.Send(0, n, uid, m, BroadcastInfo{})
 	}
 }
 
@@ -118,6 +121,9 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data interface{
 
 	if d.cfg.Id == m.Src {
 		panic("received message from self, should have been delivered already")
+	}
+	if uint64(m.Path[len(m.Path)-1].To().ID()) != d.cfg.Id {
+		panic("invalid message path")
 	}
 
 	if _, ok := d.delivered[id]; !ok {

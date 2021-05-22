@@ -46,9 +46,12 @@ func (d *Dolev) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func (d *Dolev) send(uid uint32, data interface{}, to []uint64) {
+func (d *Dolev) send(uid uint32, m DolevMessage, to []uint64) {
 	for _, n := range to {
-		d.n.Send(0, n, uid, data, BroadcastInfo{})
+		path := make(graphs.Path, len(m.Path))
+		copy(path, m.Path)
+		m.Path = path
+		d.n.Send(0, n, uid, m, BroadcastInfo{})
 	}
 }
 
@@ -86,8 +89,6 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
 			to = append(to, n)
 		}
 	}
-
-	//fmt.Printf("proc %v is sending %v %v bytes (%v)\n", d.cfg.Id, to, len(b.Bytes()), m.Path)
 
 	if _, ok := d.delivered[id]; !ok {
 		d.paths[id] = append(d.paths[id], m.Path)

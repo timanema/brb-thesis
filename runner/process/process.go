@@ -218,7 +218,7 @@ func (p *Process) handleMsg(src uint64, t uint8, b interface{}, ctrl bool) {
 }
 
 // Adding abstraction for BRB protocols
-func (p *Process) Deliver(uid uint32, payload interface{}, src uint64) {
+func (p *Process) Deliver(uid uint32, payload interface{}, _ uint64) {
 	//fmt.Printf("process %v got delivered (%v): %v\n", p.id, uid, string(payload))
 
 	m := msg.MessageDelivered{
@@ -238,7 +238,7 @@ func (p *Process) Deliver(uid uint32, payload interface{}, src uint64) {
 }
 
 func (p *Process) Send(messageType uint8, dest uint64, uid uint32, data interface{}, _ brb.BroadcastInfo) {
-	//fmt.Printf("process %v is sending %+v (type=%v, id=%v) to %v\n", p.id, data, t, uid, dest)
+	//fmt.Printf("process %v is sending %+v (type=%v, id=%v) to %v\n", p.id, data, messageType, uid, dest)
 
 	m := msg.WrapperDataMessage{
 		T:    messageType,

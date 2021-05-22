@@ -7,8 +7,10 @@ import (
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
+	"log"
 	"math"
 	"math/rand"
+	"net/http"
 	"os"
 	"sort"
 
@@ -97,29 +99,23 @@ func benchSingleTest() {
 }
 
 func GraphsMain() {
-	//go func() {
-	//	log.Println(http.ListenAndServe("localhost:6060", nil))
-	//}()
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
-	benchTableTest()
-	return
-
-	//p := []Path{
-	//	{simple.WeightedEdge{
-	//		F: simple.Node(0),
-	//		T: simple.Node(1),
-	//	}},
-	//	{simple.WeightedEdge{
-	//		F: simple.Node(0),
-	//		T: simple.Node(1),
-	//	}, simple.WeightedEdge{
-	//		F: simple.Node(1),
-	//		T: simple.Node(2),
-	//	}},
-	//}
-	//fmt.Println(p)
-	//fmt.Println(FilterSubpaths(p))
+	//benchTableTest()
 	//return
+
+	nx, kx := 150, 80
+	mx := GeneralizedWheelGenerator{}
+
+	gx, errx := mx.Generate(nx, kx)
+	if errx != nil {
+		fmt.Printf("failed to generate graph for lookup test: %v\n", errx)
+		os.Exit(1)
+	}
+	fmt.Println(FindConnectedness(gx))
+	return
 
 	//x := GeneralizedWheelGenerator{}
 	//gx, err := x.Generate(5, 2)
@@ -442,7 +438,7 @@ func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int, w
 
 	additionalWeight := make(map[uint64]map[uint64]int)
 
-	split := NodeSplitting(g, additionalWeight)
+	split := NodeSplitting(g)
 
 	for nodes.Next() {
 		n := nodes.Node()
@@ -500,7 +496,7 @@ func DisjointEdges(g *simple.WeightedDirectedGraph, split *SplitGraph, s, t grap
 	}
 
 	if split == nil {
-		split = NodeSplitting(g, additionalWeight)
+		split = NodeSplitting(g)
 	}
 	res := make([]graph.WeightedEdge, 0, k)
 
@@ -523,8 +519,6 @@ func DisjointEdges(g *simple.WeightedDirectedGraph, split *SplitGraph, s, t grap
 				res = append(res, split.g.NewWeightedEdge(e.From().(Node).original, e.To().(Node).original, e.Weight()))
 			}
 
-			//_ = InverseLink(split.g, e)
-
 			// Update adj map
 			edges[e.To().ID()][e.From().ID()] = g.NewWeightedEdge(e.To(), e.From(), e.Weight()*-1)
 			edges[e.From().ID()][e.To().ID()] = nil
@@ -532,22 +526,6 @@ func DisjointEdges(g *simple.WeightedDirectedGraph, split *SplitGraph, s, t grap
 	}
 
 	return res, nil
-}
-
-func InverseLink(g *simple.WeightedDirectedGraph, e graph.WeightedEdge) graph.WeightedEdge {
-	w := e.Weight() * -1
-	f, t := e.To(), e.From()
-	fid, tid := f.ID(), t.ID()
-
-	// Remove edges
-	g.RemoveEdge(fid, tid)
-	g.RemoveEdge(tid, fid)
-
-	// Add inverse edge
-	eR := g.NewWeightedEdge(f, t, w)
-	g.SetWeightedEdge(eR)
-
-	return eR
 }
 
 func FindAdjMap(g *simple.WeightedDirectedGraph, max int64) [][]graph.WeightedEdge {
@@ -702,7 +680,7 @@ type SplitGraph struct {
 	nodes []int64
 }
 
-func NodeSplitting(g *simple.WeightedDirectedGraph, additionalWeight map[uint64]map[uint64]int) *SplitGraph {
+func NodeSplitting(g *simple.WeightedDirectedGraph) *SplitGraph {
 	nodes := g.Nodes()
 	cnt := nodes.Len()
 
@@ -741,26 +719,14 @@ func NodeSplitting(g *simple.WeightedDirectedGraph, additionalWeight map[uint64]
 
 		for in.Next() {
 			f := in.Node()
-
 			w := g.WeightedEdge(f.ID(), n.ID()).Weight()
-			if additionalWeight != nil {
-				if v, ok := additionalWeight[uint64(f.ID())][uint64(n.ID())]; !ok {
-					w += float64(v)
-				}
-			}
 
 			g2.SetWeightedEdge(g2.NewWeightedEdge(outMap[f.(Node).Name], inMap[name], w))
 		}
 
 		for out.Next() {
 			t := out.Node()
-
 			w := g.WeightedEdge(n.ID(), t.ID()).Weight()
-			if additionalWeight != nil {
-				if v, ok := additionalWeight[uint64(n.ID())][uint64(t.ID())]; !ok {
-					w += float64(v)
-				}
-			}
 
 			g2.SetWeightedEdge(g2.NewWeightedEdge(outMap[name], inMap[t.(Node).Name], w))
 		}
@@ -770,27 +736,4 @@ func NodeSplitting(g *simple.WeightedDirectedGraph, additionalWeight map[uint64]
 		g:     g2,
 		nodes: res,
 	}
-}
-
-// Helper to make life easier
-func Directed(g *simple.WeightedUndirectedGraph) *simple.WeightedDirectedGraph {
-	gr := simple.NewWeightedDirectedGraph(0, 0)
-	nodes := g.Nodes()
-
-	// Copy nodes (while maintaining their IDs)
-	for nodes.Next() {
-		n := nodes.Node()
-		gr.AddNode(n)
-	}
-
-	// Copy edges (since IDs are identical, other nodes can be used directly)
-	edges := g.Edges()
-	for edges.Next() {
-		e := edges.Edge().(graph.WeightedEdge)
-
-		gr.SetWeightedEdge(gr.NewWeightedEdge(e.From(), e.To(), e.Weight()))
-		gr.SetWeightedEdge(gr.NewWeightedEdge(e.To(), e.From(), e.Weight()))
-	}
-
-	return gr
 }

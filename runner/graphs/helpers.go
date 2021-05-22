@@ -1,6 +1,9 @@
 package graphs
 
-import "gonum.org/v1/gonum/graph"
+import (
+	"gonum.org/v1/gonum/graph"
+	"gonum.org/v1/gonum/graph/simple"
+)
 
 func EqualEdge(a, b graph.Edge) bool {
 	return a.To().ID() == b.To().ID() && a.From().ID() == b.From().ID()
@@ -42,4 +45,38 @@ func FilterSubpaths(paths []Path) []Path {
 	}
 
 	return res
+}
+
+func Directed(g *simple.WeightedUndirectedGraph) *simple.WeightedDirectedGraph {
+	gr := simple.NewWeightedDirectedGraph(0, 0)
+	nodes := g.Nodes()
+
+	// Copy nodes (while maintaining their IDs)
+	for nodes.Next() {
+		n := nodes.Node()
+		gr.AddNode(n)
+	}
+
+	// Copy edges (since IDs are identical, other nodes can be used directly)
+	edges := g.Edges()
+	for edges.Next() {
+		e := edges.Edge().(graph.WeightedEdge)
+
+		gr.SetWeightedEdge(gr.NewWeightedEdge(e.From(), e.To(), e.Weight()))
+		gr.SetWeightedEdge(gr.NewWeightedEdge(e.To(), e.From(), e.Weight()))
+	}
+
+	return gr
+}
+
+func PrepareFlow(g *simple.WeightedDirectedGraph, excludeZero bool) {
+	edges := g.Edges()
+	for edges.Next() {
+		e := edges.Edge().(simple.WeightedEdge)
+
+		if (excludeZero && e.Weight() > 0.1) || !excludeZero {
+			e.W = 1
+			g.SetWeightedEdge(e)
+		}
+	}
 }
