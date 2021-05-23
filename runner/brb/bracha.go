@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math"
+	"rp-runner/graphs"
 )
 
 const (
@@ -47,6 +48,10 @@ type Bracha struct {
 var _ Protocol = (*Bracha)(nil)
 
 func (b *Bracha) Init(n Network, app Application, cfg Config) {
+	if cfg.Graph != nil && !graphs.IsFullyConnected(cfg.Graph) {
+		panic("normal bracha does not work on non-fully connected networks!")
+	}
+
 	b.n = n
 	b.app = app
 	b.cfg = cfg

@@ -28,14 +28,15 @@ const (
 )
 
 type Config struct {
-	Byz           bool
-	N, F          int
-	Id            uint64
-	Neighbours    []uint64
-	Graph         *simple.WeightedUndirectedGraph
-	KnownTopology bool
+	Byz        bool
+	N, F       int
+	Id         uint64
+	Neighbours []uint64
+	Graph      *simple.WeightedUndirectedGraph
 
 	Silent, Unused bool
+
+	AdditionalConfig interface{}
 }
 
 type ProtocolCategory int

@@ -65,7 +65,6 @@ func RunnerMain() {
 	}
 
 	// TEMP
-	//
 	//gr := simple.NewWeightedUndirectedGraph(0, 0)
 	////Create nodes
 	//a := graphs.NewNodeUndirected(gr, "a")
@@ -109,12 +108,15 @@ func RunnerMain() {
 	//gr.SetWeightedEdge(fg)
 	//gr.SetWeightedEdge(dg)
 
-	n, k, f := 200, 80, 35
+	n, k, f := 150, 74, 36
 	m := graphs.MultiPartiteWheelGenerator{}
 	if err := runSimpleTest(info, 1, n, k, f, m, cfg, &brb.DolevKnownImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
+
+	//gr, _ := m.Generate(n, k)
+	//fmt.Println(graphs.ClosestNodes(0, graphs.FindAdjMap(graphs.Directed(gr), graphs.MaxId(gr)), 5), f)
 
 	fmt.Println("done")
 	fmt.Println("server stop")
@@ -123,12 +125,13 @@ func RunnerMain() {
 func pickRandom(i int, max int) []uint64 {
 	res := make([]uint64, 0, i)
 	used := make(map[uint64]struct{})
+	overlap := i > max
 
 	for len(res) < i {
 		rand.Seed(time.Now().UnixNano())
 		next := uint64(rand.Intn(max))
 
-		if _, ok := used[next]; ok {
+		if _, ok := used[next]; !overlap && ok {
 			continue
 		}
 
@@ -162,7 +165,7 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 	}
 
 	fmt.Printf("starting processes\nselected as possible transmitters: %v\n", ra)
-	err = ctl.StartProcesses(cfg, g, bp, f, ra, bp.Category() != brb.DolevCat)
+	err = ctl.StartProcesses(cfg, g, bp, f, ra, bp.Category() == brb.BrachaDolevCat)
 	if err != nil {
 		return errors.Wrap(err, "unable to start processes")
 	}

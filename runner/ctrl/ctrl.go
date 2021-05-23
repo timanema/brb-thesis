@@ -75,16 +75,6 @@ func (c *Controller) startProcess(cfg process.Config, bp brb.Protocol) error {
 	return nil
 }
 
-func (c *Controller) contains(n uint64, xs []uint64) bool {
-	for _, v := range xs {
-		if n == v {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (c *Controller) FlushProcesses() {
 	c.pLock.Lock()
 	defer c.pLock.Unlock()
@@ -110,7 +100,12 @@ func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirect
 	byzLeft := F
 	N := nodes.Len()
 
-	if r := len(possibleTransmitters); N-r < F {
+	transmitCheck := make(map[uint64]struct{}, len(possibleTransmitters))
+	for _, t := range possibleTransmitters {
+		transmitCheck[t] = struct{}{}
+	}
+
+	if r := len(transmitCheck); N-r < F {
 		return errors.Errorf("not enough nodes to support %v possible transmitters with %v byzantine nodes", r, F)
 	}
 
@@ -126,7 +121,7 @@ func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirect
 		pg := simple.NewWeightedUndirectedGraph(0, 0)
 		graph.CopyWeighted(pg, g)
 
-		possibleTransmitter := c.contains(uint64(n.ID()), possibleTransmitters)
+		_, possibleTransmitter := transmitCheck[uint64(n.ID())]
 		byz := byzLeft > 0 && !possibleTransmitter
 		if byz {
 			byzLeft -= 1
@@ -134,14 +129,13 @@ func (c *Controller) StartProcesses(cfg process.Config, g graph.WeightedUndirect
 
 		pcfg := cfg
 		pcfg.ByzConfig = brb.Config{
-			Byz:           byz,
-			F:             F,
-			N:             N,
-			Id:            uint64(n.ID()),
-			Neighbours:    neighbours,
-			Graph:         pg,
-			KnownTopology: true,
-			Unused:        !possibleTransmitter,
+			Byz:        byz,
+			F:          F,
+			N:          N,
+			Id:         uint64(n.ID()),
+			Neighbours: neighbours,
+			Graph:      pg,
+			Unused:     !possibleTransmitter,
 		}
 
 		if allTransmit {

@@ -41,7 +41,19 @@ func (bd *BrachaDolev) Init(n Network, app Application, cfg Config) {
 	if bd.b == nil {
 		bd.b = &Bracha{}
 	}
-	bd.b.Init(bd, app, cfg)
+	bCfg := cfg
+	nodes := cfg.Graph.Nodes()
+	bCfg.Neighbours = make([]uint64, 0, nodes.Len())
+	bCfg.Graph = nil
+
+	for nodes.Next() {
+		i := uint64(nodes.Node().ID())
+		if i != cfg.Id {
+			bCfg.Neighbours = append(bCfg.Neighbours, i)
+		}
+	}
+
+	bd.b.Init(bd, app, bCfg)
 
 	// Create dolev (improved) instance with BD as the application
 	if bd.d == nil {

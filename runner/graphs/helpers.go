@@ -80,3 +80,18 @@ func PrepareFlow(g *simple.WeightedDirectedGraph, excludeZero bool) {
 		}
 	}
 }
+
+func MaxId(g *simple.WeightedUndirectedGraph) int64 {
+	m := int64(0)
+
+	nodes := g.Nodes()
+	for nodes.Next() {
+		n := nodes.Node()
+
+		if id := n.ID(); id > m {
+			m = id
+		}
+	}
+
+	return m
+}

@@ -82,7 +82,7 @@ func benchSingleTest() {
 	}
 	nodes.Reset()
 	fmt.Printf("%v, %v\n", start, math.Max(1, float64(start-1)))
-	res, err := DisjointPaths(Directed(g), nil, s, t, f, additionalWeight, false)
+	res, err := DisjointPaths(Directed(g), nil, s, t, f, nil, false)
 	if err != nil {
 		fmt.Printf("failed to build single path for %v: %v\n", start, err)
 		os.Exit(1)
@@ -91,7 +91,7 @@ func benchSingleTest() {
 	PrintGraphvizHighlightPaths(Directed(g), res)
 	fmt.Printf("Result (%s -> %s over %v paths):\n%v\n", s, t, f, res)
 
-	_, err = DisjointPaths(Directed(g), nil, s, t, k, additionalWeight, false)
+	_, err = DisjointPaths(Directed(g), nil, s, t, k, nil, false)
 	if err != nil {
 		fmt.Printf("failed to build single path for %v: %v\n", start, err)
 		os.Exit(1)
@@ -436,19 +436,28 @@ func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int, w
 	nodes := gu.Nodes()
 	orderedNodes := make([]graph.Node, 0, nodes.Len())
 
-	additionalWeight := make(map[uint64]map[uint64]int)
-
 	split := NodeSplitting(g)
+	additionalWeight := make([][]int, len(split.nodes)+1)
 
 	for nodes.Next() {
 		n := nodes.Node()
-		nid := uint64(n.ID())
-		if _, ok := additionalWeight[nid]; !ok {
-			additionalWeight[nid] = make(map[uint64]int)
-		}
 		orderedNodes = append(orderedNodes, n)
 	}
-	nodes.Reset()
+
+	// Set initial weights to w
+	for i := 0; i < len(split.nodes); i++ {
+		additionalWeight[i] = make([]int, len(split.nodes)+1)
+	}
+
+	edg := split.g.Edges()
+	for edg.Next() {
+		e := edg.Edge().(simple.WeightedEdge)
+		if e.W < 0.5 {
+			continue
+		}
+
+		additionalWeight[uint64(e.From().ID())][uint64(e.To().ID())] = w
+	}
 
 	sort.Slice(orderedNodes, func(i, j int) bool {
 		return orderedNodes[i].ID() < orderedNodes[j].ID()
@@ -467,7 +476,8 @@ func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int, w
 
 		for _, p := range paths {
 			for _, e := range p {
-				additionalWeight[uint64(e.From().ID())][uint64(e.To().ID())] = w
+				// Path is now used, update additional weight to zero
+				additionalWeight[uint64(e.From().ID())][uint64(e.To().ID())] = 0
 			}
 		}
 
@@ -478,18 +488,18 @@ func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int, w
 	return res, nil
 }
 
-func DisjointPaths(g *simple.WeightedDirectedGraph, split *SplitGraph, s, t graph.Node, k int, additionalWeight map[uint64]map[uint64]int, neighbourHop bool) ([]Path, error) {
-	edges, err := DisjointEdges(g, split, s, t, k, additionalWeight, neighbourHop)
+func DisjointPaths(g *simple.WeightedDirectedGraph, split *SplitGraph, s, t graph.Node, k int, additionalWeight [][]int, neighbourHop bool) ([]Path, error) {
+	res, err := DisjointEdges(g, split, s, t, k, additionalWeight, neighbourHop)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to find disjoint edges")
 	}
 
-	filtered := FilterCounterparts(edges)
+	filtered := FilterCounterparts(res)
 
 	return BuildPaths(filtered, s, t, k), nil
 }
 
-func DisjointEdges(g *simple.WeightedDirectedGraph, split *SplitGraph, s, t graph.Node, k int, additionalWeight map[uint64]map[uint64]int, neighbourHop bool) ([]graph.WeightedEdge, error) {
+func DisjointEdges(g *simple.WeightedDirectedGraph, split *SplitGraph, s, t graph.Node, k int, additionalWeight [][]int, neighbourHop bool) ([]graph.WeightedEdge, error) {
 	// If direct neighbour hopping is used, check if that can be used
 	if neighbourHop && g.HasEdgeFromTo(s.ID(), t.ID()) {
 		return []graph.WeightedEdge{g.WeightedEdge(s.ID(), t.ID())}, nil
@@ -501,10 +511,10 @@ func DisjointEdges(g *simple.WeightedDirectedGraph, split *SplitGraph, s, t grap
 	res := make([]graph.WeightedEdge, 0, k)
 
 	source, sink := s.ID()+int64(len(split.nodes)/2), t.ID()
-
 	edges := FindAdjMap(split.g, int64(len(split.nodes)))
+
 	for i := 0; i < k; i++ {
-		path, err := ShortestPath(split.g, source, sink, split.nodes, edges)
+		path, err := ShortestPath(source, sink, edges, additionalWeight)
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to find %vnd path", k)
 		}
@@ -613,66 +623,6 @@ func BuildPaths(edges []graph.WeightedEdge, s, t graph.Node, k int) []Path {
 	}
 
 	return res
-}
-
-// Bellman-Ford (needs to be capable of handling negative weights)
-func ShortestPath(g *simple.WeightedDirectedGraph, s, t int64, nodes []int64, edges [][]graph.WeightedEdge) (Path, error) {
-	//TODO: check if nodes have increasing numbers by default
-
-	queue := make([]int64, 0)
-	inQ := make([]bool, g.NewNode().ID())
-
-	// Step 1: Init graph
-	distance := make([]float64, g.NewNode().ID())
-	predecessor := make([]int64, g.NewNode().ID())
-
-	for _, n := range nodes {
-		distance[n] = math.MaxInt64
-		predecessor[n] = -1
-	}
-
-	distance[s] = 0
-	queue = append(queue, s)
-	inQ[s] = true
-
-	// Step 2: Relax edges repeatedly
-	for len(queue) > 0 {
-		n := queue[0]
-		queue = queue[1:]
-		inQ[n] = false
-
-		for t, e := range edges[n] {
-			if e == nil {
-				continue
-			}
-
-			if d := distance[n] + e.Weight(); d < distance[t] {
-				distance[t] = d
-				predecessor[t] = n
-
-				if !inQ[t] {
-					queue = append(queue, int64(t))
-				}
-			}
-		}
-	}
-
-	// Step 4: build path to target
-	res := make([]graph.WeightedEdge, 0)
-	cur := t
-
-	for cur != s {
-		next := predecessor[cur]
-
-		if next == -1 {
-			return nil, errors.New("no path")
-		}
-
-		res = append(res, edges[next][cur])
-		cur = next
-	}
-
-	return res, nil
 }
 
 type SplitGraph struct {

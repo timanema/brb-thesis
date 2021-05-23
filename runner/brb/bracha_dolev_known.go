@@ -2,6 +2,8 @@ package brb
 
 import (
 	"fmt"
+	"math"
+	"rp-runner/graphs"
 )
 
 type BrachaDolevKnown struct {
@@ -18,6 +20,10 @@ type BrachaDolevKnown struct {
 var _ Protocol = (*BrachaDolevKnown)(nil)
 var _ Network = (*BrachaDolevKnown)(nil)
 var _ Application = (*BrachaDolevKnown)(nil)
+
+type BrachaDolevConfig struct {
+	Included []uint64
+}
 
 func (bd *BrachaDolevKnown) Init(n Network, app Application, cfg Config) {
 	bd.n = n
@@ -36,9 +42,15 @@ func (bd *BrachaDolevKnown) Init(n Network, app Application, cfg Config) {
 	if bd.b == nil {
 		bd.b = &BrachaImproved{}
 	}
+
 	bCfg := cfg
 	nodes := cfg.Graph.Nodes()
 	bCfg.Neighbours = make([]uint64, 0, nodes.Len())
+
+	echoReq := int(math.Ceil((float64(cfg.N)+float64(cfg.F)+1)/2)) + cfg.F
+	bCfg.AdditionalConfig = BrachaDolevConfig{
+		Included: graphs.ClosestNodes(int64(cfg.Id), graphs.FindAdjMap(graphs.Directed(cfg.Graph), graphs.MaxId(cfg.Graph)), echoReq),
+	}
 
 	for nodes.Next() {
 		i := uint64(nodes.Node().ID())
@@ -107,7 +119,7 @@ func (bd *BrachaDolevKnown) Broadcast(uid uint32, payload interface{}) {
 }
 
 func (bd *BrachaDolevKnown) Category() ProtocolCategory {
-	return BrachaCat
+	return BrachaDolevCat
 }
 
 func (bd *BrachaDolevKnown) TriggerStat(uid uint32, n NetworkStat) {

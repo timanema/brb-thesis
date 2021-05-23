@@ -3,6 +3,7 @@ package brb
 import (
 	"fmt"
 	"math"
+	"rp-runner/graphs"
 )
 
 type BrachaImprovedMessage struct {
@@ -30,6 +31,7 @@ type BrachaImproved struct {
 	// Modification Bracha 2: Only a subset of nodes are participating in the agreement
 	participatingEcho  map[brachaIdentifier]bool
 	participatingReady map[brachaIdentifier]bool
+	included           []uint64
 }
 
 var _ Protocol = (*BrachaImproved)(nil)
@@ -45,6 +47,24 @@ func (b *BrachaImproved) Init(n Network, app Application, cfg Config) {
 	b.readySent = make(map[brachaIdentifier]struct{})
 	b.participatingEcho = make(map[brachaIdentifier]bool)
 	b.participatingReady = make(map[brachaIdentifier]bool)
+
+	if !cfg.Unused {
+		if cfg.Graph == nil {
+			panic("improved bracha needs graph!")
+		}
+
+		c, bd := cfg.AdditionalConfig.(BrachaDolevConfig)
+		if bd {
+			b.included = c.Included
+		} else {
+			if !graphs.IsFullyConnected(cfg.Graph) {
+				panic("improved bracha does not work on non-fully connected networks!")
+			}
+
+			echoReq := int(math.Ceil((float64(cfg.N)+float64(cfg.F)+1)/2)) + cfg.F
+			b.included = graphs.BroadcastCostEstimation(cfg.Graph, cfg.Id, echoReq)
+		}
+	}
 
 	if !cfg.Silent && cfg.Byz {
 		fmt.Printf("process %v is a Bracha Byzantine node\n", cfg.Id)
@@ -184,37 +204,17 @@ func (b *BrachaImproved) Broadcast(uid uint32, payload interface{}) {
 		b.participatingEcho[id] = true
 		b.participatingReady[id] = true
 
-		// TODO: use ID for now, switch to minimum cost later
-		echoReq := int(math.Ceil((float64(b.cfg.N)+float64(b.cfg.F)+1)/2)) + b.cfg.F
-		included := make([]uint64, 0, echoReq+1)
-
-		included = append(included, b.cfg.Id)
-		echoReq -= 1
-
-		for _, pid := range b.cfg.Neighbours {
-			included = append(included, pid)
-			echoReq -= 1
-
-			if echoReq == 0 {
-				break
-			}
-		}
-
-		if echoReq > 0 {
-			panic("incorrect bracha_improved nodes")
-		}
-
 		m := BrachaImprovedMessage{
 			BrachaMessage: BrachaMessage{
 				Src:     b.cfg.Id,
 				Id:      b.cnt,
 				Payload: payload,
 			},
-			Included: included,
+			Included: b.included,
 		}
 		b.cnt += 1
 
-		b.send(BrachaSend, uid, id, m, included)
+		b.send(BrachaSend, uid, id, m, b.included)
 		b.echoSent[id] = struct{}{}
 
 	}
