@@ -215,7 +215,7 @@ func (p *Process) handleMsg(src uint64, t uint8, b interface{}, ctrl bool) {
 
 		p.stats.MsgSent[r.Id] = 0
 		p.stats.Relayed[r.Id] = 0
-		p.brb.Broadcast(r.Id, r.Payload)
+		p.brb.Broadcast(r.Id, r.Payload, brb.BroadcastInfo{})
 	}
 }
 

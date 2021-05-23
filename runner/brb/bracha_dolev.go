@@ -70,7 +70,7 @@ func (bd *BrachaDolev) Send(messageType uint8, _ uint64, uid uint32, data interf
 		bd.d.Broadcast(uid, brachaWrapper{
 			messageType: messageType,
 			msg:         data,
-		})
+		}, BroadcastInfo{})
 		//fmt.Printf("proc %v is broadcasting %v (%v for %v) through dolev with type %v\n", bd.cfg.Id, data, reflect.TypeOf(data).Name(), src, messageType)
 
 		// A message is broadcast only once to all
@@ -90,9 +90,9 @@ func (bd *BrachaDolev) Receive(_ uint8, src uint64, uid uint32, data interface{}
 	bd.d.Receive(0, src, uid, data)
 }
 
-func (bd *BrachaDolev) Broadcast(uid uint32, payload interface{}) {
+func (bd *BrachaDolev) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
 	// Application is requesting a broadcast, pass to Bracha
-	bd.b.Broadcast(uid, payload)
+	bd.b.Broadcast(uid, payload, BroadcastInfo{})
 }
 
 func (bd *BrachaDolev) Category() ProtocolCategory {

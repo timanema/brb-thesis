@@ -4,19 +4,16 @@ import (
 	"fmt"
 	"gonum.org/v1/gonum/graph/simple"
 	"os"
+	"rp-runner/brb/algo"
 	"rp-runner/graphs"
 	"strconv"
 )
-
-type dolevPath struct {
-	Desired, Actual graphs.Path
-}
 
 type DolevKnownMessage struct {
 	Src     uint64
 	Id      uint32
 	Payload interface{}
-	Paths   dolevPath
+	Paths   algo.DolevPath
 }
 
 // Dolev with routing for RP Tim Anema
@@ -30,7 +27,7 @@ type DolevKnown struct {
 	delivered map[dolevIdentifier]struct{}
 	paths     map[dolevIdentifier][]graphs.Path
 
-	broadcast []graphs.Path
+	broadcast algo.BroadcastPlan
 }
 
 var _ Protocol = (*DolevKnown)(nil)
@@ -53,20 +50,10 @@ func (d *DolevKnown) Init(n Network, app Application, cfg Config) {
 			Name: strconv.Itoa(int(d.cfg.Id)),
 		}, d.cfg.F*2+1, 0, false)
 		if err != nil {
-			fmt.Printf("process %v errored while building lookup table: %v\n", d.cfg.Id, err)
-			os.Exit(1)
-		}
-		d.broadcast = make([]graphs.Path, 0, len(routes))
-
-		for _, g := range routes {
-			d.broadcast = append(d.broadcast, g...)
+			panic(fmt.Sprintf("process %v errored while building lookup table: %v\n", d.cfg.Id, err))
 		}
 
-		if d.cfg.Id == 0 {
-			//fmt.Println(d.routes)
-			fmt.Println(d.cfg.Neighbours)
-			//graphs.PrintGraphviz(graphs.Directed(cfg.Graph))
-		}
+		d.broadcast = algo.DolevRouting(routes, false, false)
 	}
 }
 
@@ -87,13 +74,15 @@ func (d *DolevKnown) sendInitialMessage(uid uint32, payload interface{}) error {
 		Payload: payload,
 	}
 
-	for _, p := range d.broadcast {
-		m.Paths = dolevPath{
-			Desired: p,
-			Actual:  nil,
-		}
+	for dst, paths := range d.broadcast {
+		for _, p := range paths {
+			m.Paths = algo.DolevPath{
+				Desired: p,
+				Actual:  nil,
+			}
 
-		d.n.Send(0, uint64(p[0].To().ID()), uid, m, BroadcastInfo{})
+			d.n.Send(0, dst, uid, m, BroadcastInfo{})
+		}
 	}
 
 	return nil
@@ -144,7 +133,7 @@ func (d *DolevKnown) Receive(_ uint8, src uint64, uid uint32, data interface{}) 
 	}
 }
 
-func (d *DolevKnown) Broadcast(uid uint32, payload interface{}) {
+func (d *DolevKnown) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
 	id := dolevIdentifier{
 		Src:        d.cfg.Id,
 		Id:         d.cnt,

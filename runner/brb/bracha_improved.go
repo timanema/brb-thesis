@@ -82,12 +82,17 @@ func (b *BrachaImproved) send(messageType uint8, uid uint32, id brachaIdentifier
 		return
 	}
 
+	t := BrachaEveryone
+	if messageType == BrachaSend || messageType == BrachaEcho {
+		t = BrachaPartial
+	}
+
 	i := b.bcId
 	b.bcId += 1
 	for _, n := range to {
 		if n != b.cfg.Id {
 			b.n.Send(messageType, n, uid, data, BroadcastInfo{
-				Type: BrachaEveryone,
+				Type: t,
 				Id:   i,
 			})
 		}
@@ -187,7 +192,7 @@ func (b *BrachaImproved) Receive(messageType uint8, src uint64, uid uint32, data
 	}
 }
 
-func (b *BrachaImproved) Broadcast(uid uint32, payload interface{}) {
+func (b *BrachaImproved) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
 	id := brachaIdentifier{
 		Src:        b.cfg.Id,
 		Id:         b.cnt,

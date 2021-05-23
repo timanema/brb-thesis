@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gonum.org/v1/gonum/graph/simple"
 	"os"
+	"rp-runner/brb/algo"
 	"rp-runner/graphs"
 	"strconv"
 )
@@ -12,7 +13,7 @@ type DolevKnownImprovedMessage struct {
 	Src     uint64
 	Id      uint32
 	Payload interface{}
-	Paths   []dolevPath
+	Paths   []algo.DolevPath
 }
 
 // Dolev with routing and additional optimizations for RP Tim Anema
@@ -26,7 +27,10 @@ type DolevKnownImproved struct {
 	delivered map[dolevIdentifier]struct{}
 	paths     map[dolevIdentifier][]graphs.Path
 	//routes    map[uint64][]graphs.Path
-	broadcast map[uint64][]graphs.Path
+	broadcast algo.BroadcastPlan
+
+	bd     bool
+	bdPlan map[uint64]algo.BroadcastPlan
 }
 
 var _ Protocol = (*DolevKnownImproved)(nil)
@@ -44,54 +48,29 @@ func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 	}
 
 	if d.broadcast == nil && !d.cfg.Unused {
-		// Additional modification (based on bonomi 7): Accept messages from origin immediately, neighbours only need one path
+		_, bd := cfg.AdditionalConfig.(BrachaDolevConfig)
+		d.bd = bd
+
 		routes, err := graphs.BuildLookupTable(cfg.Graph, graphs.Node{
 			Id:   int64(d.cfg.Id),
 			Name: strconv.Itoa(int(d.cfg.Id)),
 		}, d.cfg.F*2+1, 5, true)
 		if err != nil {
-			fmt.Printf("process %v errored while building lookup table: %v\n", d.cfg.Id, err)
-			os.Exit(1)
-		}
-		br := make([]graphs.Path, 0, len(routes))
-
-		for _, g := range routes {
-			br = append(br, g...)
+			panic(fmt.Sprintf("process %v errored while building lookup table: %v\n", d.cfg.Id, err))
 		}
 
-		d.broadcast = combinePaths(graphs.FilterSubpaths(br))
+		if d.bd {
+			n, m := graphs.Nodes(d.cfg.Graph)
+			d.bdPlan = algo.BrachaDolevRouting(routes, graphs.FindAdjMap(graphs.Directed(d.cfg.Graph), m), n, d.cfg.N, d.cfg.F)
+		}
+
+		d.broadcast = algo.DolevRouting(routes, true, true)
 		// TODO: check if there can be a case where a node is in multiple next-hop chains (if so, merging them later on can improve perf).
 	}
-
-	fmt.Printf("")
-}
-
-func combinePaths(paths []graphs.Path) map[uint64][]graphs.Path {
-	res := make(map[uint64][]graphs.Path)
-
-	for _, p := range paths {
-		next := uint64(p[0].To().ID())
-		res[next] = append(res[next], p)
-	}
-
-	return res
-}
-
-func combineDolevPaths(paths []dolevPath) map[uint64][]dolevPath {
-	res := make(map[uint64][]dolevPath)
-
-	for _, p := range paths {
-		if cur := len(p.Actual); len(p.Desired) > cur {
-			next := uint64(p.Desired[cur].To().ID())
-			res[next] = append(res[next], p)
-		}
-	}
-
-	return res
 }
 
 func (d *DolevKnownImproved) sendMergedMessage(uid uint32, m DolevKnownImprovedMessage) error {
-	next := combineDolevPaths(m.Paths)
+	next := algo.CombineDolevPaths(m.Paths)
 
 	if len(next) > 0 {
 		d.n.TriggerStat(uid, StartRelay)
@@ -105,18 +84,23 @@ func (d *DolevKnownImproved) sendMergedMessage(uid uint32, m DolevKnownImprovedM
 	return nil
 }
 
-func (d *DolevKnownImproved) sendInitialMessage(uid uint32, payload interface{}) error {
+func (d *DolevKnownImproved) sendInitialMessage(uid uint32, payload interface{}, partial bool, origin uint64) error {
 	m := DolevKnownImprovedMessage{
 		Src:     d.cfg.Id,
 		Id:      d.cnt,
 		Payload: payload,
 	}
 
-	for dst, p := range d.broadcast {
-		dp := make([]dolevPath, len(p))
+	to := d.broadcast
+	if partial {
+		to = d.bdPlan[origin]
+	}
+
+	for dst, p := range to {
+		dp := make([]algo.DolevPath, len(p))
 
 		for i, d := range p {
-			dp[i] = dolevPath{Desired: d}
+			dp[i] = algo.DolevPath{Desired: d}
 		}
 
 		m.Paths = dp
@@ -182,7 +166,7 @@ func (d *DolevKnownImproved) Receive(_ uint8, src uint64, uid uint32, data inter
 	}
 }
 
-func (d *DolevKnownImproved) Broadcast(uid uint32, payload interface{}) {
+func (d *DolevKnownImproved) Broadcast(uid uint32, payload interface{}, bc BroadcastInfo) {
 	id := dolevIdentifier{
 		Src:        d.cfg.Id,
 		Id:         d.cnt,
@@ -195,7 +179,16 @@ func (d *DolevKnownImproved) Broadcast(uid uint32, payload interface{}) {
 		d.paths[id] = make([]graphs.Path, d.cfg.F*2+1)
 		d.app.Deliver(uid, payload, d.cfg.Id)
 
-		if err := d.sendInitialMessage(uid, payload); err != nil {
+		partial := false
+		partialId := d.cfg.Id
+
+		if d.bd {
+			partial = bc.Type == BrachaPartial
+			m := payload.(brachaWrapper).msg.(BrachaImprovedMessage)
+			partialId = m.Src
+		}
+
+		if err := d.sendInitialMessage(uid, payload, partial, partialId); err != nil {
 			fmt.Printf("process %v errored while broadcasting dolev (known, improved) message: %v\n", d.cfg.Id, err)
 			os.Exit(1)
 		}

@@ -106,7 +106,7 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
 	d.send(uid, m, to)
 }
 
-func (d *Dolev) Broadcast(uid uint32, payload interface{}) {
+func (d *Dolev) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
 	id := dolevIdentifier{
 		Src:        d.cfg.Id,
 		Id:         d.cnt,

@@ -108,9 +108,9 @@ func RunnerMain() {
 	//gr.SetWeightedEdge(fg)
 	//gr.SetWeightedEdge(dg)
 
-	n, k, f := 150, 74, 36
-	m := graphs.MultiPartiteWheelGenerator{}
-	if err := runSimpleTest(info, 1, n, k, f, m, cfg, &brb.DolevKnownImproved{}); err != nil {
+	n, k, f := 60, 55, 19
+	m := graphs.GeneralizedWheelGenerator{}
+	if err := runSimpleTest(info, 5, n, k, f, m, cfg, &brb.BrachaDolevKnown{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
@@ -148,7 +148,7 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 	}
 
 	if float64(f) >= float64(n)/3 && bp.Category() != brb.DolevCat {
-		return errors.Errorf("f >= n/3 (k=%v, f=%v)", k, f)
+		return errors.Errorf("f >= n/3 (n=%v, f=%v)", n, f)
 	}
 
 	ra := pickRandom(runs, n)

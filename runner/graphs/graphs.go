@@ -429,7 +429,9 @@ func alt() {
 	PrintGraphvizHighlightPaths(gd, paths)
 }
 
-func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int, w int, skipNeighbour bool) (map[uint64][]Path, error) {
+type RoutingTable map[uint64][]Path
+
+func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int, w int, skipNeighbour bool) (RoutingTable, error) {
 	res := make(map[uint64][]Path)
 	g := Directed(gu)
 
@@ -538,7 +540,9 @@ func DisjointEdges(g *simple.WeightedDirectedGraph, split *SplitGraph, s, t grap
 	return res, nil
 }
 
-func FindAdjMap(g *simple.WeightedDirectedGraph, max int64) [][]graph.WeightedEdge {
+type AdjacencyMap [][]graph.WeightedEdge
+
+func FindAdjMap(g *simple.WeightedDirectedGraph, max int64) AdjacencyMap {
 	edges := g.Edges()
 	res := make([][]graph.WeightedEdge, max+1)
 

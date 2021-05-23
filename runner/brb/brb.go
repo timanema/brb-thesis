@@ -15,7 +15,13 @@ type BroadcastInfo struct {
 	Type, Id int
 }
 
+const (
+	BrachaEveryone int = iota
+	BrachaPartial
+)
+
 type Network interface {
+	// BroadcastInfo can be used to pass information between protocols, regular applications and networks will not use this
 	Send(messageType uint8, dest uint64, uid uint32, data interface{}, bc BroadcastInfo)
 
 	TriggerStat(uid uint32, n NetworkStat)
@@ -54,7 +60,8 @@ type Protocol interface {
 
 	Receive(messageType uint8, src uint64, uid uint32, data interface{})
 
-	Broadcast(uid uint32, payload interface{})
+	// BroadcastInfo can be used to pass information between protocols, regular applications and networks will not use this
+	Broadcast(uid uint32, payload interface{}, bc BroadcastInfo)
 
 	Category() ProtocolCategory
 }

@@ -65,6 +65,7 @@ func (bd *BrachaDolevKnown) Init(n Network, app Application, cfg Config) {
 	if bd.d == nil {
 		bd.d = &DolevKnownImproved{}
 	}
+	cfg.AdditionalConfig = BrachaDolevConfig{}
 	bd.d.Init(n, bd, cfg)
 
 	cfg.Silent = sil
@@ -81,11 +82,18 @@ func (bd *BrachaDolevKnown) Send(messageType uint8, dest uint64, uid uint32, dat
 		//	fmt.Printf("proc %v is sending ready\n", bd.cfg.Id)
 		//}
 
+		partial := messageType == BrachaSend || messageType == BrachaEcho
+		bcType := BrachaEveryone
+
+		if partial {
+			bcType = BrachaPartial
+		}
+
 		// Bracha is sending a message through Dolev
 		bd.d.Broadcast(uid, brachaWrapper{
 			messageType: messageType,
 			msg:         data,
-		})
+		}, BroadcastInfo{Type: bcType})
 	}
 }
 
@@ -113,9 +121,9 @@ func (bd *BrachaDolevKnown) Receive(_ uint8, src uint64, uid uint32, data interf
 	bd.d.Receive(0, src, uid, data)
 }
 
-func (bd *BrachaDolevKnown) Broadcast(uid uint32, payload interface{}) {
+func (bd *BrachaDolevKnown) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
 	// Application is requesting a broadcast, pass to Bracha
-	bd.b.Broadcast(uid, payload)
+	bd.b.Broadcast(uid, payload, BroadcastInfo{})
 }
 
 func (bd *BrachaDolevKnown) Category() ProtocolCategory {

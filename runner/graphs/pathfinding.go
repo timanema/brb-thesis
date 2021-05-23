@@ -13,9 +13,7 @@ type cost struct {
 }
 
 // Bellman-Ford (needs to be capable of handling negative weights)
-func bf(s int64, edges [][]graph.WeightedEdge, additionalWeight [][]int) []int64 {
-	//TODO: check if nodes have increasing numbers by default
-
+func BellmanFord(s int64, edges AdjacencyMap, additionalWeight [][]int) []int64 {
 	queue := make([]int64, 0)
 	inQ := make([]bool, len(edges))
 
@@ -62,9 +60,9 @@ func bf(s int64, edges [][]graph.WeightedEdge, additionalWeight [][]int) []int64
 	return predecessor
 }
 
-func ShortestPath(s, t int64, edges [][]graph.WeightedEdge, additionalWeight [][]int) (Path, error) {
-	// Use bf to get predecessor map
-	predecessor := bf(s, edges, additionalWeight)
+func ShortestPath(s, t int64, edges AdjacencyMap, additionalWeight [][]int) (Path, error) {
+	// Use BellmanFord to get predecessor map
+	predecessor := BellmanFord(s, edges, additionalWeight)
 
 	// Step 4: build path to target
 	res := make([]graph.WeightedEdge, 0)
@@ -107,9 +105,9 @@ func walkPath(pred []int64, s, t int64, dist []int) (int, error) {
 	return cnt, nil
 }
 
-func ClosestNodes(s int64, edges [][]graph.WeightedEdge, amount int) []uint64 {
-	// Use bf to get predecessor map
-	predecessor := bf(s, edges, nil)
+func ClosestNodes(s int64, edges AdjacencyMap, amount int) []uint64 {
+	// Use BellmanFord to get predecessor map
+	predecessor := BellmanFord(s, edges, nil)
 	costs := make([]cost, 0, len(edges))
 	res := make([]uint64, 0, amount)
 
@@ -132,8 +130,8 @@ func ClosestNodes(s int64, edges [][]graph.WeightedEdge, amount int) []uint64 {
 		})
 	}
 
-	// Sort costs
-	sort.Slice(costs, func(i, j int) bool {
+	// Then use a stable (!!) sort on cost
+	sort.SliceStable(costs, func(i, j int) bool {
 		return costs[i].cost < costs[j].cost
 	})
 

@@ -45,7 +45,7 @@ func (f *Flooding) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
 	}
 }
 
-func (f *Flooding) Broadcast(uid uint32, payload interface{}) {
+func (f *Flooding) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
 	if _, ok := f.seen[uid]; !ok {
 		f.seen[uid] = struct{}{}
 		f.app.Deliver(uid, payload, 0)

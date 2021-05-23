@@ -11,8 +11,6 @@ const (
 	BrachaSend  uint8 = 1
 	BrachaEcho  uint8 = 2
 	BrachaReady uint8 = 3
-
-	BrachaEveryone int = iota
 )
 
 type BrachaMessage struct {
@@ -154,7 +152,7 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interfa
 	}
 }
 
-func (b *Bracha) Broadcast(uid uint32, payload interface{}) {
+func (b *Bracha) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
 	id := brachaIdentifier{
 		Src:        b.cfg.Id,
 		Id:         b.cnt,

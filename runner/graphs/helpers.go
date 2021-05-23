@@ -82,16 +82,24 @@ func PrepareFlow(g *simple.WeightedDirectedGraph, excludeZero bool) {
 }
 
 func MaxId(g *simple.WeightedUndirectedGraph) int64 {
-	m := int64(0)
+	_, m := Nodes(g)
 
+	return m
+}
+
+func Nodes(g *simple.WeightedUndirectedGraph) ([]uint64, int64) {
+	m := int64(0)
 	nodes := g.Nodes()
+	res := make([]uint64, 0, nodes.Len())
+
 	for nodes.Next() {
 		n := nodes.Node()
+		res = append(res, uint64(n.ID()))
 
 		if id := n.ID(); id > m {
 			m = id
 		}
 	}
 
-	return m
+	return res, m
 }
