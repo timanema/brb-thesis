@@ -23,30 +23,6 @@ func IsSubPath(a, b Path) bool {
 	return true
 }
 
-func FilterSubpaths(paths []Path) []Path {
-	res := make([]Path, 0, len(paths))
-
-	for i, p := range paths {
-		sub := false
-		for j, sp := range paths {
-			if i == j {
-				continue
-			}
-
-			if IsSubPath(p, sp) {
-				sub = true
-				break
-			}
-		}
-
-		if !sub {
-			res = append(res, p)
-		}
-	}
-
-	return res
-}
-
 func Directed(g *simple.WeightedUndirectedGraph) *simple.WeightedDirectedGraph {
 	gr := simple.NewWeightedDirectedGraph(0, 0)
 	nodes := g.Nodes()

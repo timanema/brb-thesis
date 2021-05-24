@@ -45,7 +45,7 @@ func (d *DolevKnown) Init(n Network, app Application, cfg Config) {
 	}
 
 	if d.broadcast == nil && !d.cfg.Unused {
-		routes, err := graphs.BuildLookupTable(cfg.Graph, graphs.Node{
+		routes, err := algo.BuildRoutingTable(cfg.Graph, graphs.Node{
 			Id:   int64(d.cfg.Id),
 			Name: strconv.Itoa(int(d.cfg.Id)),
 		}, d.cfg.F*2+1, 0, false)
@@ -77,8 +77,8 @@ func (d *DolevKnown) sendInitialMessage(uid uint32, payload interface{}) error {
 	for dst, paths := range d.broadcast {
 		for _, p := range paths {
 			m.Paths = algo.DolevPath{
-				Desired: p,
-				Actual:  nil,
+				Desired: p.P,
+				Prio:    p.Prio,
 			}
 
 			d.n.Send(0, dst, uid, m, BroadcastInfo{})

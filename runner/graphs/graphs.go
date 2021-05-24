@@ -429,9 +429,7 @@ func alt() {
 	PrintGraphvizHighlightPaths(gd, paths)
 }
 
-type RoutingTable map[uint64][]Path
-
-func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int, w int, skipNeighbour bool) (RoutingTable, error) {
+func BuildLookupTable(gu *simple.WeightedUndirectedGraph, s graph.Node, k int, w int, skipNeighbour bool) (map[uint64][]Path, error) {
 	res := make(map[uint64][]Path)
 	g := Directed(gu)
 

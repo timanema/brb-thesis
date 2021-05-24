@@ -51,7 +51,7 @@ func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 		_, bd := cfg.AdditionalConfig.(BrachaDolevConfig)
 		d.bd = bd
 
-		routes, err := graphs.BuildLookupTable(cfg.Graph, graphs.Node{
+		routes, err := algo.BuildRoutingTable(cfg.Graph, graphs.Node{
 			Id:   int64(d.cfg.Id),
 			Name: strconv.Itoa(int(d.cfg.Id)),
 		}, d.cfg.F*2+1, 5, true)
@@ -64,7 +64,13 @@ func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 			d.bdPlan = algo.BrachaDolevRouting(routes, graphs.FindAdjMap(graphs.Directed(d.cfg.Graph), m), n, d.cfg.N, d.cfg.F)
 		}
 
+		// TODO: remove testing info
+		deps := algo.FindDependants(routes)
+		fmt.Println(deps)
+
 		d.broadcast = algo.DolevRouting(routes, true, true)
+		algo.FixDeadlocks(routes, deps)
+		fmt.Println(routes)
 		// TODO: check if there can be a case where a node is in multiple next-hop chains (if so, merging them later on can improve perf).
 	}
 }
@@ -100,7 +106,7 @@ func (d *DolevKnownImproved) sendInitialMessage(uid uint32, payload interface{},
 		dp := make([]algo.DolevPath, len(p))
 
 		for i, d := range p {
-			dp[i] = algo.DolevPath{Desired: d}
+			dp[i] = algo.DolevPath{Desired: d.P, Prio: d.Prio}
 		}
 
 		m.Paths = dp
@@ -200,13 +206,3 @@ func (d *DolevKnownImproved) Broadcast(uid uint32, payload interface{}, bc Broad
 func (d *DolevKnownImproved) Category() ProtocolCategory {
 	return DolevCat
 }
-
-/*
-
-2:[[{5 2} {2 1}] [{5 2} {2 4}] [{5 2} {2 0} {0 9}] [{5 2} {2 0} {0 8}]]
-3:[[{5 3} {3 1}] [{5 3} {3 4}] [{5 3} {3 0}]]
-6:[[{5 6} {6 8} {8 1}] [{5 6} {6 4}] [{5 6} {6 9}] [{5 6} {6 8} {8 0}]]
-7:[[{5 7} {7 9}] [{5 7} {7 8}]]
-
-
-*/
