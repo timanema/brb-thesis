@@ -1,7 +1,5 @@
 package algo
 
-import "fmt"
-
 //TODO: redo this to actually compare edges
 
 // Needs to use RoutingTable pre-filtering!
@@ -44,11 +42,10 @@ func FixDeadlocks(r RoutingTable, deps map[uint64]map[uint64]struct{}) {
 
 				// Check for conflict
 				if dep && mutual {
-					fmt.Printf("conflict in %v (to %v over %v): %v\n", p, dst, from, decideDeadlock(dst, from))
+					//fmt.Printf("conflict in %v (to %v over %v): %v\n", p, dst, from, decideDeadlock(dst, from))
 
 					// If conflict, make priority path
 					if decideDeadlock(dst, from) {
-						// TODO: ensure this actually updates the correct values
 						r[dst][i].Prio = true
 						break
 					}

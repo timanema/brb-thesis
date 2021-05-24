@@ -26,7 +26,9 @@ type DolevKnownImproved struct {
 
 	delivered map[dolevIdentifier]struct{}
 	paths     map[dolevIdentifier][]graphs.Path
-	//routes    map[uint64][]graphs.Path
+
+	buffer map[dolevIdentifier][]algo.DolevPath
+
 	broadcast algo.BroadcastPlan
 
 	bd     bool
@@ -41,6 +43,7 @@ func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 	d.cfg = cfg
 	d.delivered = make(map[dolevIdentifier]struct{})
 	d.paths = make(map[dolevIdentifier][]graphs.Path)
+	d.buffer = make(map[dolevIdentifier][]algo.DolevPath)
 
 	if !cfg.Silent && cfg.Byz {
 		fmt.Printf("process %v is a Dolev (known improved) Byzantine node\n", cfg.Id)
@@ -66,17 +69,49 @@ func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 
 		// TODO: remove testing info
 		deps := algo.FindDependants(routes)
-		fmt.Println(deps)
+		//fmt.Println(deps)
 
 		d.broadcast = algo.DolevRouting(routes, true, true)
 		algo.FixDeadlocks(routes, deps)
-		fmt.Println(routes)
+		//fmt.Println(routes)
 		// TODO: check if there can be a case where a node is in multiple next-hop chains (if so, merging them later on can improve perf).
 	}
 }
 
-func (d *DolevKnownImproved) sendMergedMessage(uid uint32, m DolevKnownImprovedMessage) error {
-	next := algo.CombineDolevPaths(m.Paths)
+func (d *DolevKnownImproved) sendMergedMessage(uid uint32, id dolevIdentifier, m DolevKnownImprovedMessage) error {
+	del := d.hasDelivered(id)
+
+	paths := make([]algo.DolevPath, 0, len(m.Paths))
+
+	// If delivered, relay all messages, including ones in the buffer
+	if del {
+		paths = append(paths, m.Paths...)
+
+		if buf, ok := d.buffer[id]; ok {
+			paths = append(paths, buf...)
+		}
+
+		// Clear buffer
+		d.buffer[id] = nil
+	} else {
+		// If not delivered, add all messages with no priority to the buffer and
+		// all messages with priority to the outgoing paths
+		for _, p := range m.Paths {
+			if len(p.Desired) == len(p.Actual) {
+				continue
+			}
+
+			if p.Prio {
+				paths = append(paths, p)
+			} else {
+				d.buffer[id] = append(d.buffer[id], p)
+			}
+		}
+	}
+
+	// TODO: let paths with the same next hop join if a message is traveling there
+
+	next := algo.CombineDolevPaths(paths)
 
 	if len(next) > 0 {
 		d.n.TriggerStat(uid, StartRelay)
@@ -149,12 +184,6 @@ func (d *DolevKnownImproved) Receive(_ uint8, src uint64, uid uint32, data inter
 		}
 	}
 
-	// Send to next hops
-	if err := d.sendMergedMessage(uid, m); err != nil {
-		fmt.Printf("process %v errored while sending dolev (known, improved) message: %v\n", d.cfg.Id, err)
-		os.Exit(1)
-	}
-
 	if d.cfg.Id == m.Src {
 		panic("received message from self, should have been delivered already")
 	}
@@ -167,8 +196,14 @@ func (d *DolevKnownImproved) Receive(_ uint8, src uint64, uid uint32, data inter
 			d.app.Deliver(uid, m.Payload, m.Src)
 
 			// Memory cleanup
-			delete(d.paths, id)
+			d.paths[id] = nil
 		}
+	}
+
+	// Send to next hops
+	if err := d.sendMergedMessage(uid, id, m); err != nil {
+		fmt.Printf("process %v errored while sending dolev (known, improved) message: %v\n", d.cfg.Id, err)
+		os.Exit(1)
 	}
 }
 

@@ -221,7 +221,7 @@ func (p *Process) handleMsg(src uint64, t uint8, b interface{}, ctrl bool) {
 
 // Adding abstraction for BRB protocols
 func (p *Process) Deliver(uid uint32, payload interface{}, _ uint64) {
-	//fmt.Printf("process %v got delivered (%v): %v\n", p.Id, uid, string(payload))
+	//fmt.Printf("process %v got delivered (%v): %v\n", p.Id, uid, payload)
 
 	m := msg.MessageDelivered{
 		Id:      uid,

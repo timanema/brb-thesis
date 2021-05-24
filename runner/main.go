@@ -65,52 +65,52 @@ func RunnerMain() {
 	}
 
 	// TEMP
-	gr := simple.NewWeightedUndirectedGraph(0, 0)
-	//Create nodes
-	a := graphs.NewNodeUndirected(gr, "a")
-	gr.AddNode(a)
-	b := graphs.NewNodeUndirected(gr, "b")
-	gr.AddNode(b)
-	c := graphs.NewNodeUndirected(gr, "c")
-	gr.AddNode(c)
-	d := graphs.NewNodeUndirected(gr, "d")
-	gr.AddNode(d)
-	e := graphs.NewNodeUndirected(gr, "e")
-	gr.AddNode(e)
-	f := graphs.NewNodeUndirected(gr, "f")
-	gr.AddNode(f)
-	g := graphs.NewNodeUndirected(gr, "g")
-	gr.AddNode(g)
+	//gr := simple.NewWeightedUndirectedGraph(0, 0)
+	////Create nodes
+	//a := graphs.NewNodeUndirected(gr, "a")
+	//gr.AddNode(a)
+	//b := graphs.NewNodeUndirected(gr, "b")
+	//gr.AddNode(b)
+	//c := graphs.NewNodeUndirected(gr, "c")
+	//gr.AddNode(c)
+	//d := graphs.NewNodeUndirected(gr, "d")
+	//gr.AddNode(d)
+	//e := graphs.NewNodeUndirected(gr, "e")
+	//gr.AddNode(e)
+	//f := graphs.NewNodeUndirected(gr, "f")
+	//gr.AddNode(f)
+	//g := graphs.NewNodeUndirected(gr, "g")
+	//gr.AddNode(g)
+	//
+	//ab := gr.NewWeightedEdge(a, b, 1)
+	//ac := gr.NewWeightedEdge(a, c, 1)
+	//ad := gr.NewWeightedEdge(a, d, 1)
+	//bc := gr.NewWeightedEdge(b, c, 1)
+	//dc := gr.NewWeightedEdge(d, c, 1)
+	//be := gr.NewWeightedEdge(b, e, 1)
+	//ce := gr.NewWeightedEdge(c, e, 1)
+	//cf := gr.NewWeightedEdge(c, f, 1)
+	//cg := gr.NewWeightedEdge(c, g, 1)
+	//ef := gr.NewWeightedEdge(e, f, 1)
+	//fg := gr.NewWeightedEdge(f, g, 1)
+	//dg := gr.NewWeightedEdge(d, g, 1)
+	//
+	//gr.SetWeightedEdge(ab)
+	//gr.SetWeightedEdge(ac)
+	//gr.SetWeightedEdge(ad)
+	//gr.SetWeightedEdge(bc)
+	//gr.SetWeightedEdge(dc)
+	//gr.SetWeightedEdge(be)
+	//gr.SetWeightedEdge(ce)
+	//gr.SetWeightedEdge(cf)
+	//gr.SetWeightedEdge(cg)
+	//gr.SetWeightedEdge(ef)
+	//gr.SetWeightedEdge(fg)
+	//gr.SetWeightedEdge(dg)
 
-	ab := gr.NewWeightedEdge(a, b, 1)
-	ac := gr.NewWeightedEdge(a, c, 1)
-	ad := gr.NewWeightedEdge(a, d, 1)
-	bc := gr.NewWeightedEdge(b, c, 1)
-	dc := gr.NewWeightedEdge(d, c, 1)
-	be := gr.NewWeightedEdge(b, e, 1)
-	ce := gr.NewWeightedEdge(c, e, 1)
-	cf := gr.NewWeightedEdge(c, f, 1)
-	cg := gr.NewWeightedEdge(c, g, 1)
-	ef := gr.NewWeightedEdge(e, f, 1)
-	fg := gr.NewWeightedEdge(f, g, 1)
-	dg := gr.NewWeightedEdge(d, g, 1)
-
-	gr.SetWeightedEdge(ab)
-	gr.SetWeightedEdge(ac)
-	gr.SetWeightedEdge(ad)
-	gr.SetWeightedEdge(bc)
-	gr.SetWeightedEdge(dc)
-	gr.SetWeightedEdge(be)
-	gr.SetWeightedEdge(ce)
-	gr.SetWeightedEdge(cf)
-	gr.SetWeightedEdge(cg)
-	gr.SetWeightedEdge(ef)
-	gr.SetWeightedEdge(fg)
-	gr.SetWeightedEdge(dg)
-
-	n, k, fx := 7, 3, 1
-	m := graphs.BasicGenerator{G: gr}
-	if err := runSimpleTest(info, 1, n, k, fx, m, cfg, &brb.DolevKnownImproved{}); err != nil {
+	n, k, fx := 65, 30, 10
+	m := graphs.MultiPartiteWheelGenerator{}
+	if err := runSimpleTest(info, 7, n, k, fx, m, cfg, &brb.DolevKnownImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
@@ -151,7 +151,7 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 		return errors.Errorf("f >= n/3 (n=%v, f=%v)", n, f)
 	}
 
-	ra := pickRandom(runs, n)
+	ra := pickRandom(runs, n-f)
 	g, err := gen.Generate(n, k)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate graph for test")
