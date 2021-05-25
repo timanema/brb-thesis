@@ -20,7 +20,7 @@ func buildPlan(to []uint64, r RoutingTable, f int) []Path {
 func BrachaDolevRouting(r RoutingTable, edges graphs.AdjacencyMap, nodes []uint64, n, f int) BrachaDolevRoutingTable {
 	echo := make(map[uint64]BroadcastPlan)
 
-	FilterSubpaths(r)
+	//FilterSubpaths(r)
 
 	echoReq := int(math.Ceil((float64(n)+float64(f)+1)/2)) + f
 

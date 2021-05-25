@@ -26,6 +26,7 @@ func decideDeadlock(cur, dep uint64) bool {
 	return cur < dep
 }
 
+// TODO: fix this function, doesn't resolve all deadlocks
 // Should be used after RoutingTable has been filtered
 func FixDeadlocks(r RoutingTable, deps map[uint64]map[uint64]struct{}) {
 	for dst, paths := range r {

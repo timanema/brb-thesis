@@ -62,19 +62,21 @@ func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 			panic(fmt.Sprintf("process %v errored while building lookup table: %v\n", d.cfg.Id, err))
 		}
 
-		if d.bd {
-			n, m := graphs.Nodes(d.cfg.Graph)
-			d.bdPlan = algo.BrachaDolevRouting(routes, graphs.FindAdjMap(graphs.Directed(d.cfg.Graph), m), n, d.cfg.N, d.cfg.F)
-		}
-
 		// TODO: remove testing info
 		deps := algo.FindDependants(routes)
 		//fmt.Println(deps)
 
-		d.broadcast = algo.DolevRouting(routes, true, true)
 		algo.FixDeadlocks(routes, deps)
+
+		if d.bd {
+			n, m := graphs.Nodes(d.cfg.Graph)
+			d.bdPlan = algo.BrachaDolevRouting(routes, graphs.FindAdjMap(graphs.Directed(d.cfg.Graph), m), n, d.cfg.N, d.cfg.F)
+			//fmt.Printf("proc %v: %v\n", d.cfg.Id, d.bdPlan)
+		}
+
+		d.broadcast = algo.DolevRouting(routes, true, true)
+
 		//fmt.Println(routes)
-		// TODO: check if there can be a case where a node is in multiple next-hop chains (if so, merging them later on can improve perf).
 	}
 }
 
