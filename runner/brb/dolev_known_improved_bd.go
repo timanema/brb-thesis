@@ -111,19 +111,8 @@ func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, m BrachaDolevWrappe
 		// If delivered, relay all messages, including ones in the buffer
 		if del || hopping {
 			hopping = true
-			res := append(dm.Paths, d.buffer[id]...)
-			for _, p := range res {
-				if len(p.Actual) < len(p.Desired) {
-					ac := make(graphs.Path, len(p.Actual))
-					copy(ac, p.Actual)
-
-					paths = append(paths, algo.DolevPath{
-						Desired: p.Desired,
-						Actual:  ac,
-						Prio:    p.Prio,
-					})
-				}
-			}
+			paths = append(paths, dm.Paths...)
+			paths = append(paths, d.buffer[id]...)
 
 			// Clear buffer
 			d.buffer[id] = nil
@@ -136,16 +125,7 @@ func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, m BrachaDolevWrappe
 				}
 
 				if p.Prio {
-					if len(p.Actual) < len(p.Desired) {
-						ac := make(graphs.Path, len(p.Actual))
-						copy(ac, p.Actual)
-
-						paths = append(paths, algo.DolevPath{
-							Desired: p.Desired,
-							Actual:  ac,
-							Prio:    p.Prio,
-						})
-					}
+					paths = append(paths, p)
 				} else {
 					d.buffer[id] = append(d.buffer[id], p)
 					d.bdBuffer[bid] = append(d.bdBuffer[bid], temp{
@@ -170,26 +150,11 @@ func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, m BrachaDolevWrappe
 
 	if hopping {
 		for _, id := range d.bdBuffer[bid] {
-			paths := d.buffer[id.Id]
-			res := make([]algo.DolevPath, 0, len(paths))
-			for _, p := range paths {
-				if len(p.Actual) < len(p.Desired) {
-					ac := make(graphs.Path, len(p.Actual))
-					copy(ac, p.Actual)
-
-					res = append(res, algo.DolevPath{
-						Desired: p.Desired,
-						Actual:  ac,
-						Prio:    p.Prio,
-					})
-				}
-			}
-
 			bm := BrachaDolevMessage{
 				Src:   id.Id.Src,
 				Id:    id.Id.Id,
 				Type:  id.Type,
-				Paths: res,
+				Paths: d.buffer[id.Id],
 			}
 
 			d.buffer[id.Id] = nil
@@ -200,30 +165,71 @@ func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, m BrachaDolevWrappe
 	}
 
 	// TODO: let paths with the same next hop join if a message is traveling there
-	dm := bdm.Prepare(d.cfg.Id)
-	next := algo.CombineDolevPaths(dm.Paths)
-
-	// TODO: modify paths of wrapper object
+	next := d.prepareBrachaDolevMergedPaths(bdm)
 
 	if len(next) > 0 {
 		d.n.TriggerStat(uid, StartRelay)
 	}
 
-	for dst, p := range next {
-		dp := make([]algo.DolevPath, len(p))
-
-		for i, d := range p {
-			ac := make(graphs.Path, len(d.Actual))
-			copy(ac, d.Actual)
-
-			dp[i] = algo.DolevPath{Desired: d.Desired, Actual: ac, Prio: d.Prio}
-		}
-
-		dm.Paths = dp
-		d.n.Send(0, dst, uid, dm, BroadcastInfo{})
+	for dst, m := range next {
+		d.n.Send(0, dst, uid, m, BroadcastInfo{})
 	}
 
 	return nil
+}
+
+func (d *DolevKnownImprovedBD) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrapper) map[uint64]DolevKnownImprovedMessage {
+	paths := make(map[uint64][]algo.DolevPath)
+	bds := make(map[uint64][]BrachaDolevMessage)
+
+	for _, bm := range bdm.Msgs {
+		res := make(map[uint64][]algo.DolevPath)
+		for _, p := range bm.Paths {
+			if cur := len(p.Actual); len(p.Desired) > cur {
+				// Make a copy of the path
+				cp := algo.DolevPath{
+					Desired: make(graphs.Path, len(p.Desired)),
+					Actual:  make(graphs.Path, len(p.Actual)),
+					Prio:    p.Prio,
+				}
+
+				copy(cp.Desired, p.Desired)
+				copy(cp.Actual, p.Actual)
+
+				next := uint64(p.Desired[cur].To().ID())
+				paths[next] = append(paths[next], cp)
+				res[next] = append(res[next], cp)
+			}
+		}
+
+		for dst, paths := range res {
+			bds[dst] = append(bds[dst], BrachaDolevMessage{
+				Src:   bm.Src,
+				Id:    bm.Id,
+				Type:  bm.Type,
+				Paths: paths,
+			})
+		}
+	}
+
+	res := make(map[uint64]DolevKnownImprovedMessage)
+
+	for dst, msgs := range bds {
+		res[dst] = DolevKnownImprovedMessage{
+			Src: d.cfg.Id,
+			Id:  0,
+			Payload: BrachaDolevWrapper{
+				Msgs:            msgs,
+				OriginalSrc:     bdm.OriginalSrc,
+				OriginalId:      bdm.OriginalId,
+				OriginalPayload: bdm.OriginalPayload,
+				Included:        bdm.Included,
+			},
+			Paths: paths[dst],
+		}
+	}
+
+	return res
 }
 
 func (d *DolevKnownImprovedBD) sendInitialMessage(uid uint32, payload interface{}, partial bool, origin uint64) error {

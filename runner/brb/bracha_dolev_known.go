@@ -96,23 +96,6 @@ func Pack(original []DolevKnownImprovedMessage) BrachaDolevWrapper {
 	return bdw
 }
 
-// Prepare compresses the entire BrachaDolevWrapper into a single DolevKnownImprovedMessage message
-// which can be transmitted
-func (b BrachaDolevWrapper) Prepare(src uint64) DolevKnownImprovedMessage {
-	paths := make([]algo.DolevPath, 0, len(b.Msgs))
-
-	for _, msg := range b.Msgs {
-		paths = append(paths, msg.Paths...)
-	}
-
-	return DolevKnownImprovedMessage{
-		Src:     src,
-		Id:      0,
-		Payload: b,
-		Paths:   paths,
-	}
-}
-
 func (bd *BrachaDolevKnown) Init(n Network, app Application, cfg Config) {
 	bd.n = n
 	bd.app = app
@@ -151,7 +134,7 @@ func (bd *BrachaDolevKnown) Init(n Network, app Application, cfg Config) {
 
 	// Create dolev (improved) instance with BD as the application
 	if bd.dolev == nil {
-		bd.dolev = &DolevKnownImprovedBD{}
+		bd.dolev = &DolevKnownImproved{}
 	}
 	cfg.AdditionalConfig = BrachaDolevConfig{}
 	bd.dolev.Init(n, bd, cfg)

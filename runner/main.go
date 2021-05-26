@@ -108,10 +108,10 @@ func RunnerMain() {
 	//gr.SetWeightedEdge(fg)
 	//gr.SetWeightedEdge(dg)
 
-	//n, k, fx := 50,20,8
-	n, k, fx := 10, 4, 1
+	n, k, fx := 50, 20, 8
+	//n, k, fx := 10, 4, 1
 	m := graphs.MultiPartiteWheelGenerator{}
-	if err := runSimpleTest(info, 1, n, k, fx, m, cfg, &brb.BrachaDolevKnown{}); err != nil {
+	if err := runSimpleTest(info, 5, n, k, fx, m, cfg, &brb.BrachaDolevKnown{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
