@@ -79,7 +79,7 @@ func (d *DolevKnownImprovedBD) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, m BrachaDolevWrapper) error {
+func (d *DolevKnownImprovedBD) sendMergedBDMessage(uid uint32, m BrachaDolevWrapper) error {
 	bdm := BrachaDolevWrapper{
 		OriginalSrc:     m.OriginalSrc,
 		OriginalId:      m.OriginalId,
@@ -232,6 +232,53 @@ func (d *DolevKnownImprovedBD) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrap
 	return res
 }
 
+func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, id dolevIdentifier, m DolevKnownImprovedMessage) error {
+	del := d.hasDelivered(id)
+
+	paths := make([]algo.DolevPath, 0, len(m.Paths))
+
+	// If delivered, relay all messages, including ones in the buffer
+	if del {
+		paths = append(paths, m.Paths...)
+
+		if buf, ok := d.buffer[id]; ok {
+			paths = append(paths, buf...)
+		}
+
+		// Clear buffer
+		d.buffer[id] = nil
+	} else {
+		// If not delivered, add all messages with no priority to the buffer and
+		// all messages with priority to the outgoing paths
+		for _, p := range m.Paths {
+			if len(p.Desired) == len(p.Actual) {
+				continue
+			}
+
+			if p.Prio {
+				paths = append(paths, p)
+			} else {
+				d.buffer[id] = append(d.buffer[id], p)
+			}
+		}
+	}
+
+	// TODO: let paths with the same next hop join if a message is traveling there
+
+	next := algo.CombineDolevPaths(paths)
+
+	if len(next) > 0 {
+		d.n.TriggerStat(uid, StartRelay)
+	}
+
+	for dst, p := range next {
+		m.Paths = p
+		d.n.Send(0, dst, uid, m, BroadcastInfo{})
+	}
+
+	return nil
+}
+
 func (d *DolevKnownImprovedBD) sendInitialMessage(uid uint32, payload interface{}, partial bool, origin uint64) error {
 	m := DolevKnownImprovedMessage{
 		Src:     d.cfg.Id,
@@ -291,23 +338,8 @@ func (d *DolevKnownImprovedBD) Receive(_ uint8, src uint64, uid uint32, data int
 
 		// Add latest edge to path for message
 		for i, p := range m.Paths {
-			// TODO: clean up this crazyness
-			if len(p.Actual) > len(p.Desired) {
+			if len(p.Actual) >= len(p.Desired) {
 				panic("actual path is longer than desired path!")
-			}
-
-			eq := len(p.Actual) == len(p.Desired)
-			check := len(p.Actual)
-			if eq {
-				check = len(p.Desired) - 1
-			}
-
-			if p.Desired[check].To().ID() != int64(d.cfg.Id) {
-				continue
-			}
-
-			if eq {
-				panic("received incorrect path!")
 			}
 
 			p.Actual = append(p.Actual, simple.WeightedEdge{
@@ -339,12 +371,27 @@ func (d *DolevKnownImprovedBD) Receive(_ uint8, src uint64, uid uint32, data int
 		}
 	}
 
-	// Send to next hops
-	bw := Pack(msgs)
+	if d.bd {
+		// Send to next hops
+		bw := Pack(msgs)
 
-	if err := d.sendMergedMessage(uid, bw); err != nil {
-		fmt.Printf("process %v errored while sending dolev (known, improved) message: %v\n", d.cfg.Id, err)
-		os.Exit(1)
+		if err := d.sendMergedBDMessage(uid, bw); err != nil {
+			fmt.Printf("process %v errored while sending dolev (known, improved) message: %v\n", d.cfg.Id, err)
+			os.Exit(1)
+		}
+	} else {
+		id := dolevIdentifier{
+			Src:        dm.Src,
+			Id:         dm.Id,
+			TrackingId: uid,
+			Hash:       MustHash(dm.Payload),
+		}
+
+		// Send to next hops
+		if err := d.sendMergedMessage(uid, id, dm); err != nil {
+			fmt.Printf("process %v errored while sending dolev (known, improved) message: %v\n", d.cfg.Id, err)
+			os.Exit(1)
+		}
 	}
 }
 
