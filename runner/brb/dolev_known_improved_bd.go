@@ -325,6 +325,7 @@ func (d *DolevKnownImprovedBD) Receive(_ uint8, src uint64, uid uint32, data int
 
 		if len(msgs) > 1 {
 			fmt.Println("Bracha-Dolev messages were actually merged!")
+			d.n.TriggerStat(uid, BrachaDolevMerge)
 		}
 	}
 

@@ -115,6 +115,33 @@ func PrintGraphviz(g graph.WeightedDirected) {
 	PrintGraphvizHighlightPaths(g, []Path{})
 }
 
+func PrintGraphvizUndirected(g graph.Undirected) {
+	nodes := g.Nodes()
+	fmt.Printf("graph {\n")
+	excl := make(map[int64]map[int64]struct{})
+
+	for nodes.Next() {
+		n := nodes.Node()
+		f := g.From(n.ID())
+
+		for f.Next() {
+			to := f.Node()
+			if _, ok := excl[to.ID()]; !ok {
+				excl[to.ID()] = make(map[int64]struct{})
+			}
+
+			if _, ok := excl[n.ID()][to.ID()]; ok {
+				continue
+			}
+
+			fmt.Printf("    %v -- %v;\n", n.ID(), to.ID())
+			excl[to.ID()][n.ID()] = struct{}{}
+		}
+	}
+
+	fmt.Printf("}\n")
+}
+
 func PrintGraphvizHighlightPaths(g graph.WeightedDirected, paths []Path) {
 	nodes := g.Nodes()
 	fmt.Printf("digraph {\n")

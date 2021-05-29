@@ -169,7 +169,7 @@ func TestWithMultiPartiteWheelGenerator(test *testing.T) {
 
 		f := int(math.Min(1, float64(k-2)))
 
-		g, err := m.Generate(n, k)
+		g, err := m.Generate(n, k, 0)
 		assert.NoError(test, err)
 
 		start := rand.Intn(n)
@@ -194,7 +194,7 @@ func TestWithGeneralizedWheelGenerator(test *testing.T) {
 		k := n / 2
 		f := int(math.Min(1, float64(k-2)))
 
-		g, err := m.Generate(n, k)
+		g, err := m.Generate(n, k, 0)
 		assert.NoError(test, err)
 
 		start := rand.Intn(n)
@@ -215,7 +215,7 @@ func TestWithGeneralizedWheelGenerator(test *testing.T) {
 var paths []Path
 
 func benchWithGenerator(n, k int, m Generator, b *testing.B) {
-	g, err := m.Generate(n, k)
+	g, err := m.Generate(n, k, 0)
 	if err != nil {
 		b.Fail()
 		return
@@ -283,7 +283,7 @@ func BenchmarkWithGeneralizedWheelGenerator100Nodes50Connected(b *testing.B) {
 var table map[uint64][]Path
 
 func benchTable(n, k int, m Generator, b *testing.B) {
-	g, err := m.Generate(n, k)
+	g, err := m.Generate(n, k, 0)
 	if err != nil {
 		b.Fail()
 		return

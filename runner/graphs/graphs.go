@@ -30,7 +30,7 @@ func benchTableTest() {
 	n, k := 30, 15
 	m := GeneralizedWheelGenerator{}
 
-	g, err := m.Generate(n, k)
+	g, err := m.Generate(n, k, 0)
 	if err != nil {
 		fmt.Printf("failed to generate graph for lookup test: %v\n", err)
 		os.Exit(1)
@@ -58,7 +58,7 @@ func benchSingleTest() {
 	n, k := 30, 15
 	m := GeneralizedWheelGenerator{}
 
-	g, err := m.Generate(n, k)
+	g, err := m.Generate(n, k, 0)
 	if err != nil {
 		fmt.Printf("failed to generate graph for lookup test: %v\n", err)
 		os.Exit(1)
@@ -109,7 +109,7 @@ func GraphsMain() {
 	nx, kx := 150, 80
 	mx := GeneralizedWheelGenerator{}
 
-	gx, errx := mx.Generate(nx, kx)
+	gx, errx := mx.Generate(nx, kx, 0)
 	if errx != nil {
 		fmt.Printf("failed to generate graph for lookup test: %v\n", errx)
 		os.Exit(1)
@@ -170,7 +170,7 @@ func GraphsMain() {
 
 	n, k, f := 5, 3, 2
 	m := GeneralizedWheelGenerator{}
-	gu, err := m.Generate(n, k)
+	gu, err := m.Generate(n, k, 0)
 	if err != nil {
 		fmt.Printf("invalid graph parameters: %v\n", err)
 		os.Exit(1)

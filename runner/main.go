@@ -108,16 +108,16 @@ func RunnerMain() {
 	//gr.SetWeightedEdge(fg)
 	//gr.SetWeightedEdge(dg)
 
-	n, k, fx := 50, 20, 8
-	//n, k, fx := 10, 4, 1
-	m := graphs.MultiPartiteWheelGenerator{}
-	if err := runSimpleTest(info, 3, n, k, fx, m, cfg, &brb.BrachaDolevKnown{}); err != nil {
+	n, k, fx := 100, 5, 2
+	deg := k
+	gen := graphs.RandomRegularGenerator{}
+	_, name := gen.Cache()
+
+	m := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
+	if err := runSimpleTest(info, 3, n, k, fx, deg, m, cfg, &brb.DolevKnownImprovedBD{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
-
-	//gr, _ := m.Generate(n, k)
-	//fmt.Println(graphs.ClosestNodes(0, graphs.FindAdjMap(graphs.Directed(gr), graphs.MaxId(gr)), 5), f)
 
 	fmt.Println("done")
 	fmt.Println("server stop")
@@ -143,7 +143,7 @@ func pickRandom(i int, max int) []uint64 {
 	return res
 }
 
-func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator, cfg process.Config, bp brb.Protocol) error {
+func runSimpleTest(info ctrl.Config, runs int, n, k, f, deg int, gen graphs.Generator, cfg process.Config, bp brb.Protocol) error {
 	if k < 2*f+1 && bp.Category() != brb.BrachaCat {
 		return errors.Errorf("network is not 2f+1 connected (k=%v, f=%v)", k, f)
 	}
@@ -153,12 +153,12 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f int, gen graphs.Generator
 	}
 
 	ra := pickRandom(runs, n-f)
-	g, err := gen.Generate(n, k)
+	g, err := gen.Generate(n, k, deg)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate graph for test")
 	}
 
-	//graphs.PrintGraphviz(graphs.Directed(g))
+	//graphs.PrintGraphvizUndirected(g)
 
 	fmt.Printf("everything ready, starting %v test runs\n", runs)
 
