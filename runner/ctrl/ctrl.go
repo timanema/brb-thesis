@@ -246,7 +246,7 @@ func (c *Controller) WaitForDeliver(uid uint32) Stats {
 		}
 
 		if i == 0 {
-			fmt.Printf("waiting for %v more: %v\n", len(needed), needed)
+			fmt.Printf("waiting for %v more (%v) delivers: %v\n", len(needed), uid, needed)
 		}
 		i = (i + 1) % 5
 
@@ -277,8 +277,6 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 		rec := s.Relayed[uid]
 		recv += rec
 		cnt += s.MsgSent[uid]
-
-		//fmt.Printf("%v: %v\n", p.p.Id, rec)
 
 		if rec > maxRecv {
 			maxRecv = rec

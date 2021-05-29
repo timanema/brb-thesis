@@ -108,13 +108,14 @@ func RunnerMain() {
 	//gr.SetWeightedEdge(fg)
 	//gr.SetWeightedEdge(dg)
 
-	n, k, fx := 100, 5, 2
+	n, k, fx := 30, 15, 5
+	messages := 1
 	deg := k
 	gen := graphs.RandomRegularGenerator{}
 	_, name := gen.Cache()
 
 	m := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
-	if err := runSimpleTest(info, 3, n, k, fx, deg, m, cfg, &brb.DolevKnownImprovedBD{}); err != nil {
+	if err := runMultipleMessagesTest(info, 4, n, k, fx, deg, messages, m, cfg, &brb.DolevKnownImprovedBD{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
@@ -143,7 +144,96 @@ func pickRandom(i int, max int) []uint64 {
 	return res
 }
 
-func runSimpleTest(info ctrl.Config, runs int, n, k, f, deg int, gen graphs.Generator, cfg process.Config, bp brb.Protocol) error {
+//func runSimpleTest(info ctrl.Config, runs int, n, k, f, deg, _ int, gen graphs.Generator, cfg process.Config, bp brb.Protocol) error {
+//	if k < 2*f+1 && bp.Category() != brb.BrachaCat {
+//		return errors.Errorf("network is not 2f+1 connected (k=%v, f=%v)", k, f)
+//	}
+//
+//	if float64(f) >= float64(n)/3 && bp.Category() != brb.DolevCat {
+//		return errors.Errorf("f >= n/3 (n=%v, f=%v)", n, f)
+//	}
+//
+//	ra := pickRandom(runs, n-f)
+//	g, err := gen.Generate(n, k, deg)
+//	if err != nil {
+//		return errors.Wrap(err, "failed to generate graph for test")
+//	}
+//
+//	//graphs.PrintGraphvizUndirected(g)
+//
+//	fmt.Printf("everything ready, starting %v test runs\n", runs)
+//
+//	ctl, err := ctrl.StartController(info)
+//	if err != nil {
+//		return errors.Wrap(err, "unable to start controller")
+//	}
+//
+//	fmt.Printf("starting processes\nselected as possible transmitters: %v\n", ra)
+//	err = ctl.StartProcesses(cfg, g, bp, f, ra, bp.Category() == brb.BrachaDolevCat)
+//	if err != nil {
+//		return errors.Wrap(err, "unable to start processes")
+//	}
+//
+//	lat := time.Duration(0)
+//	lats := make([]int, 0, runs)
+//	msg := 0
+//	cnts := make([]int, 0, runs)
+//
+//	for i := 0; i < runs; i++ {
+//		fmt.Printf("---\nrun %v: waiting for all process to be alive\n", i)
+//		if err := ctl.WaitForAlive(); err != nil {
+//			return errors.Wrap(err, "err while waiting for alive")
+//		}
+//
+//		fmt.Printf("run %v: waiting for all process to be ready\n", i)
+//		if err := ctl.WaitForReady(); err != nil {
+//			return errors.Wrap(err, "err while waiting for ready")
+//		}
+//
+//		id := ra[i]
+//		uid1, err := ctl.TriggerMessageSend(id, []byte(fmt.Sprintf("run_%v", i)))
+//		if err != nil {
+//			fmt.Printf("err while sending payload msg: %v\n", err)
+//			os.Exit(1)
+//		}
+//
+//		fmt.Printf("sent message (%v, round %v, origin %v), waiting for deliver\n", uid1, i, id)
+//		stats := ctl.WaitForDeliver(uid1)
+//		fmt.Printf("statistics (%v, %v):\n  last delivery latency: %v\n  messages sent: %v\n  recv: %v (%v - %v - %v)\n", uid1, i,
+//			stats.Latency, stats.MsgCount, stats.MeanRelayCount, stats.RelayCnt, stats.MinRelayCnt, stats.MaxRelayCnt)
+//
+//		lat += stats.Latency
+//		lats = append(lats, int(stats.Latency))
+//		msg += stats.MsgCount
+//		cnts = append(cnts, stats.MsgCount)
+//
+//		ctl.FlushProcesses()
+//		runtime.GC()
+//	}
+//
+//	fmt.Println("average stats:")
+//	lMean, lSd := sd(lats)
+//	lRsd := lSd * 100 / lMean
+//	fmt.Printf("  latency:\n    mean: %v\n    sd: %v (%.2f%%)\n", time.Duration(lMean), time.Duration(lSd), lRsd)
+//
+//	mMean, mSd := sd(cnts)
+//	mRsd := mSd * 100 / mMean
+//	fmt.Printf("  messages:\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", mMean, mSd, mRsd)
+//
+//	fmt.Println("config:")
+//	fmt.Printf("  nodes: %v\n  connectivity (k): %v\n  byzantine nodes (f): %v"+
+//		"\n  runs: %v\n  protocol: %v\n", n, k, f, runs, reflect.TypeOf(bp).Elem().Name())
+//
+//	ctl.FlushProcesses()
+//	ctl.Close()
+//
+//	fmt.Println("==========")
+//	runtime.GC()
+//
+//	return nil
+//}
+
+func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, gen graphs.Generator, cfg process.Config, bp brb.Protocol) error {
 	if k < 2*f+1 && bp.Category() != brb.BrachaCat {
 		return errors.Errorf("network is not 2f+1 connected (k=%v, f=%v)", k, f)
 	}
@@ -152,13 +242,11 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f, deg int, gen graphs.Gene
 		return errors.Errorf("f >= n/3 (n=%v, f=%v)", n, f)
 	}
 
-	ra := pickRandom(runs, n-f)
+	ra := pickRandom(runs*m, n-f)
 	g, err := gen.Generate(n, k, deg)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate graph for test")
 	}
-
-	//graphs.PrintGraphvizUndirected(g)
 
 	fmt.Printf("everything ready, starting %v test runs\n", runs)
 
@@ -189,31 +277,57 @@ func runSimpleTest(info ctrl.Config, runs int, n, k, f, deg int, gen graphs.Gene
 			return errors.Wrap(err, "err while waiting for ready")
 		}
 
-		id := ra[i]
-		uid1, err := ctl.TriggerMessageSend(id, []byte(fmt.Sprintf("run_%v", i)))
-		if err != nil {
-			fmt.Printf("err while sending payload msg: %v\n", err)
-			os.Exit(1)
+		uids := make([]uint32, 0, m)
+		for j := 0; j < m; j++ {
+			id := ra[i*m+j]
+
+			uid, err := ctl.TriggerMessageSend(id, []byte(fmt.Sprintf("run_%v", i)))
+			if err != nil {
+				fmt.Printf("err while sending payload msg: %v\n", err)
+				os.Exit(1)
+			}
+
+			uids = append(uids, uid)
 		}
 
-		//uid2, err := ctl.TriggerMessageSend(id, []byte(fmt.Sprintf("run_%v", i)))
-		//if err != nil {
-		//	fmt.Printf("err while sending payload msg: %v\n", err)
-		//	os.Exit(1)
-		//}
+		fmt.Printf("sent %v messages (%v, round %v, origins %v), waiting for delivers\n", m, uids, i, ra[i*m:i*m+m])
 
-		fmt.Printf("sent message (%v, round %v, origin %v), waiting for deliver\n", uid1, i, id)
-		stats := ctl.WaitForDeliver(uid1)
-		fmt.Printf("statistics (%v, %v):\n  last delivery latency: %v\n  messages sent: %v\n  recv: %v (%v - %v - %v)\n", uid1, i,
-			stats.Latency, stats.MsgCount, stats.MeanRelayCount, stats.RelayCnt, stats.MinRelayCnt, stats.MaxRelayCnt)
-		//stats2 := ctl.WaitForDeliver(uid2)
-		//fmt.Printf("statistics (%v, %v):\n  last delivery latency: %v\n  messages sent: %v\n", uid2, i,
-		//	stats2.Latency, stats2.MsgCount)
+		roundLat := time.Duration(0)
+		roundMsg := 0
+		roundRelayCnt := 0
+		roundMinRelayCnt := math.MaxInt64
+		roundMaxRelayCnt := 0
+		roundMeanRelayCnt := 0.0
+		for _, uid := range uids {
+			stats := ctl.WaitForDeliver(uid)
 
-		lat += stats.Latency
-		lats = append(lats, int(stats.Latency))
-		msg += stats.MsgCount
-		cnts = append(cnts, stats.MsgCount)
+			if stats.Latency > roundLat {
+				roundLat = stats.Latency
+			}
+
+			if stats.MinRelayCnt < roundMinRelayCnt {
+				roundMinRelayCnt = stats.MinRelayCnt
+			}
+
+			if stats.MaxRelayCnt > roundMaxRelayCnt {
+				roundMaxRelayCnt = stats.MaxRelayCnt
+			}
+
+			roundMsg += stats.MsgCount
+			roundRelayCnt += stats.RelayCnt
+			roundMeanRelayCnt += stats.MeanRelayCount
+		}
+
+		roundMeanRelayCnt /= float64(m)
+
+		fmt.Printf("statistics (%v):\n  last delivery latency: %v\n  messages sent: %v (~%v per message)"+
+			"\n  recv: %v (%v - %v - %v)\n", i,
+			roundLat, roundMsg, roundMsg/m, roundMeanRelayCnt, roundRelayCnt, roundMinRelayCnt, roundMaxRelayCnt)
+
+		lat += roundLat
+		lats = append(lats, int(roundLat))
+		msg += roundMsg
+		cnts = append(cnts, roundMsg)
 
 		ctl.FlushProcesses()
 		runtime.GC()
