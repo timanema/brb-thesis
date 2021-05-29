@@ -134,7 +134,7 @@ func (bd *BrachaDolevKnown) Init(n Network, app Application, cfg Config) {
 
 	// Create dolev (improved) instance with BD as the application
 	if bd.dolev == nil {
-		bd.dolev = &DolevKnownImproved{}
+		bd.dolev = &DolevKnownImprovedBD{}
 	}
 	cfg.AdditionalConfig = BrachaDolevConfig{}
 	bd.dolev.Init(n, bd, cfg)

@@ -7,4 +7,5 @@ type Stats struct {
 	MsgCount                           int
 	RelayCnt, MinRelayCnt, MaxRelayCnt int
 	MeanRelayCount                     float64
+	BDMessagedMerged                   int
 }

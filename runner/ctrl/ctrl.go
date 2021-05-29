@@ -261,6 +261,7 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 	latency := time.Duration(0)
 	cnt := 0
 	recv := 0
+	bdMerged := 0
 	minRecv, maxRecv := -1, -1
 
 	for _, p := range c.p {
@@ -275,6 +276,7 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 		}
 
 		rec := s.Relayed[uid]
+		bdMerged += s.BDMerged[uid]
 		recv += rec
 		cnt += s.MsgSent[uid]
 
@@ -286,12 +288,13 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 	}
 
 	return Stats{
-		Latency:        latency,
-		MsgCount:       cnt,
-		RelayCnt:       recv,
-		MeanRelayCount: float64(recv) / float64(len(c.p)-1),
-		MinRelayCnt:    minRecv,
-		MaxRelayCnt:    maxRecv,
+		Latency:          latency,
+		MsgCount:         cnt,
+		RelayCnt:         recv,
+		MeanRelayCount:   float64(recv) / float64(len(c.p)-1),
+		MinRelayCnt:      minRecv,
+		MaxRelayCnt:      maxRecv,
+		BDMessagedMerged: bdMerged,
 	}
 }
 

@@ -108,14 +108,14 @@ func RunnerMain() {
 	//gr.SetWeightedEdge(fg)
 	//gr.SetWeightedEdge(dg)
 
-	n, k, fx := 30, 15, 5
+	n, k, fx := 75, 40, 15
 	messages := 1
 	deg := k
 	gen := graphs.RandomRegularGenerator{}
 	_, name := gen.Cache()
 
 	m := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
-	if err := runMultipleMessagesTest(info, 4, n, k, fx, deg, messages, m, cfg, &brb.DolevKnownImprovedBD{}); err != nil {
+	if err := runMultipleMessagesTest(info, 4, n, k, fx, deg, messages, m, cfg, &brb.BrachaDolevKnown{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
@@ -261,10 +261,9 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 		return errors.Wrap(err, "unable to start processes")
 	}
 
-	lat := time.Duration(0)
 	lats := make([]int, 0, runs)
-	msg := 0
 	cnts := make([]int, 0, runs)
+	bdMergeds := make([]int, 0, runs)
 
 	for i := 0; i < runs; i++ {
 		fmt.Printf("---\nrun %v: waiting for all process to be alive\n", i)
@@ -294,6 +293,7 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 
 		roundLat := time.Duration(0)
 		roundMsg := 0
+		roundBDMerged := 0
 		roundRelayCnt := 0
 		roundMinRelayCnt := math.MaxInt64
 		roundMaxRelayCnt := 0
@@ -316,18 +316,18 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 			roundMsg += stats.MsgCount
 			roundRelayCnt += stats.RelayCnt
 			roundMeanRelayCnt += stats.MeanRelayCount
+			roundBDMerged += stats.BDMessagedMerged
 		}
 
 		roundMeanRelayCnt /= float64(m)
 
-		fmt.Printf("statistics (%v):\n  last delivery latency: %v\n  messages sent: %v (~%v per message)"+
-			"\n  recv: %v (%v - %v - %v)\n", i,
-			roundLat, roundMsg, roundMsg/m, roundMeanRelayCnt, roundRelayCnt, roundMinRelayCnt, roundMaxRelayCnt)
+		fmt.Printf("statistics (%v):\n  last delivery latency: %v\n  messages sent: %v (~%v per broadcast)"+
+			"\n  recv: %v (%v - %v - %v)\n  bd merged: %v\n", i,
+			roundLat, roundMsg, roundMsg/m, roundMeanRelayCnt, roundRelayCnt, roundMinRelayCnt, roundMaxRelayCnt, roundBDMerged)
 
-		lat += roundLat
 		lats = append(lats, int(roundLat))
-		msg += roundMsg
 		cnts = append(cnts, roundMsg)
+		bdMergeds = append(bdMergeds, roundBDMerged)
 
 		ctl.FlushProcesses()
 		runtime.GC()
@@ -341,6 +341,10 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 	mMean, mSd := sd(cnts)
 	mRsd := mSd * 100 / mMean
 	fmt.Printf("  messages:\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", mMean, mSd, mRsd)
+
+	bdmMean, bdmSd := sd(bdMergeds)
+	bdmRsd := bdmSd * 100 / bdmMean
+	fmt.Printf("  bd merged:\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", bdmMean, bdmSd, bdmRsd)
 
 	fmt.Println("config:")
 	fmt.Printf("  nodes: %v\n  connectivity (k): %v\n  byzantine nodes (f): %v"+
