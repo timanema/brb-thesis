@@ -40,6 +40,7 @@ func (d *DolevImproved) send(uid uint32, m DolevMessage, to []uint64) {
 		copy(path, m.Path)
 		m.Path = path
 		d.n.Send(0, n, uid, m, BroadcastInfo{})
+		d.n.TriggerStat(uid, StartRelay)
 	}
 }
 
@@ -83,9 +84,13 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data interface{
 	}
 
 	traversed := make(map[uint64]struct{}, len(m.Path))
+	traversed[m.Src] = struct{}{}
 
 	// Modification 4: Stop relaying messages which contain the label of nodes that already delivered
-	for _, e := range m.Path {
+	for _, e := range append(m.Path, simple.WeightedEdge{
+		F: simple.Node(src),
+		T: simple.Node(d.cfg.Id),
+	}) {
 		traversed[uint64(e.From().ID())] = struct{}{}
 
 		if _, ok := d.neighboursDelivered[id][uint64(e.From().ID())]; ok {
@@ -120,6 +125,18 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data interface{
 	}
 
 	if d.cfg.Id == m.Src {
+		var ra []dolevIdentifier
+		var arw dolevIdentifier
+		for i := range d.delivered {
+			if i.Src == d.cfg.Id {
+				ra = append(ra, i)
+
+				if i.Id == m.Id {
+					arw = i
+				}
+			}
+		}
+		fmt.Println(arw)
 		panic("received message from self, should have been delivered already")
 	}
 	if uint64(m.Path[len(m.Path)-1].To().ID()) != d.cfg.Id {
@@ -167,7 +184,6 @@ func (d *DolevImproved) Broadcast(uid uint32, payload interface{}, _ BroadcastIn
 		d.delivered[id] = struct{}{}
 		d.paths[id] = make([]graphs.Path, d.cfg.F*2+1)
 		d.neighboursDelivered[id] = make(map[uint64]struct{})
-		d.app.Deliver(uid, payload, 0)
 
 		m := DolevMessage{
 			Src:     d.cfg.Id,
@@ -175,8 +191,10 @@ func (d *DolevImproved) Broadcast(uid uint32, payload interface{}, _ BroadcastIn
 			Payload: payload,
 		}
 
-		d.send(uid, m, d.cfg.Neighbours)
 		d.cnt += 1
+
+		d.app.Deliver(uid, payload, d.cfg.Id)
+		d.send(uid, m, d.cfg.Neighbours)
 	}
 }
 

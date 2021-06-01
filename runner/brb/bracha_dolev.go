@@ -79,6 +79,10 @@ func (bd *BrachaDolev) Send(messageType uint8, _ uint64, uid uint32, data interf
 }
 
 func (bd *BrachaDolev) Deliver(uid uint32, payload interface{}, src uint64) {
+	if src == bd.cfg.Id {
+		return
+	}
+
 	// Dolev is delivering a message, so send it to Bracha
 	m := payload.(brachaWrapper)
 	bd.b.Receive(m.messageType, src, uid, m.msg)

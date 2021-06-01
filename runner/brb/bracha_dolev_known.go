@@ -7,21 +7,6 @@ import (
 	"rp-runner/graphs"
 )
 
-type BrachaDolevKnown struct {
-	bracha Protocol
-	dolev  Protocol
-
-	n   Network
-	app Application
-	cfg Config
-
-	brachaBroadcast map[int]struct{}
-}
-
-var _ Protocol = (*BrachaDolevKnown)(nil)
-var _ Network = (*BrachaDolevKnown)(nil)
-var _ Application = (*BrachaDolevKnown)(nil)
-
 type BrachaDolevConfig struct {
 	Included []uint64
 }
@@ -33,70 +18,100 @@ type BrachaDolevMessage struct {
 	Paths []algo.DolevPath
 }
 
-type BrachaDolevWrapper struct {
-	Msgs            []BrachaDolevMessage
-	OriginalSrc     uint64
-	OriginalId      uint32
-	OriginalPayload interface{}
-	Included        []uint64
+// BrachaDolevKnown can be used to compare naive routing to improved routing
+type BrachaDolevKnown struct {
+	wr *brachaDolevKnownWrapper
 }
 
-// Unpack creates all DolevKnownImprovedMessage instances from the current BrachaDolevWrapper
-func (b BrachaDolevWrapper) Unpack() []DolevKnownImprovedMessage {
-	res := make([]DolevKnownImprovedMessage, 0, len(b.Msgs))
-
-	for _, msg := range b.Msgs {
-		bm := BrachaImprovedMessage{
-			BrachaMessage: BrachaMessage{
-				Src:     b.OriginalSrc,
-				Id:      b.OriginalId,
-				Payload: b.OriginalPayload,
-			},
-			Included: b.Included,
-		}
-		dm := DolevKnownImprovedMessage{
-			Src: msg.Src,
-			Id:  msg.Id,
-			Payload: brachaWrapper{
-				messageType: msg.Type,
-				msg:         bm,
-			},
-			Paths: msg.Paths,
-		}
-
-		res = append(res, dm)
-	}
-
-	return res
-}
-
-// Pack fills the current BrachaDolevWrapper with information from a slice of DolevKnownImprovedMessage instances
-func Pack(original []DolevKnownImprovedMessage) BrachaDolevWrapper {
-	msgs := make([]BrachaDolevMessage, 0, len(original))
-	bdw := BrachaDolevWrapper{}
-
-	for _, msg := range original {
-		bw := msg.Payload.(brachaWrapper)
-
-		msgs = append(msgs, BrachaDolevMessage{
-			Src:   msg.Src,
-			Id:    msg.Id,
-			Type:  bw.messageType,
-			Paths: msg.Paths,
-		})
-
-		bm := bw.msg.(BrachaImprovedMessage)
-		bdw.OriginalSrc = bm.Src
-		bdw.OriginalId = bm.Id
-		bdw.OriginalPayload = bm.Payload
-		bdw.Included = bm.Included
-	}
-
-	bdw.Msgs = msgs
-	return bdw
-}
+var _ Protocol = (*BrachaDolevKnown)(nil)
+var _ Network = (*BrachaDolevKnown)(nil)
+var _ Application = (*BrachaDolevKnown)(nil)
 
 func (bd *BrachaDolevKnown) Init(n Network, app Application, cfg Config) {
+	if bd.wr == nil {
+		bd.wr = &brachaDolevKnownWrapper{bracha: &BrachaImproved{}, dolev: &DolevKnown{}}
+	}
+
+	bd.wr.Init(n, app, cfg)
+}
+
+func (bd *BrachaDolevKnown) Send(messageType uint8, dest uint64, uid uint32, data interface{}, bc BroadcastInfo) {
+	bd.wr.Send(messageType, dest, uid, data, bc)
+}
+
+func (bd *BrachaDolevKnown) Deliver(uid uint32, payload interface{}, src uint64) {
+	bd.wr.Deliver(uid, payload, src)
+}
+
+func (bd *BrachaDolevKnown) Receive(messageType uint8, src uint64, uid uint32, data interface{}) {
+	bd.wr.Receive(messageType, src, uid, data)
+}
+
+func (bd *BrachaDolevKnown) Broadcast(uid uint32, payload interface{}, bc BroadcastInfo) {
+	bd.wr.Broadcast(uid, payload, bc)
+}
+
+func (bd *BrachaDolevKnown) Category() ProtocolCategory {
+	return bd.wr.Category()
+}
+
+func (bd *BrachaDolevKnown) TriggerStat(uid uint32, n NetworkStat) {
+	bd.wr.TriggerStat(uid, n)
+}
+
+// BrachaDolevKnownImproved uses improved routing
+type BrachaDolevKnownImproved struct {
+	wr *brachaDolevKnownWrapper
+}
+
+var _ Protocol = (*BrachaDolevKnownImproved)(nil)
+var _ Network = (*BrachaDolevKnownImproved)(nil)
+var _ Application = (*BrachaDolevKnownImproved)(nil)
+
+func (bd *BrachaDolevKnownImproved) Init(n Network, app Application, cfg Config) {
+	if bd.wr == nil {
+		bd.wr = &brachaDolevKnownWrapper{bracha: &BrachaImproved{}, dolev: &DolevKnownImprovedBD{}}
+	}
+
+	bd.wr.Init(n, app, cfg)
+}
+
+func (bd *BrachaDolevKnownImproved) Send(messageType uint8, dest uint64, uid uint32, data interface{}, bc BroadcastInfo) {
+	bd.wr.Send(messageType, dest, uid, data, bc)
+}
+
+func (bd *BrachaDolevKnownImproved) Deliver(uid uint32, payload interface{}, src uint64) {
+	bd.wr.Deliver(uid, payload, src)
+}
+
+func (bd *BrachaDolevKnownImproved) Receive(messageType uint8, src uint64, uid uint32, data interface{}) {
+	bd.wr.Receive(messageType, src, uid, data)
+}
+
+func (bd *BrachaDolevKnownImproved) Broadcast(uid uint32, payload interface{}, bc BroadcastInfo) {
+	bd.wr.Broadcast(uid, payload, bc)
+}
+
+func (bd *BrachaDolevKnownImproved) Category() ProtocolCategory {
+	return bd.wr.Category()
+}
+
+func (bd *BrachaDolevKnownImproved) TriggerStat(uid uint32, n NetworkStat) {
+	bd.wr.TriggerStat(uid, n)
+}
+
+type brachaDolevKnownWrapper struct {
+	bracha Protocol
+	dolev  Protocol
+
+	n   Network
+	app Application
+	cfg Config
+
+	brachaBroadcast map[int]struct{}
+}
+
+func (bd *brachaDolevKnownWrapper) Init(n Network, app Application, cfg Config) {
 	bd.n = n
 	bd.app = app
 	bd.cfg = cfg
@@ -108,11 +123,6 @@ func (bd *BrachaDolevKnown) Init(n Network, app Application, cfg Config) {
 	}
 
 	cfg.Silent = true
-
-	// Create bracha instance with BD as the network
-	if bd.bracha == nil {
-		bd.bracha = &BrachaImproved{}
-	}
 
 	bCfg := cfg
 	nodes := cfg.Graph.Nodes()
@@ -142,7 +152,7 @@ func (bd *BrachaDolevKnown) Init(n Network, app Application, cfg Config) {
 	cfg.Silent = sil
 }
 
-func (bd *BrachaDolevKnown) Send(messageType uint8, dest uint64, uid uint32, data interface{}, bc BroadcastInfo) {
+func (bd *brachaDolevKnownWrapper) Send(messageType uint8, dest uint64, uid uint32, data interface{}, bc BroadcastInfo) {
 	if _, ok := bd.brachaBroadcast[bc.Id]; !ok {
 		// A message is broadcast only once to all
 		bd.brachaBroadcast[bc.Id] = struct{}{}
@@ -168,7 +178,7 @@ func (bd *BrachaDolevKnown) Send(messageType uint8, dest uint64, uid uint32, dat
 	}
 }
 
-func (bd *BrachaDolevKnown) Deliver(uid uint32, payload interface{}, src uint64) {
+func (bd *brachaDolevKnownWrapper) Deliver(uid uint32, payload interface{}, src uint64) {
 	// Dolev is delivering a message, so send it to Bracha
 	m := payload.(brachaWrapper)
 
@@ -187,20 +197,20 @@ func (bd *BrachaDolevKnown) Deliver(uid uint32, payload interface{}, src uint64)
 	bd.bracha.Receive(m.messageType, src, uid, m.msg)
 }
 
-func (bd *BrachaDolevKnown) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
+func (bd *brachaDolevKnownWrapper) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
 	// Network is delivering a messages, pass to Dolev
 	bd.dolev.Receive(0, src, uid, data)
 }
 
-func (bd *BrachaDolevKnown) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
+func (bd *brachaDolevKnownWrapper) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
 	// Application is requesting a broadcast, pass to Bracha
 	bd.bracha.Broadcast(uid, payload, BroadcastInfo{})
 }
 
-func (bd *BrachaDolevKnown) Category() ProtocolCategory {
+func (bd *brachaDolevKnownWrapper) Category() ProtocolCategory {
 	return BrachaDolevCat
 }
 
-func (bd *BrachaDolevKnown) TriggerStat(uid uint32, n NetworkStat) {
+func (bd *brachaDolevKnownWrapper) TriggerStat(uid uint32, n NetworkStat) {
 	bd.n.TriggerStat(uid, n)
 }

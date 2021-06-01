@@ -144,7 +144,7 @@ func (d *DolevKnown) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo)
 	if _, ok := d.delivered[id]; !ok {
 		d.delivered[id] = struct{}{}
 		d.paths[id] = make([]graphs.Path, d.cfg.F*2+1)
-		d.app.Deliver(uid, payload, 0)
+		d.app.Deliver(uid, payload, d.cfg.Id)
 
 		if err := d.sendInitialMessage(uid, payload); err != nil {
 			fmt.Printf("process %v errored while broadcasting dolev (known) message: %v\n", d.cfg.Id, err)

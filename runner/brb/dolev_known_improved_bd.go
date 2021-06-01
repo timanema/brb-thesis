@@ -79,8 +79,8 @@ func (d *DolevKnownImprovedBD) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func (d *DolevKnownImprovedBD) sendMergedBDMessage(uid uint32, m BrachaDolevWrapper) error {
-	bdm := BrachaDolevWrapper{
+func (d *DolevKnownImprovedBD) sendMergedBDMessage(uid uint32, m BrachaDolevWrapperMsg) error {
+	bdm := BrachaDolevWrapperMsg{
 		OriginalSrc:     m.OriginalSrc,
 		OriginalId:      m.OriginalId,
 		OriginalPayload: m.OriginalPayload,
@@ -178,7 +178,7 @@ func (d *DolevKnownImprovedBD) sendMergedBDMessage(uid uint32, m BrachaDolevWrap
 	return nil
 }
 
-func (d *DolevKnownImprovedBD) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrapper) map[uint64]DolevKnownImprovedMessage {
+func (d *DolevKnownImprovedBD) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrapperMsg) map[uint64]DolevKnownImprovedMessage {
 	paths := make(map[uint64][]algo.DolevPath)
 	bds := make(map[uint64][]BrachaDolevMessage)
 
@@ -218,7 +218,7 @@ func (d *DolevKnownImprovedBD) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrap
 		res[dst] = DolevKnownImprovedMessage{
 			Src: d.cfg.Id,
 			Id:  0,
-			Payload: BrachaDolevWrapper{
+			Payload: BrachaDolevWrapperMsg{
 				Msgs:            msgs,
 				OriginalSrc:     bdm.OriginalSrc,
 				OriginalId:      bdm.OriginalId,
@@ -317,7 +317,7 @@ func (d *DolevKnownImprovedBD) Receive(_ uint8, src uint64, uid uint32, data int
 	}
 
 	dm := data.(DolevKnownImprovedMessage)
-	bdw, ok := dm.Payload.(BrachaDolevWrapper)
+	bdw, ok := dm.Payload.(BrachaDolevWrapperMsg)
 
 	msgs := []DolevKnownImprovedMessage{dm}
 	if ok {
