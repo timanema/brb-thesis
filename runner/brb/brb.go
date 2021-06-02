@@ -32,6 +32,7 @@ type NetworkStat int
 const (
 	StartRelay NetworkStat = iota
 	BrachaDolevMerge
+	DolevPayloadMerge
 )
 
 type Config struct {

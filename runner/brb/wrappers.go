@@ -62,3 +62,23 @@ func Pack(original []DolevKnownImprovedMessage) BrachaDolevWrapperMsg {
 	bdw.Msgs = msgs
 	return bdw
 }
+
+type DolevWrapperMessage struct {
+	Msgs    []DolevKnownImprovedMessage
+	Payload interface{}
+}
+
+func (d DolevWrapperMessage) Unpack() []DolevKnownImprovedMessage {
+	res := make([]DolevKnownImprovedMessage, 0, len(d.Msgs))
+
+	for _, m := range d.Msgs {
+		res = append(res, DolevKnownImprovedMessage{
+			Src:     m.Src,
+			Id:      m.Id,
+			Payload: d.Payload,
+			Paths:   m.Paths,
+		})
+	}
+
+	return res
+}

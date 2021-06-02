@@ -41,7 +41,7 @@ func (m MultiPartiteWheelGenerator) Generate(n, k, d int) (*simple.WeightedUndir
 }
 
 func (m MultiPartiteWheelGenerator) Cache() (bool, string) {
-	return true, "multipart_wheel"
+	return false, "multipart_wheel"
 }
 
 // https://github.com/jdecouchant/BRB-partially-connected-networks/blob/c1980ed20d6a11f4230299b2887bbabd220a84c0/BroadcastSign/simulations/generateGraphs.py#L56
@@ -84,5 +84,5 @@ func (m MultiPartiteWheelAltGenerator) Generate(n, k, d int) (*simple.WeightedUn
 }
 
 func (m MultiPartiteWheelAltGenerator) Cache() (bool, string) {
-	return true, "multipart_wheel_alt"
+	return false, "multipart_wheel_alt"
 }

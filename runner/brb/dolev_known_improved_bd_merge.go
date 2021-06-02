@@ -1,6 +1,7 @@
 package brb
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"gonum.org/v1/gonum/graph/simple"
 	"os"
@@ -10,8 +11,8 @@ import (
 )
 
 // Dolev with routing and additional optimizations for RP Tim Anema.
-// Used for testing cross-layer Bracha-Dolev optimizations without making too many breaking changes to normal Dolev.
-type DolevKnownImprovedBD struct {
+// Used for testing breaking changes without breaking the normal Dolev implementation.
+type DolevKnownImprovedBDD struct {
 	n   Network
 	app Application
 	cfg Config
@@ -28,16 +29,14 @@ type DolevKnownImprovedBD struct {
 	bd       bool
 	bdPlan   map[uint64]algo.BroadcastPlan
 	bdBuffer map[brachaIdentifier][]bdBufferEntry
+
+	// yuck
+	payloadEquality map[[sha256.Size]byte]map[dolevIdentifier]struct{}
 }
 
-type bdBufferEntry struct {
-	Id   dolevIdentifier
-	Type uint8
-}
+var _ Protocol = (*DolevKnownImprovedBDD)(nil)
 
-var _ Protocol = (*DolevKnownImprovedBD)(nil)
-
-func (d *DolevKnownImprovedBD) Init(n Network, app Application, cfg Config) {
+func (d *DolevKnownImprovedBDD) Init(n Network, app Application, cfg Config) {
 	d.n = n
 	d.app = app
 	d.cfg = cfg
@@ -45,6 +44,7 @@ func (d *DolevKnownImprovedBD) Init(n Network, app Application, cfg Config) {
 	d.paths = make(map[dolevIdentifier][]graphs.Path)
 	d.buffer = make(map[dolevIdentifier][]algo.DolevPath)
 	d.bdBuffer = make(map[brachaIdentifier][]bdBufferEntry)
+	d.payloadEquality = make(map[[sha256.Size]byte]map[dolevIdentifier]struct{})
 
 	if !cfg.Silent && cfg.Byz {
 		fmt.Printf("process %v is a Dolev (known improved) Byzantine node\n", cfg.Id)
@@ -79,7 +79,7 @@ func (d *DolevKnownImprovedBD) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func (d *DolevKnownImprovedBD) sendMergedBDMessage(uid uint32, m BrachaDolevWrapperMsg) error {
+func (d *DolevKnownImprovedBDD) sendMergedBDMessage(uid uint32, m BrachaDolevWrapperMsg) error {
 	bdm := BrachaDolevWrapperMsg{
 		OriginalSrc:     m.OriginalSrc,
 		OriginalId:      m.OriginalId,
@@ -178,7 +178,7 @@ func (d *DolevKnownImprovedBD) sendMergedBDMessage(uid uint32, m BrachaDolevWrap
 	return nil
 }
 
-func (d *DolevKnownImprovedBD) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrapperMsg) map[uint64]DolevKnownImprovedMessage {
+func (d *DolevKnownImprovedBDD) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrapperMsg) map[uint64]DolevKnownImprovedMessage {
 	paths := make(map[uint64][]algo.DolevPath)
 	bds := make(map[uint64][]BrachaDolevMessage)
 
@@ -232,7 +232,7 @@ func (d *DolevKnownImprovedBD) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrap
 	return res
 }
 
-func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, id dolevIdentifier, m DolevKnownImprovedMessage) error {
+func (d *DolevKnownImprovedBDD) sendMergedMessage(uid uint32, id dolevIdentifier, m DolevKnownImprovedMessage) error {
 	del := d.hasDelivered(id)
 
 	paths := make([]algo.DolevPath, 0, len(m.Paths))
@@ -279,7 +279,7 @@ func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, id dolevIdentifier,
 	return nil
 }
 
-func (d *DolevKnownImprovedBD) sendInitialMessage(uid uint32, payload interface{}, partial bool, origin uint64) error {
+func (d *DolevKnownImprovedBDD) sendInitialMessage(uid uint32, payload interface{}, partial bool, origin uint64) error {
 	m := DolevKnownImprovedMessage{
 		Src:     d.cfg.Id,
 		Id:      d.cnt,
@@ -305,12 +305,20 @@ func (d *DolevKnownImprovedBD) sendInitialMessage(uid uint32, payload interface{
 	return nil
 }
 
-func (d *DolevKnownImprovedBD) hasDelivered(id dolevIdentifier) bool {
+func (d *DolevKnownImprovedBDD) hasDelivered(id dolevIdentifier) bool {
 	_, ok := d.delivered[id]
 	return ok
 }
 
-func (d *DolevKnownImprovedBD) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
+func (d *DolevKnownImprovedBDD) addPayloadEquality(id dolevIdentifier) {
+	if _, ok := d.payloadEquality[id.Hash]; !ok {
+		d.payloadEquality[id.Hash] = make(map[dolevIdentifier]struct{})
+	}
+
+	d.payloadEquality[id.Hash][id] = struct{}{}
+}
+
+func (d *DolevKnownImprovedBDD) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
 	if d.cfg.Byz {
 		// TODO: better byzantine behaviour?
 		return
@@ -395,7 +403,7 @@ func (d *DolevKnownImprovedBD) Receive(_ uint8, src uint64, uid uint32, data int
 	}
 }
 
-func (d *DolevKnownImprovedBD) Broadcast(uid uint32, payload interface{}, bc BroadcastInfo) {
+func (d *DolevKnownImprovedBDD) Broadcast(uid uint32, payload interface{}, bc BroadcastInfo) {
 	id := dolevIdentifier{
 		Src:        d.cfg.Id,
 		Id:         d.cnt,
@@ -426,6 +434,6 @@ func (d *DolevKnownImprovedBD) Broadcast(uid uint32, payload interface{}, bc Bro
 	}
 }
 
-func (d *DolevKnownImprovedBD) Category() ProtocolCategory {
+func (d *DolevKnownImprovedBDD) Category() ProtocolCategory {
 	return DolevCat
 }

@@ -28,5 +28,5 @@ func (f FullyConnectedGenerator) Generate(n, k, d int) (*simple.WeightedUndirect
 }
 
 func (f FullyConnectedGenerator) Cache() (bool, string) {
-	return true, "fc"
+	return false, "fc"
 }

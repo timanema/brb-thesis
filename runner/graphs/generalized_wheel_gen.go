@@ -47,5 +47,5 @@ func (w GeneralizedWheelGenerator) Generate(n, k, d int) (*simple.WeightedUndire
 }
 
 func (w GeneralizedWheelGenerator) Cache() (bool, string) {
-	return true, "gen_wheel"
+	return false, "gen_wheel"
 }
