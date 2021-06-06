@@ -123,14 +123,14 @@ func RunnerMain() {
 		BrachaDolevMerge:            true,
 	}
 
-	n, k, fx := 50, 25, 10
+	n, k, fx := 150, 50, 24
 	messages := 1
 	deg := k
 	gen := graphs.RandomRegularGenerator{}
 	_, name := gen.Cache()
 
 	m := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
-	if err := runMultipleMessagesTest(info, 5, n, k, fx, deg, messages, m, cfg, opts, &brb.BrachaDolevKnownImproved{}); err != nil {
+	if err := runMultipleMessagesTest(info, 1, n, k, fx, deg, messages, m, cfg, opts, &brb.DolevKnownImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
