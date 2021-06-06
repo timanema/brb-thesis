@@ -1,4 +1,5 @@
-\section{Experimental Setup and Results}
+\section{Evaluation}
+\label{eval}
 % As discussed earlier, in many sciences the methodology is explained in section 2 and this section only discusses the results. 
 % However, in computer science, most often the details of the evaluation setup are described here first (simulation environment, etc.).
 % Very important here is that any skilled reader would be able to reproduce this setup and then obtain the same results.
@@ -8,3 +9,174 @@
 % Sometimes the conclusions are in fact hypotheses, which in turn may give rise to new experiments to be validated.
 
 % You may want to give this section another name.
+
+In this section we will discuss the methodology we used and the results of our optimizations.
+
+\subsection{Methodology}
+For our research we implemented a small runner program in Go which uses goroutines as a process abstraction, and allocates dedicated channels which can be used as communication links. The protocol instances are instantiated by the process wrappers, and they have access to a network and an application instance, which are defined by the interfaces containing \texttt{Send(dst, m)} and \texttt{Deliver(m)} respectively. The protocols themselves provide the \texttt{Init()}, \texttt{Receive(src, m)}, and \texttt{Broadcast(m)} functions.
+
+In addition to the original protocols and improved version of Dolev~\cite{bonomi2019multihop} and a version of Dolev with naive routing was implemented. These two versions are the baseline for Dolev and Bracha-Dolev. 
+TODO: discuss bonomi 10.
+
+We use similar graphs as used in \cite{bonomi2019multihop,bonomi2021practical}: generalized wheels, multipartite wheels, and random regular graphs. For the tests we use an AMD Ryzen 5 2600 (3.4-3.9GHz) machine. The usage of channels leads to a different throughput per machine, but their performance will not limit the tests~\citationneeded and will not affect our main measurement.
+
+We define the latency as the time between the original broadcast and the final non-Byzantine node delivering the message. Note that the latency will not be entirely representative of the latency in a real deployment, as our simulated links have low latency which means latency is largely influenced by computing time. 
+
+We will run the tests with varying graphs, broadcasting process, byzantine processes, and parameters $N$, $k$, $f$, such that $N \ge 3f+1$ and $k \ge 2f+1$, and report the mean and standard deviation of five tests. In most tests a single process will broadcast a single message, unless the modifications being tested include \textbf{ORD.6} as it is specifically made for the case of multiple broadcasters.
+
+We focus on message complexity and network consumption, which is defined by the total amount of messages transmitted and total amount of bytes transmitted, respectively.
+
+\subsection{Impact of individual optimizations}
+We evaluated the impact of individual optimizations on the message complexity and network consumption. Table~\ref{eval:individual-results} summarizes our findings for every individual modification compared to its baseline. The baseline is different for each protocol: for Dolev we compare to a version with naive routing, for Bracha we compare to the original version, and for Bracha-Dolev we compare to a version of Bracha-Dolev which uses naive routing for the Dolev layer and the original Bracha implementation. For these tests random graphs were used with a size of $N=150$ and we varied the $k$ and $f$ to find out when modifications are useful. 
+
+We will illustrate some modifications with the aforementioned configuration. TODO.
+
+\begin{table*}
+  \centering
+  \resizebox{\textwidth}{!}{
+\begin{tabular}{c|cc|cc|cc|cc|}
+\cline{2-9}
+\textbf{}                         & \multicolumn{4}{c|}{\textbf{Small payload (12B)}}                                                  & \multicolumn{4}{c|}{\textbf{Large payload (12KB)}}                                                  \\ \hline
+\multicolumn{1}{|c|}{\textbf{ID}} & \textbf{Msg. red. \%} & \textbf{Useful when} & \textbf{Usage red. \%} & \textbf{Useful when} & \textbf{Msg. red. \%} & \textbf{Useful when} & \textbf{Usage red. \%} & \textbf{Useful when} \\ \hline
+\multicolumn{1}{|c|}{ORD.1}       & 10\% (2\%)            & always               & 10\% (2\%)             & always               & 10\% (2\%)            & always               & 10\% (2\%)             & always               \\ \hline
+\multicolumn{1}{|c|}{ORD.2}       & 10\% (2\%)            & always               & 10\% (2\%)             & always               & 10\% (2\%)            & always               & 10\% (2\%)             & always               \\ \hline
+\multicolumn{1}{|c|}{ORD.3}       & 10\% (2\%)            & always               & 10\% (2\%)             & always               & 10\% (2\%)            & always               & 10\% (2\%)             & always               \\ \hline
+\multicolumn{1}{|c|}{ORD.4}       & 10\% (2\%)            & always               & 10\% (2\%)             & always               & 10\% (2\%)            & always               & 10\% (2\%)             & always               \\ \hline
+\multicolumn{1}{|c|}{ORD.5}       & 10\% (2\%)            & always               & 10\% (2\%)             & always               & 10\% (2\%)            & always               & 10\% (2\%)             & always               \\ \hline
+\multicolumn{1}{|c|}{ORD.6}       & 10\% (2\%)            & always               & 10\% (2\%)             & always               & 10\% (2\%)            & always               & 10\% (2\%)             & always               \\ \hline
+\multicolumn{1}{|c|}{ORD.7}       & 10\% (2\%)            & always               & 10\% (2\%)             & always               & 10\% (2\%)            & always               & 10\% (2\%)             & always               \\ \hline
+\multicolumn{1}{|c|}{ORB.1}       & 10\% (2\%)            & always               & 10\% (2\%)             & always               & 10\% (2\%)            & always               & 10\% (2\%)             & always               \\ \hline
+\multicolumn{1}{|c|}{ORB.2}       & 10\% (2\%)            & always               & 10\% (2\%)             & always               & 10\% (2\%)            & always               & 10\% (2\%)             & always               \\ \hline
+\multicolumn{1}{|c|}{ORBD.1}      & 10\% (2\%)            & always               & 10\% (2\%)             & always               & 10\% (2\%)            & always               & 10\% (2\%)             & always               \\ \hline
+\multicolumn{1}{|c|}{ORBD.2}      & 10\% (2\%)            & always               & 10\% (2\%)             & always               & 10\% (2\%)            & always               & 10\% (2\%)             & always               \\ \hline
+\end{tabular}
+    }
+  \caption{Effect of modifications measured on random graphs compared to their respective protocol standard}
+  \label{eval:individual-results}
+\end{table*}
+
+% \begin{table}[]
+% \begin{tabular}{ll|ll|ll|ll|ll|}
+% \cline{3-10}
+% \multicolumn{1}{c}{\textbf{}}     & \multicolumn{1}{c|}{\textbf{}} & \multicolumn{4}{c|}{\textbf{Small payload}}                                                  & \multicolumn{4}{c|}{\textbf{Large payload}}                                                                       \\ \hline
+% \multicolumn{1}{|l|}{\textbf{ID}} & \textbf{Protocol}              & \textbf{Msg. red. \%} & \textbf{Useful when} & \textbf{Usage red. \%} & \textbf{Useful when} & \multicolumn{1}{l|}{\textbf{Msg. red. \%}} & \textbf{Useful when} & \textbf{Usage red. \%} & \textbf{Useful when} \\ \hline
+% \multicolumn{1}{|l|}{}            &                                &                       &                      &                        &                      &                                            &                      &                        &                      \\ \cline{1-2}
+% \multicolumn{1}{|l|}{}            &                                &                       &                      &                        &                      &                                            &                      &                        &                      \\ \cline{1-2}
+% \multicolumn{1}{|l|}{}            &                                &                       &                      &                        &                      &                                            &                      &                        &                      \\ \cline{1-2}
+% \multicolumn{1}{|l|}{}            &                                &                       &                      &                        &                      &                                            &                      &                        &                      \\ \cline{1-2}
+% \multicolumn{1}{|l|}{}            &                                &                       &                      &                        &                      &                                            &                      &                        &                      \\ \cline{1-2}
+% \multicolumn{1}{|l|}{}            &                                &                       &                      &                        &                      &                                            &                      &                        &                      \\ \cline{1-2}
+% \multicolumn{1}{|l|}{}            &                                &                       &                      &                        &                      &                                            &                      &                        &                      \\ \cline{1-2}
+% \multicolumn{1}{|l|}{}            &                                &                       &                      &                        &                      &                                            &                      &                        &                      \\ \cline{1-2}
+% \multicolumn{1}{|l|}{}            &                                &                       &                      &                        &                      &                                            &                      &                        &                      \\ \hline
+% \end{tabular}
+% \end{table}
+
+\subsection{Improvements}
+In addition to comparing individual modification we will also compare our full protocol in the case of Dolev and Bracha-Dolev. Figure~\ref{eval:overal-reduction} shows the reduction of our protocol compared to Dolev, Bracha and Bracha-Dolev with regards to the message complexity. The reduction is relative to the same baseline used for the individual modifications.
+
+For Dolev and Bracha-Dolev we again use random graphs with $N=150$ and vary the connectivity $k$. The amount of Byzantine nodes $f$ is defined by $\floor{\frac{k-1}{2}}$. In the case of Bracha we have can only use fully connected graphs, and will therefore vary the amount of processes $N$ depending on the connectivity. The amount of byzantine nodes in this case is defined by $\floor{\frac{k}{4}}$. In all cases the payload size is equal to 12B.
+
+These tests show we are able to achieve a mean reduction of XXX\% for Dolev, XXX\% for Bracha and XXX\% for Bracha-Dolev under the conditions mentioned above. The reduction in bytes transmitted is similar: XXX\%, XXX\%, and XXX\% respectively.
+
+\begin{figure}[h]
+    \centering
+    
+    \begin{tikzpicture}
+        \begin{axis}[
+            xlabel={Connectivity},
+            ylabel={Reduction (\%)},
+            xmin=10, xmax=100,
+            ymin=-15, ymax=100,
+            xtick={10,20,30,40,50,60,70,80,90,100},
+            ytick={-15,0,25,50,75,100},
+            legend pos=south east,
+            ymajorgrids=true,
+            grid style=dashed,
+        ]
+        
+        \addplot[
+            color=blue!70,
+            ]
+            coordinates {
+            (15,-12.59)(30,45.49)(45,76.59)(60,79.40)(75,85.01)(90,87.05)(105,92.23)(120,92.45)(135,93.46)(150,94.39)(165,96.31)
+            };
+        \addplot[
+            name path=dolev_up,
+            color=blue!70,
+            ]
+            coordinates {
+            (15,-12.59)(30,46.49)(45,78.59)(60,83.40)(75,86.01)(90,89.05)(105,96.23)(120,94.45)(135,96.46)(150,97.39)(165,97.41)
+            };
+        \addplot[
+            name path=dolev_down,
+            color=blue!70,
+            ]
+            coordinates {
+            (15,-12.59)(30,44.49)(45,74.59)(60,75.40)(75,83.71)(90,85.65)(105,90.23)(120,91.2)(135,91.46)(150,93.1)(165,94.31)
+            };
+        \addplot[blue!50,fill opacity=0.5] fill between[of=dolev_up and dolev_down];
+        \addlegendentry{Dolev}
+        \end{axis}
+        \end{tikzpicture}
+    \caption{Reduction using K-random graphs and fully-connected graphs (Bracha)}
+    \label{eval:overal-reduction}
+\end{figure}
+
+\subsection{Scalability}
+In real deployments networks will likely scale quickly, which is why we also evaluated the scalability of the protocol for an increasing number of processes. We considered graphs which include 25 to 150 processes in increments of 25. The connectivity $k$ and Byzantine parameter $f$ are defined as $k=\floor{\frac{N}{3}}$ and $f=\floor{\frac{k-1}{2}}$. The other configuration is identical to the previous sections.
+
+TODO: small eval on scalability.
+
+\begin{figure}[h]
+    \centering
+    
+    \begin{tikzpicture}
+        \begin{axis}[
+            xlabel={Processes},
+            ylabel={Reduction (\%)},
+            xmin=15, xmax=165,
+            ymin=-15, ymax=100,
+            xtick={15,45,75,105,135,165},
+            ytick={-15,0,25,50,75,100},
+            legend pos=south east,
+            ymajorgrids=true,
+            grid style=dashed,
+        ]
+        
+        \addplot[
+            color=blue!70,
+            ]
+            coordinates {
+            (15,-12.59)(30,45.49)(45,76.59)(60,79.40)(75,85.01)(90,87.05)(105,92.23)(120,92.45)(135,93.46)(150,94.39)(165,96.31)
+            };
+        \addplot[
+            name path=dolev_up,
+            color=blue!70,
+            ]
+            coordinates {
+            (15,-12.59)(30,46.49)(45,78.59)(60,83.40)(75,86.01)(90,89.05)(105,96.23)(120,94.45)(135,96.46)(150,97.39)(165,97.41)
+            };
+        \addplot[
+            name path=dolev_down,
+            color=blue!70,
+            ]
+            coordinates {
+            (15,-12.59)(30,44.49)(45,74.59)(60,75.40)(75,83.71)(90,85.65)(105,90.23)(120,91.2)(135,91.46)(150,93.1)(165,94.31)
+            };
+        \addplot[blue!50,fill opacity=0.5] fill between[of=dolev_up and dolev_down];
+        \addlegendentry{Dolev}
+        \end{axis}
+        \end{tikzpicture}
+    \caption{Reduction using K-random graphs and fully-connected graphs (Bracha)}
+\end{figure}
+
+\subsection{Discussion}
+% Results can be compared to known results and placed in a broader context.
+% Provide a reflection on what has been concluded and how this was done.
+% Then give a further possible explanation of results.
+
+% You may give this section another name, or merge it with the one before or the one hereafter.
+While our results are promising, we have focused on two main statistics: message complexity and network usage. This means that other statistics such as latency have sometimes been sacrificed in order to enhance our chosen statistics, as is the case with \textbf{ORD.6} and \textbf{ORBD.2} for example. This might not be desired in some systems.
+
+We can safely conclude that we can indeed reduce the amount of messages when leveraging topology knowledge, but the system model might be too strict for modern networks as they are generally dynamic instead of static. 

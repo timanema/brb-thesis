@@ -1,4 +1,5 @@
 \section{System model and problem statement}
+\label{system-model}
 % Choose one that fits your research best:
 % \subsection{Methodology}
 % Typically in general research articles, the second section contains a description of the research methodology, explaining what you, the researcher, is doing to answer the research question(s), and why you have chosen this method.
@@ -20,13 +21,18 @@ Processes $p_i, p_j \in \Delta$ have a direct communication link if there exists
 
 In order to send message data to others, processes can add information to the message header, which can be used to uniquely identify the message and add protocol specific information.
 
-A Byzantine Reliable Broadcast (BRB) protocol guarantees the following properties:
-\begin{itemize}
-    \item \textbf{Validity}: If process $p_i \in \Delta$ broadcasts message $m$, then every correct process $p_j \in \Delta$ delivers $m$ at some point.
-    \item \textbf{No duplication}: A message $m$ broadcast by process $p_i \in \Delta$ is not delivered more than once by every correct process $p_j \in \Delta$.
-    \item \textbf{Integrity}: If process $p_j \in \Delta$ delivers message $m$ with sender $p_i$, process $p_i$ has broadcast $m$ in the past.
-    \item \textbf{Agreement}: If process $p_i \in \Delta$ delivers message $m$, then $m$ will eventually be delivered by every correct process $p_j \in \Delta$.
-\end{itemize}
+A Byzantine Reliable Broadcast (BRB) protocol guarantees the following properties:\\
+(i) \textbf{Validity}: If process $p_i \in \Delta$ broadcasts message $m$, then every correct process $p_j \in \Delta$ delivers $m$ at some point.\\
+(ii) \textbf{No duplication}: A message $m$ broadcast by process $p_i \in \Delta$ is not delivered more than once by every correct process $p_j \in \Delta$.\\
+(iii) \textbf{Integrity}: If process $p_j \in \Delta$ delivers message $m$ with sender $p_i$, process $p_i$ has broadcast $m$ in the past.\\
+(iv) \textbf{Agreement}: If process $p_i \in \Delta$ delivers message $m$, then $m$ will eventually be delivered by every correct process $p_j \in \Delta$.
+
+% \begin{itemize}
+%     \item \textbf{Validity}: If process $p_i \in \Delta$ broadcasts message $m$, then every correct process $p_j \in \Delta$ delivers $m$ at some point.
+%     \item \textbf{No duplication}: A message $m$ broadcast by process $p_i \in \Delta$ is not delivered more than once by every correct process $p_j \in \Delta$.
+%     \item \textbf{Integrity}: If process $p_j \in \Delta$ delivers message $m$ with sender $p_i$, process $p_i$ has broadcast $m$ in the past.
+%     \item \textbf{Agreement}: If process $p_i \in \Delta$ delivers message $m$, then $m$ will eventually be delivered by every correct process $p_j \in \Delta$.
+% \end{itemize}
 
 We will be introducing improvements to both Dolev~\cite{dolev}, Bracha~\cite{bracha}, and Bracha-Dolev~\cite{bracha-dolev}, which make different assumptions about the network $G$ and the BRB guarantees.
 
@@ -48,28 +54,168 @@ The paths are also used for verification; a message is delivered whenever it has
 
 The basis for the correctness for Dolev's protocol lies in Menger's theorem~\citationneeded which shows there exist $2f+1$ disjoint paths if a network is $2f+1$-connected, and the fact that at most $f$ of those paths can contain one or more Byzantine processes. This follows from the fact that a single process can only be in a single path, otherwise said path would not be disjoint, so the worst case is that all $f$ Byzantine processes are spread over all the $2f+1$ disjoint paths, which leaves $f+1$ paths not containing a Byzantine process.
 
-Pseudocode for Dolev's protocol is provided in XXX.
+Pseudocode for Dolev's protocol is provided in Algorithm~\ref{background:dolev}.
+
+\begin{algorithm}
+  \DontPrintSemicolon
+  \SetKwFunction{DInit}{Init}
+  \SetKwProg{Fn}{On event}{:}{}
+  \Fn{\DInit}{
+        delivered = False\;
+        paths = $\emptyset$\;
+  }
+  
+  \SetKwFunction{DRecv}{Receive}
+  \Fn{\DRecv{$p_{recv}$, $m$, $path$}}{
+        $path$ = $path \cup \{p_{recv}\}$\;
+        \ForAll{$p_j \in neighbours - path$}{
+            transmit($p_j$, $m$, $path$)\;
+        }
+  
+        paths.add($path$)\;
+
+        \uIf{paths contains $f+1$ node-disjoint paths to the origin \textbf{and} delivered = False}{
+            deliver($m$)\;
+            delivered = True\;
+        }
+  }
+  
+  \SetKwFunction{DBrd}{Broadcast}
+  \Fn{\DBrd{$m$}}{
+        deliver($m$)\;
+        delivered = True\;
+            
+        \ForAll{$p_j \in neighbours$}{
+            transmit($p_j$, $m$, $\emptyset$)\;
+        }
+  }
+ \caption{Dolev's Reliable Communication algorithm}
+ \label{background:dolev}
+\end{algorithm}
 
 \subsubsection{Bracha}
 Unlike Dolev's protocol, Bracha's protocol requires a fully connected network while giving all BRB guarantees. The protocol has three phases: \textit{send}, \textit{echo}, and \textit{ready}.
 
 When a process wants to broadcast a message it sends the payload in a \textit{send} message to all processes, including itself. When a process receives a \textit{send} messages, it responds by transmitting an \textit{echo} message to all processes with the corresponding content. Every process then waits for a quorum of \textit{echo} messages, which is $\ceil{\frac{N+f+1}{2}}$. 
-After this quorum has been reached, or $f+1$ \textit{ready} messages have been received, a process will transmit its own \textit{ready} message to all processes. Finally, a message will be delivered when $2f+1$ corresponding \textit{ready} messages have been received.
+After this quorum has been reached, or $f+1$ \textit{ready} messages have been received, a process will transmit its own \textit{ready} message to all processes. Finally, a message will be delivered when $2f+1$ corresponding \textit{ready} messages have been received, as can be seen in Algorithm~\ref{background:bracha}.
+
+\begin{algorithm}[h]
+  \DontPrintSemicolon
+  \SetKwFunction{BInit}{Init}
+  \SetKwProg{Fn}{On event}{:}{}
+  \Fn{\BInit}{
+        sentEcho = sentReady = delivered = False\;
+        echos = readys = $\emptyset$\;
+  }
+  
+  \SetKwFunction{BRecvEcho}{ReceiveEcho}
+  \Fn{\BRecvEcho{$p_{recv}$, $m$}}{
+        \uIf{\textbf{not} sentEcho}{
+            \ForAll{$p_j \in neighbours$}{
+                transmit($p_j$, $m$, ECHO)\;
+            }
+            
+            sentEcho = True\;
+        }
+        
+        echos.add($p_{recv}$)\;
+
+        \uIf{len(echos) $\ge$ $\ceil{\frac{N+f+1}{2}}$ \textbf{and not} sentReady}{
+            \ForAll{$p_j \in neighbours$}{
+                transmit($p_j$, $m$, READY)\;
+            }
+            
+            sentReady = True\;
+        }
+  }
+  
+  \SetKwFunction{BRecvReady}{ReceiveReady}
+  \Fn{\BRecvReady{$p_{recv}$, $m$}}{
+        readys.add($p_{recv}$)\;
+
+        \uIf{len(readys) $\ge f+1$ \textbf{and not} sentReady}{
+            \ForAll{$p_j \in neighbours$}{
+                transmit($p_j$, $m$, READY)\;
+            }
+            
+            sentReady = True\;
+        }
+        
+        \uIf{len(readys) $\ge 2f+1$ \textbf{and not} delivered}{
+            deliver($m$)\;
+            delivered = True\;
+        }
+  }
+  
+  \SetKwFunction{BBrd}{Broadcast}
+  \Fn{\BBrd{$m$}}{
+        \ForAll{$p_j \in neighbours$}{
+            transmit($p_j$, $m$, SEND)\;
+            transmit($p_j$, $m$, ECHO)\;
+        }
+  }
+ \caption{Bracha's authenticated double echo algorithm}
+ \label{background:bracha}
+\end{algorithm}
 
 \subsubsection{Bracha-Dolev}
 Dolev's and Bracha's protocol can be combined to achieve BRB guarantees in a multi-hop network, as described in \cite{bracha-dolev}. 
 
-This works by layering the two protocols, where Dolev's protocol forms the bottom layer. This means every Bracha broadcast is replaced by a Dolev broadcast, and every Bracha receive by a Dolev deliver. This process is shown in figure XXX.
+This works by layering the two protocols, where Dolev's protocol forms the bottom layer. This means every Bracha broadcast is replaced by a Dolev broadcast, and every Bracha receive by a Dolev deliver. This process is shown in figure~\ref{background:bracha-dolev}.
 
-By layering Bracha and Dolev, the latter emulates a fully connected network by enabling the former to reliably reach all processes. However, this means the message complexity of both protocols, $\mathcal{O}(n^2)$ and $\mathcal{O}(n!)$ respectively, is essentially multiplied.
+By layering Bracha and Dolev, the latter emulates a fully connected network by enabling the former to reliably reach all processes. However, this means the message complexity of both protocols %, $\mathcal{O}(n^2)$ and $\mathcal{O}(n!)$ respectively,% 
+is essentially multiplied.
+
+Instead of simply layering the two protocols, a cross-layer version~\cite{bonomi2021practical} can be used which allows for greater optimization. For comparison, this version can be seen in figure~\ref{background:bracha-dolev}.
+
+\begin{figure}
+    \centering
+    \begin{subfigure}{.2\textwidth}
+      \centering
+      \begin{tikzpicture}
+        	\begin{pgfonlayer}{nodelayer}
+        		\node [style=box] (0) at (-4.25, 6.25) {Application};
+        		\node [style=box] (1) at (-4.25, 5.25) {Bracha};
+        		\node [style=box] (2) at (-4.25, 4.25) {Dolev};
+        		\node [style=box] (3) at (-4.25, 3.25) {Network};
+        	\end{pgfonlayer}
+        	\begin{pgfonlayer}{edgelayer}
+        		\draw [style=directed edge double] (0) to (1);
+        		\draw [style=directed edge double] (1) to (2);
+        		\draw [style=directed edge double] (2) to (3);
+        	\end{pgfonlayer}
+        \end{tikzpicture}
+    %   \caption{Layering Bracha and Dolev forms the basis for Bracha-Dolev}
+    \end{subfigure}
+    \begin{subfigure}{.2\textwidth}
+      \centering
+      \begin{tikzpicture}
+        	\begin{pgfonlayer}{nodelayer}
+        		\node [style=box] (0) at (-4.25, 6.25) {Application};
+        		\node [style=box] (1) at (-4.25, 5.25) {Cross-layer BD};
+        		\node [style=box] (2) at (-4.25, 4.25) {Network};
+        % 		\node [style=none] (3) at (-4.25, 3.25) {};
+        	\end{pgfonlayer}
+        	\begin{pgfonlayer}{edgelayer}
+        		\draw [style=directed edge double] (0) to (1);
+        		\draw [style=directed edge double] (1) to (2);
+        	\end{pgfonlayer}
+        \end{tikzpicture}
+    %   \caption{A cross-layer combination can be used to improve performance~\cite{bonomi2021practical}}
+    \end{subfigure}
+    \caption{Bracha-Dolev can be implemented by simply layering the two protocols or by using a cross-layer protocol~\cite{bonomi2021practical}}
+    \label{background:bracha-dolev}
+\end{figure}
 
 \subsection*{Reducing the amount of messages}
 While all mentioned protocols work well in their designed environments, there is naturally a substantial amount of redundant work.
 
-In the case of Dolev, for example, the network is being flooded with the same message in order to reach all processes over at least $f+1$ vertex-disjoint paths. However, if the network is overprovisioned, i.e. the network is $k$-connected where $k > 2f+1$, the message will take more paths than strictly necessary. In addition to this, processes will send the message to (almost) all neighbours leading to overlapping paths. Even though recent improvements have reduced the amount of required messages from $\mathcal{O}(n!)$ to nearly $\mathcal{O}(n)$~\cite{bonomi2019multihop}, it is possible this can still be reduced if processes have knowledge of the network topology.
+In the case of Dolev, for example, the network is being flooded with the same message in order to reach all processes over at least $f+1$ vertex-disjoint paths. However, if the network is overprovisioned, i.e. the network is $k$-connected where $k > 2f+1$, the message will take more paths than strictly necessary. In addition to this, processes will send the message to (almost) all neighbours leading to overlapping paths. Even though recent improvements have reduced the amount of required messages 
+fr%om $\mathcal{O}(n!)$ to nearly $\mathcal{O}(n)$~\cite{bonomi2019multihop}
+, it is possible this can still be reduced if processes have knowledge of the network topology.
 
-For Bracha there are similar inefficiencies. For example, Bracha uses all nodes to come to an agreement, while only a subset of size $\ceil{\frac{N+f+1}{2}} + f$ is needed in the \textit{echo} phase and an even smaller subset of size $3f+1$ is needed for the final \textit{ready} phase.
+For Bracha there are similar inefficiencies. For example, Bracha uses all nodes to come to an agreement, while only a subset of size $\ceil{\frac{N+f+1}{2}} + f$ is needed in the \textit{echo} phase and a smaller subset of size $3f+1$ for the final \textit{ready} phase.
 
 The optimizations can be combined and applied to Bracha-Dolev, also reducing the amount of required messages for that protocol.
 
-The aim of this paper is to reduce the amount of messages being transmitted even further, assuming the processes know the network topology. In addition to this, it might be possible to improve the delivery complexity of Dolev in the process by taking advantage of the fact that messages will traverse fixed paths. Furthermore, while the general process for handling known topologies for Dolev has been described in the original paper~\cite{dolev}, no actual implementation has been provided, which is something this paper will also do.
+The aim of this paper is to reduce the amount of messages being transmitted and network usage even further, assuming the processes know the network topology. In addition to this, it might be possible to improve the delivery complexity of Dolev in the process by taking advantage of the fact that messages will traverse fixed paths. Furthermore, while the general process for handling known topologies for Dolev has been described in the original paper~\cite{dolev}, no actual implementation has been provided, which is something this paper will also do.

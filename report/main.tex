@@ -18,6 +18,36 @@
 \usepackage{lipsum}
 \urlstyle{same}
 
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepgfplotslibrary{fillbetween}
+
+% Layers
+\pgfdeclarelayer{nodelayer}
+\pgfdeclarelayer{edgelayer}
+\pgfsetlayers{edgelayer,nodelayer,main}
+
+% Node styles
+\tikzstyle{box}=[fill=white, draw=black, shape=rectangle, minimum width=2cm, minimum height=0.5cm]
+\tikzstyle{circle}=[fill=white, draw=black, shape=circle]
+
+% Edge styles
+\tikzstyle{directed edge double}=[<->]
+\tikzstyle{directed edge}=[->]
+
+% Plot size
+\pgfplotsset{width=\textwidth/2.5,compat=newest} 
+
+
+\let\OLDthebibliography\thebibliography
+\renewcommand\thebibliography[1]{
+  \OLDthebibliography{#1}
+  \setlength{\parskip}{0pt}
+  \setlength{\itemsep}{0pt plus 0.3ex}
+}
+
 \newcommand{\citationneeded}{\textsuperscript{[citation needed]}}
 \newcommand\floor[1]{\lfloor#1\rfloor}
 \newcommand\ceil[1]{\lceil#1\rceil}
@@ -50,7 +80,7 @@ $^1$TU Delft\\
 
 \input{sections/responsible_research}
 
-\input{sections/discussion}
+% \input{sections/discussion}
 
 \input{sections/conclusion_and_future_work}
 

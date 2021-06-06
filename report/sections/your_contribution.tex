@@ -12,46 +12,172 @@
 % In this case, you would need to explain in detail how the improvement works. If it is based on some observation that can be proven, this is a good place to provide that proof (e.g., of the correctness of your approach). 
 
 \section{Dolev on known topologies}
-In this section we will describe the algorithms required to leverage the potential of topology knowledge, how Dolev can be modified to run on known topologies, and XXX novel modifications to the resulting protocol.
+\label{contr-dolev}
+In this section we will describe the algorithms required to leverage the potential of topology knowledge, how Dolev can be modified to run on known topologies, and \textbf{XXX} novel modifications to the resulting protocol.
 
 \subsection{Finding k-disjoint paths}
 In order to build a routing table, one has to find $k$ vertex-disjoint paths to every $p_i \in \Delta$. Formally this problem is known as the \textit{min-sum disjoint paths problem}.
 
-A straight-forward solution would be to repeatedly find the shortest path, remove the edges in the path, and repeat this process $k$ times. However, even though this algorithm would work on most graphs, there exist so-called \textit{trap topologies} for which this algorithm would fail to find a solution. In said topologies there exists a path with a minimal sum, which traverses multiple disjoint paths, effectively blocking off more disjoint paths than needed. An example of a trap topology can be found in figure XXX.
+A straight-forward solution would be to repeatedly find the shortest path, remove the edges in the path, and repeat this process $k$ times. However, even though this algorithm would work on most graphs, there exist so-called \textit{trap topologies} for which this algorithm would fail to find a solution. In said topologies there exists a path with a minimal sum, which traverses multiple disjoint paths, effectively blocking off more disjoint paths than needed. An example of a trap topology can be found in figure~\ref{contr:trap-topology}.
+
+
+\begin{figure}[h]
+    \centering
+    \begin{tikzpicture}
+    	\begin{pgfonlayer}{nodelayer}
+    		\node [style=circle] (0) at (0, 0) {a};
+    		\node [style=circle] (1) at (1, 1) {b};
+    		\node [style=circle] (2) at (1, -1) {c};
+    		\node [style=circle] (3) at (2, 0) {d};
+    	\end{pgfonlayer}
+    	\begin{pgfonlayer}{edgelayer}
+    		\draw [style=directed edge] (0) to node [below] {0} (2);
+    		\draw [style=directed edge] (2) to node [below] {1} (3);
+    		\draw [style=directed edge] (0) to node [auto] {1} (1);
+    		\draw [style=directed edge] (1) to node [auto] {0} (3);
+    		\draw [style=directed edge] (2) to node [auto] {0} (1);
+    	\end{pgfonlayer}
+    \end{tikzpicture}
+    \caption{In this example there exist two paths from $a$ to $d$, but only one would be found by a naive shorted path algorithm}
+    \label{contr:trap-topology}
+\end{figure}
 
 A solution which is able to handle trap topologies was introduced by Bhandari~\citationneeded. This algorithm finds $k$ edge-disjoint paths in a directed weighted graph by repeatedly finding the shortest path and inverting the resulting edges. To find the result, all complementing edges are removed from the set with all edges in the paths. The final paths can then easily be retrieved from the resulting sets, as every edge will only have two or less matching edges.
 
 Note that this algorithm only returns $k$ edge-disjoint paths, not $k$ vertex-disjoint paths. This problem can be solved by applying a process called \textit{vertex splitting}, which as the name implies splits every vertex with the exception of source and sink into two distinct vertices. 
-A vertex is split into an 'in' vertex, and an 'out' vertex. Every incoming edge will be directed to the former, while every outgoing edge will be directed to the latter. The two vertices are connected by a directed edge with a weight of zero from the 'in' vertex to the 'out' vertex. This process is visualized in figure XXX. Note that this change forces every path which uses a vertex to use the interconnecting edge, limiting the amount of times every vertex can be used to one. This means the algorithm will now find $k$ vertex-disjoint paths.
+A vertex is split into an 'in' vertex, and an 'out' vertex. Every incoming edge will be directed to the former, while every outgoing edge will be directed to the latter. The two vertices are connected by a directed edge with a weight of zero from the 'in' vertex to the 'out' vertex. This process is visualized in figure~\ref{contr:node-splitting}. Note that this change forces every path which uses a vertex to use the interconnecting edge, limiting the amount of times every vertex can be used to one. This means the algorithm will now find $k$ vertex-disjoint paths.
+
+\begin{figure}[h]
+    \centering
+    \begin{tikzpicture}
+    	\begin{pgfonlayer}{nodelayer}
+    		\node [style=circle] (0) at (0, 0) {v};
+    		\node [style=none] (2) at (-1, 0.5) {};
+    		\node [style=none] (3) at (-1, -0.5) {};
+    		\node [style=none] (4) at (1, 0.5) {};
+    		\node [style=none] (5) at (2, 0.5) {};
+    		\node [style=none] (6) at (2, -0.5) {};
+    		\node [style=circle] (7) at (3, 0) {i};
+    		\node [style=circle] (8) at (4, 0) {o};
+    		\node [style=none] (9) at (5, 0.5) {};
+    		\node [style=none] (10) at (1, -0.5) {};
+    		\node [style=none] (11) at (5, -0.5) {};
+    	\end{pgfonlayer}
+    	\begin{pgfonlayer}{edgelayer}
+    		\draw [style=directed edge] (2.center) to node [auto] {} (0);
+    		\draw [style=directed edge] (3.center) to (0);
+    		\draw [style=directed edge] (0) to (4.center);
+    		\draw [style=directed edge] (5.center) to (7);
+    		\draw [style=directed edge] (6.center) to (7);
+    		\draw [style=directed edge] (8) to (9.center);
+    		\draw [style=directed edge] (0) to (10.center);
+    		\draw [style=directed edge] (8) to (11.center);
+    		\draw [style=directed edge] (7) to node [auto] {0} (8);
+    	\end{pgfonlayer}
+    \end{tikzpicture}
+    \caption{Vertex splitting visualized}
+    \label{contr:node-splitting}
+\end{figure}
 
 In order to build the full routing table, this process has to be completed for every process, resulting in $n * (2f+1)$ paths which will reach every process over $2f+1$ node-disjoint paths.
 
-\subsubsection{Implementation}
-As noted in the algorithm outline, one has to find the shortest path in the graph often. Performance analysis shows path finding is the most computationally expensive part of the algorithm, so care has to be taken when picking and implementing a path finding algorithm. Furthermore, the algorithm needs to be able to handle negative weights as edges are inverted, which means their weights are inverted and the direction is reversed. TODO: discuss negative cycles?
+The pseudocode for the $k$-disjoint path solver can be found in Algorithm~\ref{contr:disjoint-path}. We use the Shortest Path Faster Algorithm or SPFA~\cite{spfa-moore,spfa-fanding}, which is a queue-based Bellman-Ford~\cite{bf-bellman,bf-ford} variation to find the shortest path in our paper, but any algorithm can be used which is capable of handling negative weights.
 
-For this paper we have chosen the Shortest Path Faster Algorithm or SPFA~\cite{spfa-moore,spfa-fanding}, which is a queue-based Bellman-Ford~\cite{bf-bellman,bf-ford} variation.
+\begin{algorithm}[h]
+  \DontPrintSemicolon
+  \SetKwFunction{DisPaths}{DistjointPaths}
+  \SetKwProg{Fn}{func}{:}{}
+  \Fn{\DisPaths{$g$, $s$, $t$, $k$}}{
+        edges = DisjointEdges($g$, $s$, $t$, $k$)\;
+        filtered = FilterCounterparts(edges)\;
+        
+        \textbf{return} BuildPaths(filtered, $s$, $t$, $k$)\;
+  }
+  
+  \SetKwFor{RepTimes}{repeat}{times}{end}
+  \SetKwFunction{DisEdges}{DisjointEdges}
+  \Fn{\DisEdges{$g$, $s$, $t$, $k$}}{
+        split = VertexSplitting($g$)\;
+        result = $\emptyset$\;
+        \RepTimes{k}{
+            path = ShortestPath($s$, $t$, split)\;
+            
+            \ForAll{$e \in path$}{
+                result.add($e$)\;
+                InverseEdge(split, $e$)\;
+            }
+        }
+        
+        \textbf{return} result\;
+  }
+  
+  \SetKwFunction{FilterCounter}{FilterCounterparts}
+  \Fn{\FilterCounter{$edges$}}{
+        drop = result = $\emptyset$\;
+            
+        \ForAll{$(f,t) \in edges$}{
+            drop.add($(t,f)$)\;
+        }
+        
+        \ForAll{$e \in edges$}{
+            \uIf{\textbf{not} drop.contains($e$)}{
+                result.add($e$)\;
+            }            
+        }
+        
+        \textbf{return} result\;
+  }
+  
+  \SetKwFunction{BuildPaths}{BuildPaths}
+  \Fn{\BuildPaths{$edges$, $s$, $t$}}{
+        result = $\emptyset$\;
+            
+        \ForAll{$(f,e) \in edges$}{
+            \uIf{$f = s$}{
+                path = $\emptyset$\;
+                
+                \While{\textbf{not} $e$ = $t$}{
+                    path.add($(f,e)$)\;
+                    $(f,e)$ = Next($e$)\;
+                }
+                
+                path.add($(f,e)$)\;
+                result.add(path)\;
+            }
+        }
+        
+        \textbf{return} result\;
+  }
+ \caption{Disjoint path solver algorithm}
+ \label{contr:disjoint-path}
+\end{algorithm}
 
-The pseudocode for the entire procedure can be found in Algorithm~XXX.
-
+\label{contr:modifying-dolev}
 \subsection{Modifying Dolev}
 We can distinguish between two options for the routing table in a modified verion of Dolev's protocol. 
-In one version every process only uses the edge weights without any modifications to calculate the routing table. Note that this results in routing tables where $paths(p_i, p_j) == reverse\_paths(p_j, p_i)$ where $p_i, p_j \in \Delta$, i.e. for every pair of arbitrary processes $p_i$ and $p_j$ the paths of $p_i$ to $p_j$ all have reverse paths\footnote{Let us recall that a reverse path is simply a path traversed backwards} in the set of paths from $p_j$ to $p_i$.
-Another version allows for individual processes to make changes to their edge weights, so messages might traverse different paths from $p_i$ to $p_j$ than from $p_j$ to $p_i$.
+In one version a process only computes its own routing table, while in the other version every process calculates the routing table of every other process including its own. The former is less computationally expensive, but the latter requires less information to be transmitted, since the desired path needs to be included in the message header for the former version to work. The latter option also allows for trivial message verification, as every process is aware of the paths another process will use to communicate. 
 
-The former allows for trivial message verification as every node is aware of the paths a message should traverse. However, processes can not deviate from the original edge weights, which might be undesirable for future improvements. The second option allows processes to change weights and have dynamic routing tables, but does require more care when verifying messages.
+% In one version every process only uses the edge weights without any modifications to calculate the routing table. Note that this results in routing tables where $paths(p_i, p_j) == reverse\_paths(p_j, p_i)$ where $p_i, p_j \in \Delta$, i.e. for every pair of arbitrary processes $p_i$ and $p_j$ the paths of $p_i$ to $p_j$ all have reverse paths\footnote{Let us recall that a reverse path is simply a path traversed backwards} in the set of paths from $p_j$ to $p_i$.
+% Another version allows for individual processes to make changes to their edge weights, so messages might traverse different paths from $p_i$ to $p_j$ than from $p_j$ to $p_i$.
 
-In both cases there is still another decision to make. Should every process compute the routing tables of all other processes, or should every process only compute their own routing table? Both cases are valid, but they differ in their computational complexity and their bandwidth usage. Computing every routing table is a computationally expensive operation, but allows for information to be removed from the messages, reducing the amount of required bandwidth.
+% The former allows for trivial message verification as every node is aware of the paths a message should traverse. However, processes can not deviate from the original edge weights, which might be undesirable for future improvements. The second option allows processes to change weights and have dynamic routing tables, but does require more care when verifying messages.
 
-In this paper we have opted for the protocol where every process only computes its own routing table and they are allowed to change edge weights.
+% In both cases there is still another decision to make. Should every process compute the routing tables of all other processes, or should every process only compute their own routing table? Both cases are valid, but they differ in their computational complexity and their bandwidth usage. Computing every routing table is a computationally expensive operation, but allows for information to be removed from the messages, reducing the amount of required bandwidth.
+
+% In this paper we have opted for the protocol where every process only computes its own routing table and they are allowed to change edge weights.
+
+In this paper we have opted for the protocol where every process has access to every routing table in order to decrease the message size, as will be discussed later.
 
 \subsubsection{Modifications}
 The protocol is changed in several places, in order to maximally leverage topology knowledge. 
 
-The messages do not change significantly, all original information is retained. In addition to the traversed path, a message will now also contain a desired path. Instead of relaying messages to most neighbours, a message will now only be relayed to the next hop in the desired path. In order to prevent Byzantine processes from flooding the network, messages will be dropped in the actual path contains loops or if the desired path has a length of more than $n$.
+The messages do not change significantly, all original information is retained.
 
-This version of Dolev's protocol knows two possible verification algorithms. 
-Since a process $p_i$ is initially unaware of the paths used by process $p_j$, it must fall back on basic Dolev verification, where every message has to be received over at least $f+1$ disjoint paths. This problem can be solved by modeling the paths as a flow network where every edge has a capacity of one. The maximum flow through the network from source $p_j$ to sink $p_i$ is then equal to the amount of disjoint paths. In this paper we use the Edmonds-Karp algorithm~\citationneeded to find the maximum flow through the flow network. This algorithm can be found in Algorithm~XXX.
-When a process $p_i$ has delivered a message from $p_j$, it can save the paths used to memory. Since we assume these paths never change, they can be used to verify any message in the future in a more efficient manner. Any incoming message is accepted when it has arrived over at least $f+1$ unique paths saved in memory. For the sake of completeness, this algorithm is described in Algorithm~XXX.
+The message verification is simplified greatly, as every message path can now be simply compared to the corresponding routing table entry. If no matching entry exists for the given origin,, the message is discarded. Otherwise it is kept in memory. Once enough messages with identical payloads and unique paths have been received the message is delivered. This can easily achieved by creating a mapping between a message identifier, consisting of the regular Dolev identifier and the hash of the payload, and a set of paths. When the size of the set of paths is equal to $f+1$, corresponding content can be delivered.
+
+% This version of Dolev's protocol knows two possible verification algorithms. 
+% Since a process $p_i$ is initially unaware of the paths used by process $p_j$, it must fall back on basic Dolev verification, where every message has to be received over at least $f+1$ disjoint paths. This problem can be solved by modeling the paths as a flow network where every edge has a capacity of one. The maximum flow through the network from source $p_j$ to sink $p_i$ is then equal to the amount of disjoint paths. In this paper we use the Edmonds-Karp algorithm~\citationneeded to find the maximum flow through the flow network.
+% When a process $p_i$ has delivered a message from $p_j$, it can save the paths used to memory. Since we assume these paths never change, they can be used to verify any message in the future in a more efficient manner. Any incoming message is accepted when it has arrived over at least $f+1$ unique paths saved in memory.
 
 \subsection{Optimizations}
 In addition to providing a base implementation for Dolev's protocol with routing, we also introduce several optimizations in order to further reduce the amount of messages transmitted. In order to avoid confusion we use the identifier \textbf{ORD.1-XXX} for our optimizations.
@@ -62,40 +188,65 @@ When process $p$ is building its routing table, it can discard all routes which 
 \subsubsection{ORD.2: Use a single route for direct neighbours}
 Bonomi et al.~\cite{bonomi2019multihop} showed that direct neighbours can directly deliver messages originating from the source. A similar change can be made to the routed version of Dolev's protocol, by accepting only one path to direct neighbours. This can be done by assigning an extremely negative weight on the outgoing edges of the source, or by adding routes for neighbours later.
 
-\subsubsection{ORD.3: Merge next hops when possible}
+\subsubsection{ORD.3: Merge next hops when broadcasting}
 When process $p$ is transmitting the initial broadcast messages, it can merge all messages which have the same first hop into a single message. This process can then be continued by all relaying nodes until only a single base message remains. This means the desired and traversed path form a pair which needs to be maintained throughout the entire network. 
 
 \subsubsection{ORD.4: Reuse paths when possible}
-When messages traverse the same path, processes can attempt to merge messages as explained in \textbf{ORD.3}. For this reason routes should be as similar as possible. This can be achieved by adding weights to unused edges after each iteration of the disjoint k-paths solver, which corresponds to line XXX in Algorithm~XXX.
+When messages traverse the same path, processes can attempt to merge messages as explained in \textbf{ORD.3}. For this reason routes should be as similar as possible. This can be achieved by adding weights to unused edges after each iteration of the disjoint k-paths solver, which corresponds to line 13 in Algorithm~\ref{contr:disjoint-path}.
 
 Additional care has to be taken when \textbf{ORD.2} is also applied, to avoid routing messages to neighbours over intermediate nodes.
 
+\subsubsection{ORD.5: Apply delayed relaying and merging}
+While \textbf{ORD.3} introduced the concept of merging messages, this is a \textit{structurally decreasing} process, i.e. the amount of wrapped messages in a single message will only decrease as the message is being relayed. The reason for this is that processes only analyse an incoming message without additional context, which means a process will process the incoming buffer sequentially and immediately relay messages when possible.
+While this process is pure and has little side-effects, there are cases when using the context of other messages or delaying outbound messages is beneficial. For example, two messages with the same Dolev identifier received over two different links can be merged into a single message (similar to \textbf{ORD.3}) when they share the same next-hop. However, since these messages are handled separately the process needs to delay the former and use its context when processing the latter message.
+
+One possible option is to only relay messages whose contents have been delivered, and keep outbound messages in a buffer which can be used to merge outbound messages. While this approach would work on some networks, a deadlock will be created when two processes are delaying messages which would otherwise cause them two deliver.
+
+This can be avoided by detecting possible deadlocks, and then marking one of the conflicting paths as a priority path, which means processes will immediately relay it. Deadlocks can be detected by finding a pair of paths for which at least one edge in the first path and the reverse edge in the second path exists. Deciding on priority paths can be done in any way, but it's essential that at least one path is picked for every conflict.
+
+This modification introduces more latency to the protocol, as (some) messages are being held in buffers for longer amounts of time. This can be partially mitigated by applying optimizations to the deciding procedure. For example, designating paths as a priority path when all processes on the conflicting edges only have to relay that single message, since there is no other message to merge with. Another addition might be \textit{piggybacking}, which means messages in the buffer can be merged with a priority message sharing the same next hop, since the priority message will be transmitted anyways.
+
+In addition to using the custom buffer, it might be possible to also include the incoming network buffer for more merging possibilities. However, this is heavily dependant on the programming language and environment used, so we refrain from using the read buffer directly in this paper.
+
+\subsubsection{ORD.6: Merging messages with identical contents}
+There exist protocols where every process or a subset of processes transmits the same payload. Examples of these protocols are \textit{keepalive} or topology verification protocols. In these cases messages from different Dolev broadcasts can be merged before being relayed in a similar fashion as \textbf{ORD.5}.
+
+The buffer from \textbf{ORD.5} can be reused as is, and the messages themselves can be retransmitted in a special wrapper message containing all information from the merged messages and a single copy of the payload.
+
+\subsubsection{ORD.7: Reducing message size}
+As discussed in \ref{contr:modifying-dolev}, the routing information can be included in the message headers to reduce computational complexity or it can be fully precomputed to reduce the message size. When optimizing for bandwidth usage the latter is the only viable option. 
+
+This modification ensures message headers are no larger than needed by precomputing all routing tables, which can then be used to deduce the desired paths based on the origin and the previous relay. 
+
+
 \section{Bracha on known topologies}
+\label{contr-bracha}
 In the case of Bracha's protocol, topology knowledge is not as useful as with Dolev's protocol. This is because Bracha assumes a fully connected network, which means the topology is known anyways. The only knowledge processes gain is the weight of edges representing links between other processes. We will try to use this knowledge for our optimizations
 
 Similar to Dolev's optimizations, we will use \textbf{ORB.1-XXX} to identify different optimizations.
 
 \subsubsection{ORB.1: Implicit echo messages}
-Instead of sending a \textit{send} message and an \textit{echo} message separately, a process can send a single \textit{send} message and others will interpret that as a combined \textit{send} and \textit{echo} message.
+Instead of sending a \textit{send} message and an \textit{echo} message separately, a process can send a single \textit{send} message and others will interpret that as a combined \textit{send} and \textit{echo} message. Similarly, an echo or ready message will also be interpret as a \textit{send} message.
 
 \subsubsection{ORB.2: Use minimal subset of neighbours}
 Bracha's protocol requires $\ceil{\frac{N+f+1}{2}} + f$ participants in the \textit{echo} phase and $3f+1$ for the \textit{ready} phase. This means that for overprovisioned networks, i.e. networks where $f < \floor{\frac{N}{3}} - 1$, we can avoid using all processes in said phases.
 
 This is similar to the optimization \textbf{MBD.11} from \cite{bonomi2021practical}, however we can improve overall latency by assigning a cost to every neighbour based on their outgoing edges and then making a selection. 
 
-There are several ways to assign a cost to a process. Simple heuristics include finding the minimum sum of weights of edges used, finding the minimum sum of weights for all edges, and several other similar approaches. There is also the possibility of finding the optimal combination, but that is outside the scope of this paper, but can be added later.
+There are several ways to assign a cost to a process. Simple heuristics include finding the minimum sum of weights of edges used, finding the minimum sum of weights for all edges, and several other similar approaches. The optimal solution can also be computed, but that is outside of our scope.
 
 Using the chosen heuristic, every process calculates a Bracha routing table which contains all \textit{echo} and \textit{ready} participants for every message origin.
 
+In order to not add information to the message header, these participants can be precomputed by every Bracha process. These precomputed tables can then be used to find the participant sets for a given origin.
+
 \section{Bracha-Dolev on known topologies}
+\label{contr-bracha-dolev}
 In this section we will describe how our previous optimizations for Dolev and Bracha can be applied to Bracha-Dolev, and additional cross-layer optimizations.
 
-\subsection{Applying optimizations from Dolev}
+\subsection{Applying optimizations}
 As Dolev is used as the lowest layer, all \textbf{ORD} optimizations can be applied as is to our improved version of Bracha-Dolev.
 
-\subsection{Applying optimizations from Bracha}
 Bracha is used as the upper layer in Bracha-Dolev, and as such we can not directly apply \textbf{ORB.2}, since it assumes a fully connected network. However, we can use a different way of selecting processes, by simply selecting the closest processes in the network.
-
 The other Bracha optimization, \textbf{ORB.1}, can be directly applied as it does not rely on topology knowledge.
 
 \subsection{Optimizations}
@@ -105,3 +256,8 @@ In addition to applying all \textbf{ORD} and (modified) \textbf{ORB} optimizatio
 In order to take full advantage of \textbf{ORB.2} the underlying Dolev layer should avoid sending messages to processes not included in the current \textit{echo} or \textit{ready} phase. This can be achieved by using partial broadcasts, i.e. not all processes deliver a message. While this would normally violate the RC protocols of Dolev, it doesn't in this case as Bracha-Dolev as a whole still upholds the BRB guarantees.
 
 This modification can be added by replacing the usual Dolev routing table, by two pre-computed routing tables which take the Bracha phase and message origin into account, or by reusing the regular Dolev routing table and compute the resulting routes on the fly. The former uses more memory to store all routing tables, while the latter increases the latency of the protocol.
+
+\subsubsection{ORBD.2: Merging multiple Bracha messages}
+The Dolev layer considers different Bracha messages as different payloads, which is correct. However, Bracha messages from the same Bracha-Dolev broadcast share identical payload and origin data. This can be leveraged on the Dolev layer by identifying Bracha messages belonging to the same Bracha-Dolev broadcast and merging them if possible, by utilizing the buffer created by \textbf{ORD.5}.
+
+When merging messages, a special wrapper message is transmitted by a Dolev node, which neighbours can use to reconstruct the original messages, similar to the wrapper message in \textbf{ORD.6}
