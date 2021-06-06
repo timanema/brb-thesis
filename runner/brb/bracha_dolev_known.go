@@ -2,13 +2,12 @@ package brb
 
 import (
 	"fmt"
-	"math"
 	"rp-runner/brb/algo"
 	"rp-runner/graphs"
 )
 
 type BrachaDolevConfig struct {
-	Included []uint64
+	Included algo.BrachaInclusionTable
 }
 
 type BrachaDolevMessage struct {
@@ -128,9 +127,10 @@ func (bd *brachaDolevKnownWrapper) Init(n Network, app Application, cfg Config) 
 	nodes := cfg.Graph.Nodes()
 	bCfg.Neighbours = make([]uint64, 0, nodes.Len())
 
-	echoReq := int(math.Ceil((float64(cfg.N)+float64(cfg.F)+1)/2)) + cfg.F
+	nids, _ := graphs.Nodes(cfg.Graph)
+
 	bCfg.AdditionalConfig = BrachaDolevConfig{
-		Included: graphs.ClosestNodes(int64(cfg.Id), graphs.FindAdjMap(graphs.Directed(cfg.Graph), graphs.MaxId(cfg.Graph)), echoReq),
+		Included: algo.FindBrachaDolevInclusionTable(cfg.Graph, nids, cfg.N, cfg.F),
 	}
 
 	for nodes.Next() {

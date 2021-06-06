@@ -35,6 +35,14 @@ const (
 	DolevPayloadMerge
 )
 
+type OptimizationConfig struct {
+	DolevFilterSubpaths, DolevSingleHopNeighbour,
+	DolevCombineNextHops, DolevReusePaths,
+	DolevRelayMerging, DolevPayloadMerging, DolevImplicitPath bool
+	BrachaImplicitEcho, BrachaMinimalSubset       bool
+	BrachaDolevPartialBroadcast, BrachaDolevMerge bool
+}
+
 type Config struct {
 	Byz        bool
 	N, F       int
@@ -44,7 +52,8 @@ type Config struct {
 
 	Silent, Unused bool
 
-	AdditionalConfig interface{}
+	AdditionalConfig   interface{}
+	OptimizationConfig OptimizationConfig
 }
 
 type ProtocolCategory int

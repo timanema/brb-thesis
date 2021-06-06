@@ -108,6 +108,21 @@ func RunnerMain() {
 	//gr.SetWeightedEdge(fg)
 	//gr.SetWeightedEdge(dg)
 
+	// Optimizations
+	opts := brb.OptimizationConfig{
+		DolevFilterSubpaths:         true,
+		DolevSingleHopNeighbour:     true,
+		DolevCombineNextHops:        true,
+		DolevReusePaths:             true,
+		DolevRelayMerging:           true,
+		DolevPayloadMerging:         true,
+		DolevImplicitPath:           true,
+		BrachaImplicitEcho:          true,
+		BrachaMinimalSubset:         true,
+		BrachaDolevPartialBroadcast: true,
+		BrachaDolevMerge:            true,
+	}
+
 	n, k, fx := 50, 25, 10
 	messages := 1
 	deg := k
@@ -115,7 +130,7 @@ func RunnerMain() {
 	_, name := gen.Cache()
 
 	m := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
-	if err := runMultipleMessagesTest(info, 5, n, k, fx, deg, messages, m, cfg, &brb.BrachaDolevKnownImproved{}); err != nil {
+	if err := runMultipleMessagesTest(info, 5, n, k, fx, deg, messages, m, cfg, opts, &brb.BrachaDolevKnown{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
@@ -144,7 +159,7 @@ func pickRandom(i int, max int) []uint64 {
 	return res
 }
 
-func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, gen graphs.Generator, cfg process.Config, bp brb.Protocol) error {
+func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, gen graphs.Generator, cfg process.Config, opt brb.OptimizationConfig, bp brb.Protocol) error {
 	if k < 2*f+1 && bp.Category() != brb.BrachaCat {
 		return errors.Errorf("network is not 2f+1 connected (k=%v, f=%v)", k, f)
 	}
@@ -167,7 +182,7 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 	}
 
 	fmt.Printf("starting processes\nselected as possible transmitters: %v\n", ra)
-	err = ctl.StartProcesses(cfg, g, bp, f, ra, bp.Category() == brb.BrachaDolevCat)
+	err = ctl.StartProcesses(cfg, opt, g, bp, f, ra, bp.Category() == brb.BrachaDolevCat)
 	if err != nil {
 		return errors.Wrap(err, "unable to start processes")
 	}

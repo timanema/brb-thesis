@@ -53,8 +53,13 @@ func BroadcastCostEstimation(g *simple.WeightedUndirectedGraph, s uint64, amount
 		})
 	}
 
-	// Sort costs
+	// Sort on id
 	sort.Slice(costs, func(i, j int) bool {
+		return costs[i].id < costs[j].id
+	})
+
+	// Sort costs
+	sort.SliceStable(costs, func(i, j int) bool {
 		return costs[i].cost < costs[j].cost
 	})
 

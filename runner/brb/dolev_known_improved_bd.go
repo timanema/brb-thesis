@@ -55,36 +55,35 @@ func (d *DolevKnownImprovedBD) Init(n Network, app Application, cfg Config) {
 		_, bd := cfg.AdditionalConfig.(BrachaDolevConfig)
 		d.bd = bd
 
+		w := 0
+		if d.cfg.OptimizationConfig.DolevReusePaths {
+			w = d.cfg.N / 10
+		}
+
 		routes, err := algo.BuildRoutingTable(cfg.Graph, graphs.Node{
 			Id:   int64(d.cfg.Id),
 			Name: strconv.Itoa(int(d.cfg.Id)),
-		}, d.cfg.F*2+1, 5, true)
+		}, d.cfg.F*2+1, w, d.cfg.OptimizationConfig.DolevSingleHopNeighbour)
 		if err != nil {
 			panic(fmt.Sprintf("process %v errored while building lookup table: %v\n", d.cfg.Id, err))
 		}
 
-		// TODO: remove testing info
-		deps := algo.FindDependants(routes)
-		//fmt.Println(deps)
-
-		algo.FixDeadlocks(routes, deps)
+		algo.FixDeadlocks(routes)
 
 		if d.bd {
 			n, m := graphs.Nodes(d.cfg.Graph)
 			d.bdPlan = algo.BrachaDolevRouting(routes, graphs.FindAdjMap(graphs.Directed(d.cfg.Graph), m), n, d.cfg.N, d.cfg.F)
-			//fmt.Printf("proc %v: %v\n", d.cfg.Id, d.bdPlan)
 		}
 
-		d.broadcast = algo.DolevRouting(routes, true, true)
+		d.broadcast = algo.DolevRouting(routes, d.cfg.OptimizationConfig.DolevCombineNextHops, d.cfg.OptimizationConfig.DolevFilterSubpaths)
 	}
 }
 
-func (d *DolevKnownImprovedBD) sendMergedBDMessage(uid uint32, m BrachaDolevWrapperMsg) error {
+func (d *DolevKnownImprovedBD) sendMergedBDMessage(uid uint32, m BrachaDolevWrapperMsg) {
 	bdm := BrachaDolevWrapperMsg{
 		OriginalSrc:     m.OriginalSrc,
 		OriginalId:      m.OriginalId,
 		OriginalPayload: m.OriginalPayload,
-		Included:        m.Included,
 	}
 	hopping := false
 	bid := brachaIdentifier{
@@ -174,8 +173,6 @@ func (d *DolevKnownImprovedBD) sendMergedBDMessage(uid uint32, m BrachaDolevWrap
 	for dst, m := range next {
 		d.n.Send(0, dst, uid, m, BroadcastInfo{})
 	}
-
-	return nil
 }
 
 func (d *DolevKnownImprovedBD) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrapperMsg) map[uint64]DolevKnownImprovedMessage {
@@ -223,7 +220,6 @@ func (d *DolevKnownImprovedBD) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrap
 				OriginalSrc:     bdm.OriginalSrc,
 				OriginalId:      bdm.OriginalId,
 				OriginalPayload: bdm.OriginalPayload,
-				Included:        bdm.Included,
 			},
 			Paths: paths[dst],
 		}
@@ -232,13 +228,19 @@ func (d *DolevKnownImprovedBD) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrap
 	return res
 }
 
-func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, id dolevIdentifier, m DolevKnownImprovedMessage) error {
+func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, m DolevKnownImprovedMessage) {
+	id := dolevIdentifier{
+		Src:        m.Src,
+		Id:         m.Id,
+		TrackingId: uid,
+		Hash:       MustHash(m.Payload),
+	}
 	del := d.hasDelivered(id)
 
 	paths := make([]algo.DolevPath, 0, len(m.Paths))
 
 	// If delivered, relay all messages, including ones in the buffer
-	if del {
+	if del || !d.cfg.OptimizationConfig.DolevRelayMerging {
 		paths = append(paths, m.Paths...)
 
 		if buf, ok := d.buffer[id]; ok {
@@ -275,8 +277,6 @@ func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, id dolevIdentifier,
 		m.Paths = p
 		d.n.Send(0, dst, uid, m, BroadcastInfo{})
 	}
-
-	return nil
 }
 
 func (d *DolevKnownImprovedBD) sendInitialMessage(uid uint32, payload interface{}, partial bool, origin uint64) error {
@@ -287,19 +287,27 @@ func (d *DolevKnownImprovedBD) sendInitialMessage(uid uint32, payload interface{
 	}
 
 	to := d.broadcast
-	if partial {
+	if partial && d.cfg.OptimizationConfig.BrachaDolevPartialBroadcast {
 		to = d.bdPlan[origin]
 	}
 
 	for dst, p := range to {
-		dp := make([]algo.DolevPath, len(p))
+		if d.cfg.OptimizationConfig.DolevCombineNextHops {
+			dp := make([]algo.DolevPath, len(p))
 
-		for i, d := range p {
-			dp[i] = algo.DolevPath{Desired: d.P, Prio: d.Prio}
+			for i, d := range p {
+				dp[i] = algo.DolevPath{Desired: d.P, Prio: d.Prio}
+			}
+
+			m.Paths = dp
+			d.n.Send(0, dst, uid, m, BroadcastInfo{})
+		} else {
+			for _, path := range p {
+				m.Paths = []algo.DolevPath{{Desired: path.P, Prio: path.Prio}}
+
+				d.n.Send(0, dst, uid, m, BroadcastInfo{})
+			}
 		}
-
-		m.Paths = dp
-		d.n.Send(0, dst, uid, m, BroadcastInfo{})
 	}
 
 	return nil
@@ -375,23 +383,17 @@ func (d *DolevKnownImprovedBD) Receive(_ uint8, src uint64, uid uint32, data int
 		// Send to next hops
 		bw := Pack(msgs)
 
-		if err := d.sendMergedBDMessage(uid, bw); err != nil {
-			fmt.Printf("process %v errored while sending dolev (known, improved) message: %v\n", d.cfg.Id, err)
-			os.Exit(1)
+		if d.cfg.OptimizationConfig.BrachaDolevMerge {
+			d.sendMergedBDMessage(uid, bw)
+		} else {
+			for _, m := range msgs {
+				// Send to next hops
+				d.sendMergedMessage(uid, m)
+			}
 		}
 	} else {
-		id := dolevIdentifier{
-			Src:        dm.Src,
-			Id:         dm.Id,
-			TrackingId: uid,
-			Hash:       MustHash(dm.Payload),
-		}
-
 		// Send to next hops
-		if err := d.sendMergedMessage(uid, id, dm); err != nil {
-			fmt.Printf("process %v errored while sending dolev (known, improved) message: %v\n", d.cfg.Id, err)
-			os.Exit(1)
-		}
+		d.sendMergedMessage(uid, dm)
 	}
 }
 
@@ -413,7 +415,7 @@ func (d *DolevKnownImprovedBD) Broadcast(uid uint32, payload interface{}, bc Bro
 
 		if d.bd {
 			partial = bc.Type == BrachaPartial
-			m := payload.(brachaWrapper).msg.(BrachaImprovedMessage)
+			m := payload.(brachaWrapper).msg.(BrachaMessage)
 			partialId = m.Src
 		}
 

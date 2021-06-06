@@ -5,7 +5,6 @@ type BrachaDolevWrapperMsg struct {
 	OriginalSrc     uint64
 	OriginalId      uint32
 	OriginalPayload interface{}
-	Included        []uint64
 }
 
 // Unpack creates all DolevKnownImprovedMessage instances from the current BrachaDolevWrapper
@@ -13,13 +12,10 @@ func (b BrachaDolevWrapperMsg) Unpack() []DolevKnownImprovedMessage {
 	res := make([]DolevKnownImprovedMessage, 0, len(b.Msgs))
 
 	for _, msg := range b.Msgs {
-		bm := BrachaImprovedMessage{
-			BrachaMessage: BrachaMessage{
-				Src:     b.OriginalSrc,
-				Id:      b.OriginalId,
-				Payload: b.OriginalPayload,
-			},
-			Included: b.Included,
+		bm := BrachaMessage{
+			Src:     b.OriginalSrc,
+			Id:      b.OriginalId,
+			Payload: b.OriginalPayload,
 		}
 		dm := DolevKnownImprovedMessage{
 			Src: msg.Src,
@@ -52,11 +48,10 @@ func Pack(original []DolevKnownImprovedMessage) BrachaDolevWrapperMsg {
 			Paths: msg.Paths,
 		})
 
-		bm := bw.msg.(BrachaImprovedMessage)
+		bm := bw.msg.(BrachaMessage)
 		bdw.OriginalSrc = bm.Src
 		bdw.OriginalId = bm.Id
 		bdw.OriginalPayload = bm.Payload
-		bdw.Included = bm.Included
 	}
 
 	bdw.Msgs = msgs

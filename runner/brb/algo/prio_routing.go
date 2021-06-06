@@ -4,27 +4,6 @@ import (
 	"gonum.org/v1/gonum/graph"
 )
 
-//TODO: redo this to actually compare edges
-
-// Needs to use RoutingTable pre-filtering!
-func FindDependants(r RoutingTable) map[uint64]map[uint64]struct{} {
-	res := make(map[uint64]map[uint64]struct{})
-
-	for dst, paths := range r {
-		deps := make(map[uint64]struct{})
-
-		for _, p := range paths {
-			for _, e := range p.P[1:] {
-				deps[uint64(e.From().ID())] = struct{}{}
-			}
-		}
-
-		res[dst] = deps
-	}
-
-	return res
-}
-
 type conflict struct {
 	path    Path
 	overlap []graph.WeightedEdge
@@ -88,7 +67,7 @@ func decideDeadlock(p Path, c conflict) bool {
 	return c.a < c.b
 }
 
-func FixDeadlocks(r RoutingTable, deps map[uint64]map[uint64]struct{}) {
+func FixDeadlocks(r RoutingTable) {
 	for dst, paths := range r {
 		for i, p := range paths {
 			for ndst, npaths := range r {

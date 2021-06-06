@@ -62,21 +62,14 @@ func (d *DolevKnownImproved) Init(n Network, app Application, cfg Config) {
 			panic(fmt.Sprintf("process %v errored while building lookup table: %v\n", d.cfg.Id, err))
 		}
 
-		// TODO: remove testing info
-		deps := algo.FindDependants(routes)
-		//fmt.Println(deps)
-
-		algo.FixDeadlocks(routes, deps)
+		algo.FixDeadlocks(routes)
 
 		if d.bd {
 			n, m := graphs.Nodes(d.cfg.Graph)
 			d.bdPlan = algo.BrachaDolevRouting(routes, graphs.FindAdjMap(graphs.Directed(d.cfg.Graph), m), n, d.cfg.N, d.cfg.F)
-			//fmt.Printf("proc %v: %v\n", d.cfg.Id, d.bdPlan)
 		}
 
 		d.broadcast = algo.DolevRouting(routes, true, true)
-
-		//fmt.Println(routes)
 	}
 }
 
@@ -227,7 +220,7 @@ func (d *DolevKnownImproved) Broadcast(uid uint32, payload interface{}, bc Broad
 
 		if d.bd {
 			partial = bc.Type == BrachaPartial
-			m := payload.(brachaWrapper).msg.(BrachaImprovedMessage)
+			m := payload.(brachaWrapper).msg.(BrachaMessage)
 			partialId = m.Src
 		}
 
