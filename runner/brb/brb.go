@@ -7,8 +7,12 @@ import (
 // Used as abstraction for BRB protocols
 // uid is used for tracking the message throughout the network (for statistics)
 
+type Size interface {
+	SizeOf() uintptr
+}
+
 type Application interface {
-	Deliver(uid uint32, payload interface{}, src uint64)
+	Deliver(uid uint32, payload Size, src uint64)
 }
 
 type BroadcastInfo struct {
@@ -22,7 +26,7 @@ const (
 
 type Network interface {
 	// BroadcastInfo can be used to pass information between protocols, regular applications and networks will not use this
-	Send(messageType uint8, dest uint64, uid uint32, data interface{}, bc BroadcastInfo)
+	Send(messageType uint8, dest uint64, uid uint32, data Size, bc BroadcastInfo)
 
 	TriggerStat(uid uint32, n NetworkStat)
 }
@@ -69,10 +73,10 @@ type Protocol interface {
 	// be completed before announcing that they're ready)
 	Init(n Network, app Application, cfg Config)
 
-	Receive(messageType uint8, src uint64, uid uint32, data interface{})
+	Receive(messageType uint8, src uint64, uid uint32, data Size)
 
 	// BroadcastInfo can be used to pass information between protocols, regular applications and networks will not use this
-	Broadcast(uid uint32, payload interface{}, bc BroadcastInfo)
+	Broadcast(uid uint32, payload Size, bc BroadcastInfo)
 
 	Category() ProtocolCategory
 }

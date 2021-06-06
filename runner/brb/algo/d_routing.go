@@ -3,6 +3,7 @@ package algo
 import (
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
+	"reflect"
 	"rp-runner/graphs"
 )
 
@@ -16,6 +17,20 @@ type BroadcastPlan map[uint64][]Path
 type DolevPath struct {
 	Desired, Actual graphs.Path
 	Prio            bool
+}
+
+func (p DolevPath) SizeOf() uintptr {
+	return p.Desired.SizeOf() + p.Actual.SizeOf() + reflect.TypeOf(p.Prio).Size()
+}
+
+func SizeOfMultiplePaths(paths []DolevPath) uintptr {
+	res := uintptr(0)
+
+	for _, p := range paths {
+		res += p.SizeOf()
+	}
+
+	return res
 }
 
 func combinePaths(paths []Path) BroadcastPlan {

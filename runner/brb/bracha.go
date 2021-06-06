@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math"
+	"reflect"
 	"rp-runner/graphs"
 )
 
@@ -16,7 +17,11 @@ const (
 type BrachaMessage struct {
 	Src     uint64
 	Id      uint32
-	Payload interface{}
+	Payload Size
+}
+
+func (b BrachaMessage) SizeOf() uintptr {
+	return reflect.TypeOf(b.Src).Size() + reflect.TypeOf(b.Id).Size() + b.Payload.SizeOf()
 }
 
 type brachaIdentifier struct {
@@ -64,7 +69,7 @@ func (b *Bracha) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func (b *Bracha) send(messageType uint8, uid uint32, id brachaIdentifier, data interface{}) {
+func (b *Bracha) send(messageType uint8, uid uint32, id brachaIdentifier, data BrachaMessage) {
 	// Only send one echo per message
 	if _, ok := b.echoSent[id]; ok && messageType == BrachaEcho {
 		return
@@ -90,7 +95,7 @@ func (b *Bracha) hasDelivered(id brachaIdentifier) bool {
 	return ok
 }
 
-func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interface{}) {
+func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data Size) {
 	if b.cfg.Byz {
 		// TODO: better byzantine behaviour?
 		return
@@ -115,7 +120,7 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interfa
 	del := b.hasDelivered(id)
 	switch messageType {
 	case BrachaSend:
-		b.send(BrachaEcho, uid, id, data)
+		b.send(BrachaEcho, uid, id, m)
 
 		b.echoSent[id] = struct{}{}
 		b.echo[id][b.cfg.Id] = struct{}{}
@@ -131,7 +136,7 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interfa
 
 	// Send ready if enough ((n + f + 1) / 2) echos, or if enough readys
 	if len(b.echo[id]) >= int(math.Ceil((float64(b.cfg.N)+float64(b.cfg.F)+1)/2)) || len(b.ready[id]) >= b.cfg.F+1 {
-		b.send(BrachaReady, uid, id, data)
+		b.send(BrachaReady, uid, id, m)
 
 		if !b.hasDelivered(id) {
 			b.ready[id][b.cfg.Id] = struct{}{}
@@ -152,7 +157,7 @@ func (b *Bracha) Receive(messageType uint8, src uint64, uid uint32, data interfa
 	}
 }
 
-func (b *Bracha) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
+func (b *Bracha) Broadcast(uid uint32, payload Size, _ BroadcastInfo) {
 	id := brachaIdentifier{
 		Src:        b.cfg.Id,
 		Id:         b.cnt,

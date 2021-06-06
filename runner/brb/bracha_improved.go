@@ -69,7 +69,7 @@ func (b *BrachaImproved) Init(n Network, app Application, cfg Config) {
 	}
 }
 
-func (b *BrachaImproved) send(messageType uint8, uid uint32, id brachaIdentifier, data interface{}, to []uint64) {
+func (b *BrachaImproved) send(messageType uint8, uid uint32, id brachaIdentifier, data Size, to []uint64) {
 	// Only send one echo per message, and only if included
 	if _, ok := b.echoSent[id]; messageType == BrachaEcho && (ok || !b.participatingEcho[id]) {
 		return
@@ -102,7 +102,7 @@ func (b *BrachaImproved) hasDelivered(id brachaIdentifier) bool {
 	return ok
 }
 
-func (b *BrachaImproved) Receive(messageType uint8, src uint64, uid uint32, data interface{}) {
+func (b *BrachaImproved) Receive(messageType uint8, src uint64, uid uint32, data Size) {
 	if b.cfg.Byz {
 		// TODO: better byzantine behaviour?
 		return
@@ -187,7 +187,7 @@ func (b *BrachaImproved) Receive(messageType uint8, src uint64, uid uint32, data
 	}
 }
 
-func (b *BrachaImproved) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
+func (b *BrachaImproved) Broadcast(uid uint32, payload Size, _ BroadcastInfo) {
 	id := brachaIdentifier{
 		Src:        b.cfg.Id,
 		Id:         b.cnt,

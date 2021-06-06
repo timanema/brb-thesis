@@ -1,10 +1,21 @@
 package brb
 
+import "reflect"
+
 type BrachaDolevWrapperMsg struct {
 	Msgs            []BrachaDolevMessage
 	OriginalSrc     uint64
 	OriginalId      uint32
-	OriginalPayload interface{}
+	OriginalPayload Size
+}
+
+func (b BrachaDolevWrapperMsg) SizeOf() uintptr {
+	r := uintptr(0)
+	for _, msg := range b.Msgs {
+		r += msg.SizeOf()
+	}
+
+	return r + reflect.TypeOf(b.OriginalSrc).Size() + reflect.TypeOf(b.OriginalId).Size() + b.OriginalPayload.SizeOf()
 }
 
 // Unpack creates all DolevKnownImprovedMessage instances from the current BrachaDolevWrapper
@@ -60,7 +71,16 @@ func Pack(original []DolevKnownImprovedMessage) BrachaDolevWrapperMsg {
 
 type DolevWrapperMessage struct {
 	Msgs    []DolevKnownImprovedMessage
-	Payload interface{}
+	Payload Size
+}
+
+func (d DolevWrapperMessage) SizeOf() uintptr {
+	r := uintptr(0)
+	for _, msg := range d.Msgs {
+		r += msg.SizeOf()
+	}
+
+	return r + d.Payload.SizeOf()
 }
 
 func (d DolevWrapperMessage) Unpack() []DolevKnownImprovedMessage {

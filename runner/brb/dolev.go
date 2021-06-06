@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"gonum.org/v1/gonum/graph/simple"
+	"reflect"
 	"rp-runner/graphs"
 )
 
@@ -11,7 +12,11 @@ type DolevMessage struct {
 	Src     uint64
 	Id      uint32
 	Path    graphs.Path
-	Payload interface{}
+	Payload Size
+}
+
+func (d DolevMessage) SizeOf() uintptr {
+	return reflect.TypeOf(d.Src).Size() + reflect.TypeOf(d.Id).Size() + d.Payload.SizeOf() + d.Path.SizeOf()
 }
 
 type dolevIdentifier struct {
@@ -55,7 +60,7 @@ func (d *Dolev) send(uid uint32, m DolevMessage, to []uint64) {
 	}
 }
 
-func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
+func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data Size) {
 	if d.cfg.Byz {
 		// TODO: better byzantine behaviour?
 		return
@@ -106,7 +111,7 @@ func (d *Dolev) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
 	d.send(uid, m, to)
 }
 
-func (d *Dolev) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
+func (d *Dolev) Broadcast(uid uint32, payload Size, _ BroadcastInfo) {
 	id := dolevIdentifier{
 		Src:        d.cfg.Id,
 		Id:         d.cnt,

@@ -130,7 +130,7 @@ func RunnerMain() {
 	_, name := gen.Cache()
 
 	m := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
-	if err := runMultipleMessagesTest(info, 5, n, k, fx, deg, messages, m, cfg, opts, &brb.BrachaDolevKnown{}); err != nil {
+	if err := runMultipleMessagesTest(info, 5, n, k, fx, deg, messages, m, cfg, opts, &brb.BrachaDolevKnownImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
@@ -157,6 +157,12 @@ func pickRandom(i int, max int) []uint64 {
 	}
 
 	return res
+}
+
+type bytePayload []byte
+
+func (b bytePayload) SizeOf() uintptr {
+	return uintptr(len(b))
 }
 
 func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, gen graphs.Generator, cfg process.Config, opt brb.OptimizationConfig, bp brb.Protocol) error {
@@ -190,6 +196,7 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 	lats := make([]int, 0, runs)
 	cnts := make([]int, 0, runs)
 	bdMergeds := make([]int, 0, runs)
+	transmits := make([]int, 0, runs)
 
 	for i := 0; i < runs; i++ {
 		fmt.Printf("---\nrun %v: waiting for all process to be alive\n", i)
@@ -206,7 +213,7 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 		for j := 0; j < m; j++ {
 			id := ra[i*m+j]
 
-			uid, err := ctl.TriggerMessageSend(id, []byte(fmt.Sprintf("run_%v", i)))
+			uid, err := ctl.TriggerMessageSend(id, bytePayload(fmt.Sprintf("run_%v", i)))
 			if err != nil {
 				fmt.Printf("err while sending payload msg: %v\n", err)
 				os.Exit(1)
@@ -224,6 +231,7 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 		roundMinRelayCnt := math.MaxInt64
 		roundMaxRelayCnt := 0
 		roundMeanRelayCnt := 0.0
+		roundTransmitted := 0
 		for _, uid := range uids {
 			stats := ctl.WaitForDeliver(uid)
 
@@ -243,23 +251,26 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 			roundRelayCnt += stats.RelayCnt
 			roundMeanRelayCnt += stats.MeanRelayCount
 			roundBDMerged += stats.BDMessagedMerged
+			roundTransmitted += stats.BytesTransmitted
 		}
 
 		roundMeanRelayCnt /= float64(m)
 
 		fmt.Printf("statistics (%v):\n  last delivery latency: %v\n  messages sent: %v (~%v per broadcast)"+
-			"\n  recv: %.2f (%v - %v - %v)\n  bd merged: %v\n", i,
-			roundLat, roundMsg, roundMsg/m, roundMeanRelayCnt, roundRelayCnt, roundMinRelayCnt, roundMaxRelayCnt, roundBDMerged)
+			"\n  recv: %.2f (%v - %v - %v)\n  bd merged: %v\n  bytes transmitted: %v (~%v per broadcast)\n", i,
+			roundLat, roundMsg, roundMsg/m, roundMeanRelayCnt, roundRelayCnt, roundMinRelayCnt, roundMaxRelayCnt,
+			roundBDMerged, roundTransmitted, roundTransmitted/m)
 
 		lats = append(lats, int(roundLat))
-		cnts = append(cnts, roundMsg)
-		bdMergeds = append(bdMergeds, roundBDMerged)
+		cnts = append(cnts, roundMsg/m)
+		bdMergeds = append(bdMergeds, roundBDMerged/m)
+		transmits = append(transmits, roundTransmitted/m)
 
 		ctl.FlushProcesses()
 		runtime.GC()
 	}
 
-	fmt.Println("average stats:")
+	fmt.Println("==========\naverage stats:")
 	lMean, lSd := sd(lats)
 	lRsd := lSd * 100 / lMean
 	fmt.Printf("  latency:\n    mean: %v\n    sd: %v (%.2f%%)\n", time.Duration(lMean), time.Duration(lSd), lRsd)
@@ -272,6 +283,11 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 	bdmMean, bdmSd := sd(bdMergeds)
 	bdmRsd := bdmSd * 100 / bdmMean
 	fmt.Printf("  bd merged:\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", bdmMean, bdmSd, bdmRsd)
+
+	tMean, tSd := sd(transmits)
+	tRsd := tSd * 100 / tMean
+	fmt.Printf("  transmits:\n    mean: %.2f (~%.2f per broadcast)\n    sd: %.2f (%.2f%%)\n", tMean,
+		tMean/float64(m), tSd, tRsd)
 
 	fmt.Println("config:")
 	fmt.Printf("  nodes: %v\n  connectivity (k): %v\n  byzantine nodes (f): %v"+

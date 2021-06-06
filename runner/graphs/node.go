@@ -3,6 +3,7 @@ package graphs
 import (
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
+	"unsafe"
 )
 
 type Node struct {
@@ -44,3 +45,12 @@ func NewNodeSplit(name string, original graph.Node, in bool, n int64) graph.Node
 }
 
 type Path []graph.WeightedEdge
+
+func (p Path) SizeOf() uintptr {
+	if len(p) == 0 {
+		return 0
+	}
+
+	y := unsafe.Sizeof(p[0].(simple.WeightedEdge))
+	return uintptr(len(p)) * y
+}

@@ -8,4 +8,5 @@ type Stats struct {
 	RelayCnt, MinRelayCnt, MaxRelayCnt int
 	MeanRelayCount                     float64
 	BDMessagedMerged                   int
+	BytesTransmitted                   int
 }

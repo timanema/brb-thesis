@@ -60,7 +60,7 @@ func (d *DolevImproved) deliver(uid uint32, id dolevIdentifier, m DolevMessage) 
 	}
 }
 
-func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
+func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data Size) {
 	if d.cfg.Byz {
 		// TODO: better byzantine behaviour?
 		return
@@ -125,18 +125,6 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data interface{
 	}
 
 	if d.cfg.Id == m.Src {
-		var ra []dolevIdentifier
-		var arw dolevIdentifier
-		for i := range d.delivered {
-			if i.Src == d.cfg.Id {
-				ra = append(ra, i)
-
-				if i.Id == m.Id {
-					arw = i
-				}
-			}
-		}
-		fmt.Println(arw)
 		panic("received message from self, should have been delivered already")
 	}
 	if uint64(m.Path[len(m.Path)-1].To().ID()) != d.cfg.Id {
@@ -172,7 +160,7 @@ func (d *DolevImproved) Receive(_ uint8, src uint64, uid uint32, data interface{
 	d.send(uid, m, to)
 }
 
-func (d *DolevImproved) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
+func (d *DolevImproved) Broadcast(uid uint32, payload Size, _ BroadcastInfo) {
 	id := dolevIdentifier{
 		Src:        d.cfg.Id,
 		Id:         d.cnt,

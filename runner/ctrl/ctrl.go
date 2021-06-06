@@ -159,7 +159,7 @@ func (c *Controller) StartProcesses(cfg process.Config, opt brb.OptimizationConf
 	return nil
 }
 
-func (c *Controller) TriggerMessageSend(id uint64, payload interface{}) (uint32, error) {
+func (c *Controller) TriggerMessageSend(id uint64, payload brb.Size) (uint32, error) {
 	uid := rand.Uint32()
 
 	m := msg.TriggerMessage{Id: uid, Payload: payload}
@@ -264,6 +264,7 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 	recv := 0
 	bdMerged := 0
 	minRecv, maxRecv := -1, -1
+	transmitted := 0
 
 	for _, p := range c.p {
 		s := p.p.Stats()
@@ -280,6 +281,7 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 		bdMerged += s.BDMerged[uid]
 		recv += rec
 		cnt += s.MsgSent[uid]
+		transmitted += int(s.BytesTransmitted[uid])
 
 		if rec > maxRecv {
 			maxRecv = rec
@@ -296,6 +298,7 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 		MinRelayCnt:      minRecv,
 		MaxRelayCnt:      maxRecv,
 		BDMessagedMerged: bdMerged,
+		BytesTransmitted: transmitted,
 	}
 }
 

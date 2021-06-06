@@ -2,11 +2,16 @@ package brb
 
 import (
 	"fmt"
+	"reflect"
 )
 
 type brachaWrapper struct {
 	messageType uint8
-	msg         interface{}
+	msg         Size
+}
+
+func (b brachaWrapper) SizeOf() uintptr {
+	return reflect.TypeOf(b.messageType).Size() + b.msg.SizeOf()
 }
 
 type BrachaDolev struct {
@@ -64,7 +69,7 @@ func (bd *BrachaDolev) Init(n Network, app Application, cfg Config) {
 	cfg.Silent = sil
 }
 
-func (bd *BrachaDolev) Send(messageType uint8, _ uint64, uid uint32, data interface{}, bc BroadcastInfo) {
+func (bd *BrachaDolev) Send(messageType uint8, _ uint64, uid uint32, data Size, bc BroadcastInfo) {
 	if _, ok := bd.brachaBroadcast[bc.Id]; !ok {
 		// Bracha is sending a message through Dolev
 		bd.d.Broadcast(uid, brachaWrapper{
@@ -78,7 +83,7 @@ func (bd *BrachaDolev) Send(messageType uint8, _ uint64, uid uint32, data interf
 	}
 }
 
-func (bd *BrachaDolev) Deliver(uid uint32, payload interface{}, src uint64) {
+func (bd *BrachaDolev) Deliver(uid uint32, payload Size, src uint64) {
 	if src == bd.cfg.Id {
 		return
 	}
@@ -89,12 +94,12 @@ func (bd *BrachaDolev) Deliver(uid uint32, payload interface{}, src uint64) {
 	//fmt.Printf("proc %v has Dolev delivered %v (%v from %v) through dolev with type %v\n", bd.cfg.Id, m.msg, reflect.TypeOf(m.msg).Name(), src, m.messageType)
 }
 
-func (bd *BrachaDolev) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
+func (bd *BrachaDolev) Receive(_ uint8, src uint64, uid uint32, data Size) {
 	// Network is delivering a messages, pass to Dolev
 	bd.d.Receive(0, src, uid, data)
 }
 
-func (bd *BrachaDolev) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
+func (bd *BrachaDolev) Broadcast(uid uint32, payload Size, _ BroadcastInfo) {
 	// Application is requesting a broadcast, pass to Bracha
 	bd.b.Broadcast(uid, payload, BroadcastInfo{})
 }

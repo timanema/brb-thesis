@@ -279,7 +279,7 @@ func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, m DolevKnownImprove
 	}
 }
 
-func (d *DolevKnownImprovedBD) sendInitialMessage(uid uint32, payload interface{}, partial bool, origin uint64) error {
+func (d *DolevKnownImprovedBD) sendInitialMessage(uid uint32, payload Size, partial bool, origin uint64) error {
 	m := DolevKnownImprovedMessage{
 		Src:     d.cfg.Id,
 		Id:      d.cnt,
@@ -318,7 +318,7 @@ func (d *DolevKnownImprovedBD) hasDelivered(id dolevIdentifier) bool {
 	return ok
 }
 
-func (d *DolevKnownImprovedBD) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
+func (d *DolevKnownImprovedBD) Receive(_ uint8, src uint64, uid uint32, data Size) {
 	if d.cfg.Byz {
 		// TODO: better byzantine behaviour?
 		return
@@ -397,7 +397,7 @@ func (d *DolevKnownImprovedBD) Receive(_ uint8, src uint64, uid uint32, data int
 	}
 }
 
-func (d *DolevKnownImprovedBD) Broadcast(uid uint32, payload interface{}, bc BroadcastInfo) {
+func (d *DolevKnownImprovedBD) Broadcast(uid uint32, payload Size, bc BroadcastInfo) {
 	id := dolevIdentifier{
 		Src:        d.cfg.Id,
 		Id:         d.cnt,

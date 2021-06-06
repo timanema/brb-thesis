@@ -2,6 +2,7 @@ package brb
 
 import (
 	"fmt"
+	"reflect"
 	"rp-runner/brb/algo"
 	"rp-runner/graphs"
 )
@@ -15,6 +16,10 @@ type BrachaDolevMessage struct {
 	Id    uint32
 	Type  uint8
 	Paths []algo.DolevPath
+}
+
+func (b BrachaDolevMessage) SizeOf() uintptr {
+	return reflect.TypeOf(b.Src).Size() + reflect.TypeOf(b.Id).Size() + reflect.TypeOf(b.Type).Size() + algo.SizeOfMultiplePaths(b.Paths)
 }
 
 // BrachaDolevKnown can be used to compare naive routing to improved routing
@@ -34,19 +39,19 @@ func (bd *BrachaDolevKnown) Init(n Network, app Application, cfg Config) {
 	bd.wr.Init(n, app, cfg)
 }
 
-func (bd *BrachaDolevKnown) Send(messageType uint8, dest uint64, uid uint32, data interface{}, bc BroadcastInfo) {
+func (bd *BrachaDolevKnown) Send(messageType uint8, dest uint64, uid uint32, data Size, bc BroadcastInfo) {
 	bd.wr.Send(messageType, dest, uid, data, bc)
 }
 
-func (bd *BrachaDolevKnown) Deliver(uid uint32, payload interface{}, src uint64) {
+func (bd *BrachaDolevKnown) Deliver(uid uint32, payload Size, src uint64) {
 	bd.wr.Deliver(uid, payload, src)
 }
 
-func (bd *BrachaDolevKnown) Receive(messageType uint8, src uint64, uid uint32, data interface{}) {
+func (bd *BrachaDolevKnown) Receive(messageType uint8, src uint64, uid uint32, data Size) {
 	bd.wr.Receive(messageType, src, uid, data)
 }
 
-func (bd *BrachaDolevKnown) Broadcast(uid uint32, payload interface{}, bc BroadcastInfo) {
+func (bd *BrachaDolevKnown) Broadcast(uid uint32, payload Size, bc BroadcastInfo) {
 	bd.wr.Broadcast(uid, payload, bc)
 }
 
@@ -75,19 +80,19 @@ func (bd *BrachaDolevKnownImproved) Init(n Network, app Application, cfg Config)
 	bd.wr.Init(n, app, cfg)
 }
 
-func (bd *BrachaDolevKnownImproved) Send(messageType uint8, dest uint64, uid uint32, data interface{}, bc BroadcastInfo) {
+func (bd *BrachaDolevKnownImproved) Send(messageType uint8, dest uint64, uid uint32, data Size, bc BroadcastInfo) {
 	bd.wr.Send(messageType, dest, uid, data, bc)
 }
 
-func (bd *BrachaDolevKnownImproved) Deliver(uid uint32, payload interface{}, src uint64) {
+func (bd *BrachaDolevKnownImproved) Deliver(uid uint32, payload Size, src uint64) {
 	bd.wr.Deliver(uid, payload, src)
 }
 
-func (bd *BrachaDolevKnownImproved) Receive(messageType uint8, src uint64, uid uint32, data interface{}) {
+func (bd *BrachaDolevKnownImproved) Receive(messageType uint8, src uint64, uid uint32, data Size) {
 	bd.wr.Receive(messageType, src, uid, data)
 }
 
-func (bd *BrachaDolevKnownImproved) Broadcast(uid uint32, payload interface{}, bc BroadcastInfo) {
+func (bd *BrachaDolevKnownImproved) Broadcast(uid uint32, payload Size, bc BroadcastInfo) {
 	bd.wr.Broadcast(uid, payload, bc)
 }
 
@@ -152,7 +157,7 @@ func (bd *brachaDolevKnownWrapper) Init(n Network, app Application, cfg Config) 
 	cfg.Silent = sil
 }
 
-func (bd *brachaDolevKnownWrapper) Send(messageType uint8, dest uint64, uid uint32, data interface{}, bc BroadcastInfo) {
+func (bd *brachaDolevKnownWrapper) Send(messageType uint8, dest uint64, uid uint32, data Size, bc BroadcastInfo) {
 	if _, ok := bd.brachaBroadcast[bc.Id]; !ok {
 		// A message is broadcast only once to all
 		bd.brachaBroadcast[bc.Id] = struct{}{}
@@ -178,7 +183,7 @@ func (bd *brachaDolevKnownWrapper) Send(messageType uint8, dest uint64, uid uint
 	}
 }
 
-func (bd *brachaDolevKnownWrapper) Deliver(uid uint32, payload interface{}, src uint64) {
+func (bd *brachaDolevKnownWrapper) Deliver(uid uint32, payload Size, src uint64) {
 	// Dolev is delivering a message, so send it to Bracha
 	m := payload.(brachaWrapper)
 
@@ -197,12 +202,12 @@ func (bd *brachaDolevKnownWrapper) Deliver(uid uint32, payload interface{}, src 
 	bd.bracha.Receive(m.messageType, src, uid, m.msg)
 }
 
-func (bd *brachaDolevKnownWrapper) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
+func (bd *brachaDolevKnownWrapper) Receive(_ uint8, src uint64, uid uint32, data Size) {
 	// Network is delivering a messages, pass to Dolev
 	bd.dolev.Receive(0, src, uid, data)
 }
 
-func (bd *brachaDolevKnownWrapper) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
+func (bd *brachaDolevKnownWrapper) Broadcast(uid uint32, payload Size, _ BroadcastInfo) {
 	// Application is requesting a broadcast, pass to Bracha
 	bd.bracha.Broadcast(uid, payload, BroadcastInfo{})
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gonum.org/v1/gonum/graph/simple"
 	"os"
+	"reflect"
 	"rp-runner/brb/algo"
 	"rp-runner/graphs"
 	"strconv"
@@ -12,8 +13,12 @@ import (
 type DolevKnownImprovedMessage struct {
 	Src     uint64
 	Id      uint32
-	Payload interface{}
+	Payload Size
 	Paths   []algo.DolevPath
+}
+
+func (d DolevKnownImprovedMessage) SizeOf() uintptr {
+	return reflect.TypeOf(d.Src).Size() + reflect.TypeOf(d.Id).Size() + d.Payload.SizeOf() + algo.SizeOfMultiplePaths(d.Paths)
 }
 
 // Dolev with routing and additional optimizations for RP Tim Anema
@@ -120,7 +125,7 @@ func (d *DolevKnownImproved) sendMergedMessage(uid uint32, id dolevIdentifier, m
 	return nil
 }
 
-func (d *DolevKnownImproved) sendInitialMessage(uid uint32, payload interface{}, partial bool, origin uint64) error {
+func (d *DolevKnownImproved) sendInitialMessage(uid uint32, payload Size, partial bool, origin uint64) error {
 	m := DolevKnownImprovedMessage{
 		Src:     d.cfg.Id,
 		Id:      d.cnt,
@@ -151,7 +156,7 @@ func (d *DolevKnownImproved) hasDelivered(id dolevIdentifier) bool {
 	return ok
 }
 
-func (d *DolevKnownImproved) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
+func (d *DolevKnownImproved) Receive(_ uint8, src uint64, uid uint32, data Size) {
 	if d.cfg.Byz {
 		// TODO: better byzantine behaviour?
 		return
@@ -202,7 +207,7 @@ func (d *DolevKnownImproved) Receive(_ uint8, src uint64, uid uint32, data inter
 	}
 }
 
-func (d *DolevKnownImproved) Broadcast(uid uint32, payload interface{}, bc BroadcastInfo) {
+func (d *DolevKnownImproved) Broadcast(uid uint32, payload Size, bc BroadcastInfo) {
 	id := dolevIdentifier{
 		Src:        d.cfg.Id,
 		Id:         d.cnt,

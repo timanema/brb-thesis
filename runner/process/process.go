@@ -18,10 +18,11 @@ type Config struct {
 }
 
 type Stats struct {
-	Deliveries map[uint32]time.Time
-	MsgSent    map[uint32]int
-	Relayed    map[uint32]int
-	BDMerged   map[uint32]int
+	Deliveries       map[uint32]time.Time
+	MsgSent          map[uint32]int
+	Relayed          map[uint32]int
+	BDMerged         map[uint32]int
+	BytesTransmitted map[uint32]uintptr
 }
 
 type Process struct {
@@ -47,7 +48,13 @@ func StartProcess(id uint64, cfg Config, stopCh <-chan struct{}, neighbours []ui
 		nmap[n] = false
 	}
 
-	stats := Stats{Deliveries: make(map[uint32]time.Time), MsgSent: make(map[uint32]int), Relayed: make(map[uint32]int), BDMerged: make(map[uint32]int)}
+	stats := Stats{
+		Deliveries:       make(map[uint32]time.Time),
+		MsgSent:          make(map[uint32]int),
+		Relayed:          make(map[uint32]int),
+		BDMerged:         make(map[uint32]int),
+		BytesTransmitted: make(map[uint32]uintptr),
+	}
 	p := &Process{ctl: ctl, flushing: atomic.NewBool(false), Id: id, cfg: cfg, stopCh: stopCh, stats: stats, brb: brb, neighbours: nmap}
 
 	return p, nil
@@ -217,12 +224,13 @@ func (p *Process) handleMsg(src uint64, t uint8, b interface{}, ctrl bool) {
 		p.stats.MsgSent[r.Id] = 0
 		p.stats.Relayed[r.Id] = 0
 		p.stats.BDMerged[r.Id] = 0
+		p.stats.BytesTransmitted[r.Id] = 0
 		p.brb.Broadcast(r.Id, r.Payload, brb.BroadcastInfo{})
 	}
 }
 
 // Adding abstraction for BRB protocols
-func (p *Process) Deliver(uid uint32, payload interface{}, _ uint64) {
+func (p *Process) Deliver(uid uint32, payload brb.Size, _ uint64) {
 	//fmt.Printf("process %v got delivered (%v): %v\n", p.Id, uid, payload)
 
 	m := msg.MessageDelivered{
@@ -241,7 +249,7 @@ func (p *Process) Deliver(uid uint32, payload interface{}, _ uint64) {
 	p.sLock.Unlock()
 }
 
-func (p *Process) Send(messageType uint8, dest uint64, uid uint32, data interface{}, _ brb.BroadcastInfo) {
+func (p *Process) Send(messageType uint8, dest uint64, uid uint32, data brb.Size, _ brb.BroadcastInfo) {
 	//fmt.Printf("process %v is sending %+v (type=%v, Id=%v) to %v\n", p.Id, data, messageType, uid, dest)
 
 	m := msg.WrapperDataMessage{
@@ -258,6 +266,7 @@ func (p *Process) Send(messageType uint8, dest uint64, uid uint32, data interfac
 
 	p.sLock.Lock()
 	p.stats.MsgSent[uid] += 1
+	p.stats.BytesTransmitted[uid] += data.SizeOf()
 	p.sLock.Unlock()
 }
 

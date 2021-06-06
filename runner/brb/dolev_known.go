@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gonum.org/v1/gonum/graph/simple"
 	"os"
+	"reflect"
 	"rp-runner/brb/algo"
 	"rp-runner/graphs"
 	"strconv"
@@ -12,8 +13,12 @@ import (
 type DolevKnownMessage struct {
 	Src     uint64
 	Id      uint32
-	Payload interface{}
-	Paths   algo.DolevPath
+	Payload Size
+	Path    algo.DolevPath
+}
+
+func (d DolevKnownMessage) SizeOf() uintptr {
+	return reflect.TypeOf(d.Src).Size() + reflect.TypeOf(d.Id).Size() + d.Payload.SizeOf() + d.Path.SizeOf()
 }
 
 // Dolev with routing for RP Tim Anema
@@ -58,17 +63,17 @@ func (d *DolevKnown) Init(n Network, app Application, cfg Config) {
 }
 
 func (d *DolevKnown) sendMessage(uid uint32, m DolevKnownMessage) {
-	if cur := len(m.Paths.Actual); len(m.Paths.Desired) > cur {
-		path := make(graphs.Path, len(m.Paths.Actual))
-		copy(path, m.Paths.Actual)
-		m.Paths.Actual = path
+	if cur := len(m.Path.Actual); len(m.Path.Desired) > cur {
+		path := make(graphs.Path, len(m.Path.Actual))
+		copy(path, m.Path.Actual)
+		m.Path.Actual = path
 
 		d.n.TriggerStat(uid, StartRelay)
-		d.n.Send(0, uint64(m.Paths.Desired[cur].To().ID()), uid, m, BroadcastInfo{})
+		d.n.Send(0, uint64(m.Path.Desired[cur].To().ID()), uid, m, BroadcastInfo{})
 	}
 }
 
-func (d *DolevKnown) sendInitialMessage(uid uint32, payload interface{}) error {
+func (d *DolevKnown) sendInitialMessage(uid uint32, payload Size) error {
 	m := DolevKnownMessage{
 		Src:     d.cfg.Id,
 		Payload: payload,
@@ -76,7 +81,7 @@ func (d *DolevKnown) sendInitialMessage(uid uint32, payload interface{}) error {
 
 	for dst, paths := range d.broadcast {
 		for _, p := range paths {
-			m.Paths = algo.DolevPath{
+			m.Path = algo.DolevPath{
 				Desired: p.P,
 				Prio:    p.Prio,
 			}
@@ -93,7 +98,7 @@ func (d *DolevKnown) hasDelivered(id dolevIdentifier) bool {
 	return ok
 }
 
-func (d *DolevKnown) Receive(_ uint8, src uint64, uid uint32, data interface{}) {
+func (d *DolevKnown) Receive(_ uint8, src uint64, uid uint32, data Size) {
 	if d.cfg.Byz {
 		// TODO: better byzantine behaviour?
 		return
@@ -110,13 +115,13 @@ func (d *DolevKnown) Receive(_ uint8, src uint64, uid uint32, data interface{}) 
 	}
 
 	// Add latest edge to path for message
-	m.Paths.Actual = append(m.Paths.Actual, simple.WeightedEdge{
+	m.Path.Actual = append(m.Path.Actual, simple.WeightedEdge{
 		F: simple.Node(src),
 		T: simple.Node(d.cfg.Id),
 	})
 
 	if !d.hasDelivered(id) {
-		d.paths[id] = append(d.paths[id], m.Paths.Actual)
+		d.paths[id] = append(d.paths[id], m.Path.Actual)
 	}
 
 	// Send to next hops
@@ -133,7 +138,7 @@ func (d *DolevKnown) Receive(_ uint8, src uint64, uid uint32, data interface{}) 
 	}
 }
 
-func (d *DolevKnown) Broadcast(uid uint32, payload interface{}, _ BroadcastInfo) {
+func (d *DolevKnown) Broadcast(uid uint32, payload Size, _ BroadcastInfo) {
 	id := dolevIdentifier{
 		Src:        d.cfg.Id,
 		Id:         d.cnt,
