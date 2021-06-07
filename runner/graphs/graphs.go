@@ -529,8 +529,15 @@ func DisjointEdges(g *simple.WeightedDirectedGraph, split *SplitGraph, s, t grap
 				res = append(res, split.g.NewWeightedEdge(e.From().(Node).original, e.To().(Node).original, e.Weight()))
 			}
 
+			// TODO: check if this is allowed, fixes issues at least
+
 			// Update adj map
-			edges[e.To().ID()][e.From().ID()] = g.NewWeightedEdge(e.To(), e.From(), e.Weight()*-1)
+			if e.Weight() < 0 {
+				edges[e.To().ID()][e.From().ID()] = nil
+			} else {
+				edges[e.To().ID()][e.From().ID()] = g.NewWeightedEdge(e.To(), e.From(), e.Weight()*-1)
+			}
+
 			edges[e.From().ID()][e.To().ID()] = nil
 		}
 	}
@@ -592,10 +599,16 @@ func BuildPaths(edges []graph.WeightedEdge, s, t graph.Node, k int) []Path {
 	res := make([]Path, 0, k)
 	next := make(map[int64]graph.WeightedEdge)
 
+	cnt := 0
+
 	for _, e := range edges {
 		// Exclude sink
 		if e.From().ID() == t.ID() {
 			continue
+		}
+
+		if e.From().ID() == s.ID() {
+			cnt += 1
 		}
 
 		next[e.From().ID()] = e

@@ -52,8 +52,9 @@ When a message traverses the network, processes leverage the authenticated links
 The former is at play when processes relay messages to their neighbours; a message is forwarded to all neighbours, except to the transmitter and processes which are already present in the path. This is required in order to avoid messages circulating through the network indefinitely.
 The paths are also used for verification; a message is delivered whenever it has been received over $f+1$ disjoint paths.
 
-The basis for the correctness for Dolev's protocol lies in Menger's theorem~\citationneeded which shows there exist $2f+1$ disjoint paths if a network is $2f+1$-connected, and the fact that at most $f$ of those paths can contain one or more Byzantine processes. This follows from the fact that a single process can only be in a single path, otherwise said path would not be disjoint, so the worst case is that all $f$ Byzantine processes are spread over all the $2f+1$ disjoint paths, which leaves $f+1$ paths not containing a Byzantine process.
+The basis for the correctness for Dolev's protocol lies in Menger's theorem~\cite{menger} which shows there exist $2f+1$ disjoint paths if a network is $2f+1$-connected, and the fact that at most $f$ of those paths can contain one or more Byzantine processes. This follows from the fact that a single process can only be in a single path, otherwise said path would not be disjoint, so the worst case is that all $f$ Byzantine processes are spread over all the $2f+1$ disjoint paths, which leaves $f+1$ paths not containing a Byzantine process.
 
+There are multiple ways to implement the verification, but the problem is often reduced to a max flow problem or a minimum vertex cut problem. We will elaborate on the first option. In this case paths are modeled as a flow network where every edge has a capacity of one. The maximum flow through the network from source $p_j$ to sink $p_i$ is then equal to the amount of disjoint paths. The max flow can be found with the Ford-Fulkerson algorithm~\cite{ford_fulkerson} for example.
 Pseudocode for Dolev's protocol is provided in Algorithm~\ref{background:dolev}.
 
 \begin{algorithm}

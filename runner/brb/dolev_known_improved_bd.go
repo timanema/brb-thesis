@@ -221,6 +221,8 @@ func (d *DolevKnownImprovedBD) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrap
 				OriginalId:      bdm.OriginalId,
 				OriginalPayload: bdm.OriginalPayload,
 			},
+
+			// TODO: Is this paths even needed?
 			Paths: paths[dst],
 		}
 	}
@@ -238,6 +240,7 @@ func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, m DolevKnownImprove
 	del := d.hasDelivered(id)
 
 	paths := make([]algo.DolevPath, 0, len(m.Paths))
+	bufferCnt := make(map[uint64]int)
 
 	// If delivered, relay all messages, including ones in the buffer
 	if del || !d.cfg.OptimizationConfig.DolevRelayMerging {
@@ -245,6 +248,14 @@ func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, m DolevKnownImprove
 
 		if buf, ok := d.buffer[id]; ok {
 			paths = append(paths, buf...)
+
+			// For statistics purposes
+			for _, p := range buf {
+				if cur := len(p.Actual); len(p.Desired) > cur {
+					next := uint64(p.Desired[cur].To().ID())
+					bufferCnt[next] += 1
+				}
+			}
 		}
 
 		// Clear buffer
@@ -274,6 +285,13 @@ func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, m DolevKnownImprove
 	}
 
 	for dst, p := range next {
+		// For statistics purposes, check if the buffer items were actually merged
+		if len(p) > bufferCnt[dst] {
+			for i := 0; i < bufferCnt[dst]; i++ {
+				d.n.TriggerStat(uid, DolevPathMerge)
+			}
+		}
+
 		m.Paths = p
 		d.n.Send(0, dst, uid, m, BroadcastInfo{})
 	}

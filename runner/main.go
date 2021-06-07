@@ -111,8 +111,8 @@ func RunnerMain() {
 	// Optimizations
 	opts := brb.OptimizationConfig{
 		DolevFilterSubpaths:         true,
-		DolevSingleHopNeighbour:     true,
-		DolevCombineNextHops:        true,
+		DolevSingleHopNeighbour:     true, // orbd.2
+		DolevCombineNextHops:        true, // orbd.2
 		DolevReusePaths:             true,
 		DolevRelayMerging:           true,
 		DolevPayloadMerging:         true,
@@ -123,20 +123,36 @@ func RunnerMain() {
 		BrachaDolevMerge:            true,
 	}
 
-	n, k, fx := 150, 50, 24
-	messages := 1
-	deg := k
-	gen := graphs.RandomRegularGenerator{}
-	_, name := gen.Cache()
+	//n, k, fx := 75,20,9
+	//messages := 1
+	//deg := k
+	payloadSize := 12
+	//gen := graphs.RandomRegularGenerator{}
+	//_, name := gen.Cache()
 
-	m := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
-	if err := runMultipleMessagesTest(info, 1, n, k, fx, deg, messages, m, cfg, opts, &brb.DolevKnownImproved{}); err != nil {
-		fmt.Printf("err while running simple test: %v\n", err)
-		os.Exit(1)
-	}
+	//cache := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
+	//if err := runMultipleMessagesTest(info, 5, n, k, fx, deg, messages, payloadSize, cache, cfg, opts, &brb.BrachaDolevKnownImproved{}); err != nil {
+	//	fmt.Printf("err while running simple test: %v\n", err)
+	//	os.Exit(1)
+	//}
+
+	brachaFullTests(opts, info, cfg, payloadSize)
 
 	fmt.Println("done")
 	fmt.Println("server stop")
+}
+
+func generatePayload(size, run int) bytePayload {
+	if size <= 1 {
+		return bytePayload(fmt.Sprintf("%v", run))
+	}
+
+	payload := ""
+	for i := 2; i < size; i++ {
+		payload += "X"
+	}
+
+	return bytePayload(fmt.Sprintf("%v_%v", payload, run))
 }
 
 func pickRandom(i int, max int) []uint64 {
@@ -165,7 +181,7 @@ func (b bytePayload) SizeOf() uintptr {
 	return uintptr(len(b))
 }
 
-func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, gen graphs.Generator, cfg process.Config, opt brb.OptimizationConfig, bp brb.Protocol) error {
+func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, messages, payloadSize int, gen graphs.Generator, cfg process.Config, opt brb.OptimizationConfig, bp brb.Protocol) error {
 	if k < 2*f+1 && bp.Category() != brb.BrachaCat {
 		return errors.Errorf("network is not 2f+1 connected (k=%v, f=%v)", k, f)
 	}
@@ -174,7 +190,7 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 		return errors.Errorf("f >= n/3 (n=%v, f=%v)", n, f)
 	}
 
-	ra := pickRandom(runs*m, n-f)
+	ra := pickRandom(runs*messages, n-f)
 	g, err := gen.Generate(n, k, deg)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate graph for test")
@@ -209,11 +225,12 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 			return errors.Wrap(err, "err while waiting for ready")
 		}
 
-		uids := make([]uint32, 0, m)
-		for j := 0; j < m; j++ {
-			id := ra[i*m+j]
+		uids := make([]uint32, 0, messages)
+		payload := generatePayload(payloadSize, i)
+		for j := 0; j < messages; j++ {
+			id := ra[i*messages+j]
 
-			uid, err := ctl.TriggerMessageSend(id, bytePayload(fmt.Sprintf("run_%v", i)))
+			uid, err := ctl.TriggerMessageSend(id, payload)
 			if err != nil {
 				fmt.Printf("err while sending payload msg: %v\n", err)
 				os.Exit(1)
@@ -222,7 +239,8 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 			uids = append(uids, uid)
 		}
 
-		fmt.Printf("sent %v messages (%v, round %v, origins %v), waiting for delivers\n", m, uids, i, ra[i*m:i*m+m])
+		fmt.Printf("sent %v messages (%v, round %v, origins %v) of %v bytes, waiting for delivers\n", messages, uids,
+			i, ra[i*messages:i*messages+messages], payload.SizeOf())
 
 		roundLat := time.Duration(0)
 		roundMsg := 0
@@ -254,17 +272,17 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 			roundTransmitted += stats.BytesTransmitted
 		}
 
-		roundMeanRelayCnt /= float64(m)
+		roundMeanRelayCnt /= float64(messages)
 
 		fmt.Printf("statistics (%v):\n  last delivery latency: %v\n  messages sent: %v (~%v per broadcast)"+
 			"\n  recv: %.2f (%v - %v - %v)\n  bd merged: %v\n  bytes transmitted: %v (~%v per broadcast)\n", i,
-			roundLat, roundMsg, roundMsg/m, roundMeanRelayCnt, roundRelayCnt, roundMinRelayCnt, roundMaxRelayCnt,
-			roundBDMerged, roundTransmitted, roundTransmitted/m)
+			roundLat, roundMsg, roundMsg/messages, roundMeanRelayCnt, roundRelayCnt, roundMinRelayCnt, roundMaxRelayCnt,
+			roundBDMerged, roundTransmitted, roundTransmitted/messages)
 
 		lats = append(lats, int(roundLat))
-		cnts = append(cnts, roundMsg/m)
-		bdMergeds = append(bdMergeds, roundBDMerged/m)
-		transmits = append(transmits, roundTransmitted/m)
+		cnts = append(cnts, roundMsg/messages)
+		bdMergeds = append(bdMergeds, roundBDMerged/messages)
+		transmits = append(transmits, roundTransmitted/messages)
 
 		ctl.FlushProcesses()
 		runtime.GC()
@@ -278,7 +296,7 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 	mMean, mSd := sd(cnts)
 	mRsd := mSd * 100 / mMean
 	fmt.Printf("  messages:\n    mean: %.2f (~%.2f per broadcast)\n    sd: %.2f (%.2f%%)\n", mMean,
-		mMean/float64(m), mSd, mRsd)
+		mMean/float64(messages), mSd, mRsd)
 
 	bdmMean, bdmSd := sd(bdMergeds)
 	bdmRsd := bdmSd * 100 / bdmMean
@@ -287,11 +305,12 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, m int, ge
 	tMean, tSd := sd(transmits)
 	tRsd := tSd * 100 / tMean
 	fmt.Printf("  transmits:\n    mean: %.2f (~%.2f per broadcast)\n    sd: %.2f (%.2f%%)\n", tMean,
-		tMean/float64(m), tSd, tRsd)
+		tMean/float64(messages), tSd, tRsd)
 
 	fmt.Println("config:")
 	fmt.Printf("  nodes: %v\n  connectivity (k): %v\n  byzantine nodes (f): %v"+
-		"\n  runs: %v\n  protocol: %v\n", n, k, f, runs, reflect.TypeOf(bp).Elem().Name())
+		"\n  runs: %v\n  protocol: %v\n  payload size: %v bytes\n",
+		n, k, f, runs, reflect.TypeOf(bp).Elem().Name(), payloadSize)
 
 	ctl.FlushProcesses()
 	ctl.Close()

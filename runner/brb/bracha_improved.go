@@ -57,11 +57,19 @@ func (b *BrachaImproved) Init(n Network, app Application, cfg Config) {
 		}
 	}
 
-	if bd {
+	switch {
+	case bd:
 		b.inclusion = c.Included
-	} else {
+	case cfg.OptimizationConfig.BrachaMinimalSubset:
 		nodes, _ := graphs.Nodes(b.cfg.Graph)
 		b.inclusion = algo.FindBrachaInclusionTable(b.cfg.Graph, nodes, b.cfg.N, b.cfg.F)
+	default:
+		b.inclusion = make(algo.BrachaInclusionTable)
+		nodes, _ := graphs.Nodes(b.cfg.Graph)
+
+		for _, n := range nodes {
+			b.inclusion[n] = cfg.Neighbours
+		}
 	}
 
 	if !cfg.Silent && cfg.Byz {
@@ -139,6 +147,11 @@ func (b *BrachaImproved) Receive(messageType uint8, src uint64, uid uint32, data
 		if !found {
 			b.participatingEcho[id] = false
 			b.participatingReady[id] = false
+		}
+
+		if !b.cfg.OptimizationConfig.BrachaMinimalSubset {
+			b.participatingEcho[id] = true
+			b.participatingReady[id] = true
 		}
 	}
 
@@ -218,7 +231,6 @@ func (b *BrachaImproved) Broadcast(uid uint32, payload Size, _ BroadcastInfo) {
 		}
 
 		b.echoSent[id] = struct{}{}
-
 	}
 }
 

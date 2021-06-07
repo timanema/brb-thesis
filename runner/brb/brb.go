@@ -37,6 +37,7 @@ const (
 	StartRelay NetworkStat = iota
 	BrachaDolevMerge
 	DolevPayloadMerge
+	DolevPathMerge
 )
 
 type OptimizationConfig struct {

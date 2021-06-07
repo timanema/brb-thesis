@@ -84,7 +84,7 @@ func (c *Controller) FlushProcesses() {
 	}
 
 	// TODO: make better
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 3)
 
 	for _, p := range c.p {
 		p.p.StopFlush()

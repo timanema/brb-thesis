@@ -13,12 +13,12 @@
 
 \section{Dolev on known topologies}
 \label{contr-dolev}
-In this section we will describe the algorithms required to leverage the potential of topology knowledge, how Dolev can be modified to run on known topologies, and \textbf{XXX} novel modifications to the resulting protocol.
+In this section we will describe the algorithms required to leverage the potential of topology knowledge, how Dolev can be modified to run on known topologies, and \textbf{7} novel modifications to the resulting protocol.
 
 \subsection{Finding k-disjoint paths}
 In order to build a routing table, one has to find $k$ vertex-disjoint paths to every $p_i \in \Delta$. Formally this problem is known as the \textit{min-sum disjoint paths problem}.
 
-A straight-forward solution would be to repeatedly find the shortest path, remove the edges in the path, and repeat this process $k$ times. However, even though this algorithm would work on most graphs, there exist so-called \textit{trap topologies} for which this algorithm would fail to find a solution. In said topologies there exists a path with a minimal sum, which traverses multiple disjoint paths, effectively blocking off more disjoint paths than needed. An example of a trap topology can be found in figure~\ref{contr:trap-topology}.
+A straight-forward solution would be to repeatedly find the shortest path, remove the edges in the path, and repeat this process $k$ times. However, even though this algorithm would work on most graphs, there exist so-called \textit{trap topologies} for which this algorithm would fail to find a solution. In said topologies there exists a path with a minimal sum, which traverses multiple disjoint paths, effectively blocking off more disjoint paths than needed. An example of a trap topology can be found in figure~\ref{contr:trap-topology}. In this example the path \textit{a-c-b-d} would be chosen over \textit{a-b-d} and \textit{a-c-d} by this naive algorithm.
 
 
 \begin{figure}[h]
@@ -42,7 +42,8 @@ A straight-forward solution would be to repeatedly find the shortest path, remov
     \label{contr:trap-topology}
 \end{figure}
 
-A solution which is able to handle trap topologies was introduced by Bhandari~\citationneeded. This algorithm finds $k$ edge-disjoint paths in a directed weighted graph by repeatedly finding the shortest path and inverting the resulting edges. To find the result, all complementing edges are removed from the set with all edges in the paths. The final paths can then easily be retrieved from the resulting sets, as every edge will only have two or less matching edges.
+A solution which is able to handle trap topologies was introduced by Bhandari~\cite{bhandari}. This algorithm finds $k$ edge-disjoint paths in a directed weighted graph by repeatedly finding the shortest path and inverting the resulting edges. An edge is inverted by simply reversing its direction and multiplying its weight by $-1$. If there already exists a reverse edge for the edge being inverted, the existing edge is replaced. If the edge being inverted has already been inverted once, it can be simply discarded instead.
+To find the result, all complementing edges are removed from the set with all edges in the paths. The final paths can then easily be retrieved from the resulting sets, as every edge will only have two or less matching edges.
 
 Note that this algorithm only returns $k$ edge-disjoint paths, not $k$ vertex-disjoint paths. This problem can be solved by applying a process called \textit{vertex splitting}, which as the name implies splits every vertex with the exception of source and sink into two distinct vertices. 
 A vertex is split into an 'in' vertex, and an 'out' vertex. Every incoming edge will be directed to the former, while every outgoing edge will be directed to the latter. The two vertices are connected by a directed edge with a weight of zero from the 'in' vertex to the 'out' vertex. This process is visualized in figure~\ref{contr:node-splitting}. Note that this change forces every path which uses a vertex to use the interconnecting edge, limiting the amount of times every vertex can be used to one. This means the algorithm will now find $k$ vertex-disjoint paths.
@@ -79,9 +80,9 @@ A vertex is split into an 'in' vertex, and an 'out' vertex. Every incoming edge 
     \label{contr:node-splitting}
 \end{figure}
 
-In order to build the full routing table, this process has to be completed for every process, resulting in $n * (2f+1)$ paths which will reach every process over $2f+1$ node-disjoint paths.
+In order to build the full routing table, this process has to be completed for every process, resulting in $(n-1) * (2f+1)$ paths which will reach every process over $2f+1$ node-disjoint paths.
 
-The pseudocode for the $k$-disjoint path solver can be found in Algorithm~\ref{contr:disjoint-path}. We use the Shortest Path Faster Algorithm or SPFA~\cite{spfa-moore,spfa-fanding}, which is a queue-based Bellman-Ford~\cite{bf-bellman,bf-ford} variation to find the shortest path in our paper, but any algorithm can be used which is capable of handling negative weights.
+The pseudocode for the $k$-disjoint path solver can be found in Algorithm~\ref{contr:disjoint-path}. We use the Shortest Path Faster Algorithm or SPFA~\cite{spfa-moore,spfa-fanding}, which is a queue-based Bellman-Ford~\cite{bf-bellman,bf-ford} variation to find the shortest path in our paper, but any algorithm can be used which is capable of handling negative weights. In order to build a full routing table based on our disjoint path solver, one only has to vary the $t$ parameter, which is essentially the target process. The full table can be build by iterating over all processes for $t$.
 
 \begin{algorithm}[h]
   \DontPrintSemicolon
@@ -180,7 +181,7 @@ The message verification is simplified greatly, as every message path can now be
 % When a process $p_i$ has delivered a message from $p_j$, it can save the paths used to memory. Since we assume these paths never change, they can be used to verify any message in the future in a more efficient manner. Any incoming message is accepted when it has arrived over at least $f+1$ unique paths saved in memory.
 
 \subsection{Optimizations}
-In addition to providing a base implementation for Dolev's protocol with routing, we also introduce several optimizations in order to further reduce the amount of messages transmitted. In order to avoid confusion we use the identifier \textbf{ORD.1-XXX} for our optimizations.
+In addition to providing a base implementation for Dolev's protocol with routing, we also introduce several optimizations in order to further reduce the amount of messages transmitted. In order to avoid confusion we use the identifier \textbf{ORD.1-7} for our optimizations.
 
 \subsubsection{ORD.1: Avoid transmitting subpaths}
 When process $p$ is building its routing table, it can discard all routes which are a subpath of other routes. The messages related to said paths can be dropped without loss of information, as it is guaranteed another message will traverse the path in full.
@@ -223,7 +224,7 @@ This modification ensures message headers are no larger than needed by precomput
 \label{contr-bracha}
 In the case of Bracha's protocol, topology knowledge is not as useful as with Dolev's protocol. This is because Bracha assumes a fully connected network, which means the topology is known anyways. The only knowledge processes gain is the weight of edges representing links between other processes. We will try to use this knowledge for our optimizations
 
-Similar to Dolev's optimizations, we will use \textbf{ORB.1-XXX} to identify different optimizations.
+Similar to Dolev's optimizations, we will use \textbf{ORB.1-2} to identify different optimizations.
 
 \subsubsection{ORB.1: Implicit echo messages}
 Instead of sending a \textit{send} message and an \textit{echo} message separately, a process can send a single \textit{send} message and others will interpret that as a combined \textit{send} and \textit{echo} message. Similarly, an echo or ready message will also be interpret as a \textit{send} message.
@@ -250,7 +251,7 @@ Bracha is used as the upper layer in Bracha-Dolev, and as such we can not direct
 The other Bracha optimization, \textbf{ORB.1}, can be directly applied as it does not rely on topology knowledge.
 
 \subsection{Optimizations}
-In addition to applying all \textbf{ORD} and (modified) \textbf{ORB} optimizations, we can also apply some new modifications. These are identified by \textbf{ORBD.1-XXX}.
+In addition to applying all \textbf{ORD} and (modified) \textbf{ORB} optimizations, we can also apply some new modifications. These are identified by \textbf{ORBD.1-2}.
 
 \subsubsection{ORBD.1: Using partial Dolev broadcast}
 In order to take full advantage of \textbf{ORB.2} the underlying Dolev layer should avoid sending messages to processes not included in the current \textit{echo} or \textit{ready} phase. This can be achieved by using partial broadcasts, i.e. not all processes deliver a message. While this would normally violate the RC protocols of Dolev, it doesn't in this case as Bracha-Dolev as a whole still upholds the BRB guarantees.
