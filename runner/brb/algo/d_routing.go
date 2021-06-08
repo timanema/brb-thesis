@@ -133,3 +133,33 @@ func CombineDolevPaths(paths []DolevPath) map[uint64][]DolevPath {
 
 	return res
 }
+
+func AddPiggybacks(next map[uint64][]DolevPath, buf []DolevPath) ([]DolevPath, int) {
+	if len(buf) == 0 {
+		return buf, 0
+	}
+
+	lifts := 0
+	newBuf := make([]DolevPath, len(buf))
+	copy(newBuf, buf)
+
+	for dst := range next {
+		r := make([]DolevPath, 0, len(newBuf))
+		for _, b := range newBuf {
+			if cur := len(b.Actual); len(b.Desired) > cur {
+				n := uint64(b.Desired[cur].To().ID())
+
+				if dst == n {
+					next[n] = append(next[n], b)
+					lifts += 1
+				} else {
+					r = append(r, b)
+				}
+			}
+		}
+
+		newBuf = r
+	}
+
+	return newBuf, lifts
+}

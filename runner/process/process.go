@@ -23,6 +23,7 @@ type Stats struct {
 	Relayed          map[uint32]int
 	BDMerged         map[uint32]int
 	BytesTransmitted map[uint32]uintptr
+	DMerged          map[uint32]int
 }
 
 type Process struct {
@@ -54,6 +55,7 @@ func StartProcess(id uint64, cfg Config, stopCh <-chan struct{}, neighbours []ui
 		Relayed:          make(map[uint32]int),
 		BDMerged:         make(map[uint32]int),
 		BytesTransmitted: make(map[uint32]uintptr),
+		DMerged:          make(map[uint32]int),
 	}
 	p := &Process{ctl: ctl, flushing: atomic.NewBool(false), Id: id, cfg: cfg, stopCh: stopCh, stats: stats, brb: brb, neighbours: nmap}
 
@@ -221,10 +223,10 @@ func (p *Process) handleMsg(src uint64, t uint8, b interface{}, ctrl bool) {
 	case msg.TriggerMessageType:
 		r := b.(msg.TriggerMessage)
 
-		p.stats.MsgSent[r.Id] = 0
-		p.stats.Relayed[r.Id] = 0
-		p.stats.BDMerged[r.Id] = 0
-		p.stats.BytesTransmitted[r.Id] = 0
+		//p.stats.MsgSent[r.Id] = 0
+		//p.stats.Relayed[r.Id] = 0
+		//p.stats.BDMerged[r.Id] = 0
+		//p.stats.BytesTransmitted[r.Id] = 0
 		p.brb.Broadcast(r.Id, r.Payload, brb.BroadcastInfo{})
 	}
 }
@@ -285,6 +287,8 @@ func (p *Process) TriggerStat(uid uint32, n brb.NetworkStat) {
 		p.stats.Relayed[uid] += 1
 	case brb.BrachaDolevMerge:
 		p.stats.BDMerged[uid] += 1
+	case brb.DolevPathMerge:
+		p.stats.DMerged[uid] += 1
 	}
 	p.sLock.Unlock()
 }

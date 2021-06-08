@@ -265,6 +265,7 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 	bdMerged := 0
 	minRecv, maxRecv := -1, -1
 	transmitted := 0
+	dMerged := 0
 
 	for _, p := range c.p {
 		s := p.p.Stats()
@@ -281,6 +282,7 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 		bdMerged += s.BDMerged[uid]
 		recv += rec
 		cnt += s.MsgSent[uid]
+		dMerged += s.DMerged[uid]
 		transmitted += int(s.BytesTransmitted[uid])
 
 		if rec > maxRecv {
@@ -299,6 +301,7 @@ func (c *Controller) aggregateStats(uid uint32) Stats {
 		MaxRelayCnt:      maxRecv,
 		BDMessagedMerged: bdMerged,
 		BytesTransmitted: transmitted,
+		DMessagesMerged:  dMerged,
 	}
 }
 

@@ -163,7 +163,6 @@ func (d *DolevKnownImprovedBD) sendMergedBDMessage(uid uint32, m BrachaDolevWrap
 		}
 	}
 
-	// TODO: let paths with the same next hop join if a message is traveling there
 	next := d.prepareBrachaDolevMergedPaths(bdm)
 
 	if len(next) > 0 {
@@ -221,9 +220,6 @@ func (d *DolevKnownImprovedBD) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrap
 				OriginalId:      bdm.OriginalId,
 				OriginalPayload: bdm.OriginalPayload,
 			},
-
-			// TODO: Is this paths even needed?
-			Paths: paths[dst],
 		}
 	}
 
@@ -276,9 +272,13 @@ func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, m DolevKnownImprove
 		}
 	}
 
-	// TODO: let paths with the same next hop join if a message is traveling there
-
 	next := algo.CombineDolevPaths(paths)
+	buf, piggyBacks := algo.AddPiggybacks(next, d.buffer[id])
+	d.buffer[id] = buf
+
+	for i := 0; i < piggyBacks; i++ {
+		d.n.TriggerStat(uid, DolevPathMerge)
+	}
 
 	if len(next) > 0 {
 		d.n.TriggerStat(uid, StartRelay)
@@ -288,6 +288,10 @@ func (d *DolevKnownImprovedBD) sendMergedMessage(uid uint32, m DolevKnownImprove
 		// For statistics purposes, check if the buffer items were actually merged
 		if len(p) > bufferCnt[dst] {
 			for i := 0; i < bufferCnt[dst]; i++ {
+				d.n.TriggerStat(uid, DolevPathMerge)
+			}
+		} else if len(p) == bufferCnt[dst] {
+			for i := 1; i < bufferCnt[dst]; i++ {
 				d.n.TriggerStat(uid, DolevPathMerge)
 			}
 		}

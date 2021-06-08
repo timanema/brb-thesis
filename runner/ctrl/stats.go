@@ -9,4 +9,5 @@ type Stats struct {
 	MeanRelayCount                     float64
 	BDMessagedMerged                   int
 	BytesTransmitted                   int
+	DMessagesMerged                    int
 }
