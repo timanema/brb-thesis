@@ -13,6 +13,17 @@ type Path struct {
 }
 type RoutingTable map[uint64][]Path
 type BroadcastPlan map[uint64][]Path
+type NextHopPlan map[uint64][]DolevPath
+
+func (n NextHopPlan) Paths() []DolevPath {
+	var res []DolevPath
+
+	for _, p := range n {
+		res = append(res, p...)
+	}
+
+	return res
+}
 
 type DolevPath struct {
 	Desired, Actual graphs.Path
@@ -121,7 +132,7 @@ func DolevRouting(r RoutingTable, combine, filter bool) BroadcastPlan {
 	return res
 }
 
-func CombineDolevPaths(paths []DolevPath) map[uint64][]DolevPath {
+func CombineDolevPaths(paths []DolevPath) NextHopPlan {
 	res := make(map[uint64][]DolevPath)
 
 	for _, p := range paths {
@@ -134,7 +145,13 @@ func CombineDolevPaths(paths []DolevPath) map[uint64][]DolevPath {
 	return res
 }
 
-func AddPiggybacks(next map[uint64][]DolevPath, buf []DolevPath) ([]DolevPath, int) {
+func AddNextHopEntries(next, additional NextHopPlan) {
+	for dst, p := range additional {
+		next[dst] = append(next[dst], p...)
+	}
+}
+
+func SetPiggybacks(next, to NextHopPlan, buf []DolevPath) ([]DolevPath, int) {
 	if len(buf) == 0 {
 		return buf, 0
 	}
@@ -150,7 +167,7 @@ func AddPiggybacks(next map[uint64][]DolevPath, buf []DolevPath) ([]DolevPath, i
 				n := uint64(b.Desired[cur].To().ID())
 
 				if dst == n {
-					next[n] = append(next[n], b)
+					to[n] = append(to[n], b)
 					lifts += 1
 				} else {
 					r = append(r, b)
@@ -162,4 +179,8 @@ func AddPiggybacks(next map[uint64][]DolevPath, buf []DolevPath) ([]DolevPath, i
 	}
 
 	return newBuf, lifts
+}
+
+func AddPiggybacks(next NextHopPlan, buf []DolevPath) ([]DolevPath, int) {
+	return SetPiggybacks(next, next, buf)
 }

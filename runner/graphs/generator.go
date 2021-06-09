@@ -54,6 +54,8 @@ func (fc FileCacheGenerator) dump(n, k, d int) (*simple.WeightedUndirectedGraph,
 	}
 
 	if d, _ := fc.Gen.Cache(); d {
+		fmt.Printf("graph %v does not exist in storage, dumping the generated graph...\n", fc.Name)
+
 		if err := DumpToFile(g, fc.Name); err != nil {
 			return nil, errors.Wrap(err, "unable to save file")
 		}

@@ -123,20 +123,20 @@ func RunnerMain() {
 		BrachaDolevMerge:            true,
 	}
 
-	//n, k, fx := 150, 100, 45
-	//messages := 1
-	//deg := k
+	n, k, fx := 20, 8, 2
+	messages := 15
+	deg := k
 	payloadSize := 12
-	//gen := graphs.RandomRegularGenerator{}
-	//_, name := gen.Cache()
-	//
-	//cache := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
-	//if err := runMultipleMessagesTest(info, 1, n, k, fx, deg, messages, payloadSize, cache, cfg, opts, &brb.DolevKnownImproved{}); err != nil {
-	//	fmt.Printf("err while running simple test: %v\n", err)
-	//	os.Exit(1)
-	//}
+	gen := graphs.MultiPartiteWheelGenerator{}
+	_, name := gen.Cache()
 
-	dolevFullTests(opts, info, cfg, payloadSize)
+	cache := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
+	if err := runMultipleMessagesTest(info, 5, n, k, fx, deg, messages, payloadSize, cache, cfg, opts, &brb.DolevKnownImprovedPM{}); err != nil {
+		fmt.Printf("err while running simple test: %v\n", err)
+		os.Exit(1)
+	}
+
+	//dolevFullTests(opts, info, cfg, payloadSize)
 
 	fmt.Println("done")
 	fmt.Println("server stop")

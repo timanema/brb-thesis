@@ -1,6 +1,9 @@
 package brb
 
-import "reflect"
+import (
+	"reflect"
+	"rp-runner/brb/algo"
+)
 
 type BrachaDolevWrapperMsg struct {
 	Msgs            []BrachaDolevMessage
@@ -69,8 +72,21 @@ func Pack(original []DolevKnownImprovedMessage) BrachaDolevWrapperMsg {
 	return bdw
 }
 
+// TODO: better name
+type dolevWrapperWrapper struct {
+	Src        uint64
+	Id         uint32
+	TrackingId uint32
+	Paths      []algo.DolevPath
+}
+
+func (d dolevWrapperWrapper) SizeOf() uintptr {
+	return reflect.TypeOf(d.Src).Size() + reflect.TypeOf(d.Id).Size() +
+		reflect.TypeOf(d.TrackingId).Size() + algo.SizeOfMultiplePaths(d.Paths)
+}
+
 type DolevWrapperMessage struct {
-	Msgs    []DolevKnownImprovedMessage
+	Msgs    []dolevWrapperWrapper
 	Payload Size
 }
 
@@ -83,8 +99,9 @@ func (d DolevWrapperMessage) SizeOf() uintptr {
 	return r + d.Payload.SizeOf()
 }
 
-func (d DolevWrapperMessage) Unpack() []DolevKnownImprovedMessage {
-	res := make([]DolevKnownImprovedMessage, 0, len(d.Msgs))
+func (d DolevWrapperMessage) Unpack(m DolevKnownImprovedMessage) ([]DolevKnownImprovedMessage, []uint32) {
+	res := make([]DolevKnownImprovedMessage, 0, len(d.Msgs)+1)
+	tracking := make([]uint32, 0, len(d.Msgs)+1)
 
 	for _, m := range d.Msgs {
 		res = append(res, DolevKnownImprovedMessage{
@@ -93,7 +110,15 @@ func (d DolevWrapperMessage) Unpack() []DolevKnownImprovedMessage {
 			Payload: d.Payload,
 			Paths:   m.Paths,
 		})
+		tracking = append(tracking, m.TrackingId)
 	}
 
-	return res
+	res = append(res, DolevKnownImprovedMessage{
+		Src:     m.Src,
+		Id:      m.Id,
+		Payload: d.Payload,
+		Paths:   m.Paths,
+	})
+
+	return res, tracking
 }
