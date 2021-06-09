@@ -36,11 +36,9 @@ A Byzantine Reliable Broadcast (BRB) protocol guarantees the following propertie
 
 We will be introducing improvements to both Dolev~\cite{dolev}, Bracha~\cite{bracha}, and Bracha-Dolev~\cite{bracha-dolev}, which make different assumptions about the network $G$ and the BRB guarantees.
 
-Dolev assumes a network $G$ which is at least $2f+1$-connected, i.e. there are at least $2f+1$ vertex-disjoint paths from every vertex $v_i \in V$ to every vertex $v_j \in (V - \{v_i\})$. Furthermore, Dolev assumes Reliable Communication (RC) which guarantees the same properties as BRB, except for the agreement property.
+Dolev assumes a network $G$ which is at least $2f+1$-connected, i.e. there are at least $2f+1$ vertex-disjoint paths from every vertex $v_i \in V$ to every vertex $v_j \in (V - \{v_i\})$. Furthermore, Dolev assumes Reliable Communication (RC) which guarantees the same properties as BRB, except for the agreement property. Bracha assumes a fully connected network $G$, i.e. for every pair $v_i,v_j \in V$ there exists an edge $(v_i, v_j) \in E$. Unlike Dolev, Bracha guarantees all BRB properties. Bracha-Dolev is a combination of the previous protocols, and assumes a $2f+1$-connected network $G$, while giving all BRB guarantees.
 
-Bracha assumes a fully connected network $G$, i.e. for every pair $v_i,v_j \in V$ there exists an edge $(v_i, v_j) \in E$. Unlike Dolev, Bracha guarantees all BRB properties.
-
-Bracha-Dolev is a combination of the previous protocols, and assumes a $2f+1$-connected network $G$, while giving all BRB guarantees.
+We make the same assumptions as the mentioned protocols, while adding topology knowledge and static long-lived networks.
 
 \subsection*{Background}
 In this section we will explain Dolev's and Bracha's protocols, and how they can be combined intro Bracha-Dolev.
@@ -212,11 +210,11 @@ Instead of simply layering the two protocols, a cross-layer version~\cite{bonomi
 While all mentioned protocols work well in their designed environments, there is naturally a substantial amount of redundant work.
 
 In the case of Dolev, for example, the network is being flooded with the same message in order to reach all processes over at least $f+1$ vertex-disjoint paths. However, if the network is overprovisioned, i.e. the network is $k$-connected where $k > 2f+1$, the message will take more paths than strictly necessary. In addition to this, processes will send the message to (almost) all neighbours leading to overlapping paths. Even though recent improvements have reduced the amount of required messages 
-fr%om $\mathcal{O}(n!)$ to nearly $\mathcal{O}(n)$~\cite{bonomi2019multihop}
+%from $\mathcal{O}(n!)$ to nearly $\mathcal{O}(n)$~\cite{bonomi2019multihop}
 , it is possible this can still be reduced if processes have knowledge of the network topology.
 
 For Bracha there are similar inefficiencies. For example, Bracha uses all nodes to come to an agreement, while only a subset of size $\ceil{\frac{N+f+1}{2}} + f$ is needed in the \textit{echo} phase and a smaller subset of size $3f+1$ for the final \textit{ready} phase.
 
-The optimizations can be combined and applied to Bracha-Dolev, also reducing the amount of required messages for that protocol.
+% The optimizations can be combined and applied to Bracha-Dolev, also reducing the amount of required messages for that protocol.
 
 The aim of this paper is to reduce the amount of messages being transmitted and network usage even further, assuming the processes know the network topology. In addition to this, it might be possible to improve the delivery complexity of Dolev in the process by taking advantage of the fact that messages will traverse fixed paths. Furthermore, while the general process for handling known topologies for Dolev has been described in the original paper~\cite{dolev}, no actual implementation has been provided, which is something this paper will also do.
