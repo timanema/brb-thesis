@@ -99,7 +99,7 @@ func (d DolevWrapperMessage) SizeOf() uintptr {
 	return r + d.Payload.SizeOf()
 }
 
-func (d DolevWrapperMessage) Unpack(m DolevKnownImprovedMessage) ([]DolevKnownImprovedMessage, []uint32) {
+func (d DolevWrapperMessage) Unpack(m DolevKnownImprovedMessage, uid uint32) ([]DolevKnownImprovedMessage, []uint32) {
 	res := make([]DolevKnownImprovedMessage, 0, len(d.Msgs)+1)
 	tracking := make([]uint32, 0, len(d.Msgs)+1)
 
@@ -119,6 +119,7 @@ func (d DolevWrapperMessage) Unpack(m DolevKnownImprovedMessage) ([]DolevKnownIm
 		Payload: d.Payload,
 		Paths:   m.Paths,
 	})
+	tracking = append(tracking, uid)
 
 	return res, tracking
 }

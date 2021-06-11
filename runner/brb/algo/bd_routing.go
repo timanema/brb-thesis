@@ -12,7 +12,18 @@ func buildPlan(to []uint64, r RoutingTable, f int) []Path {
 	res := make([]Path, 0, 2*f+1)
 
 	for _, t := range to {
-		res = append(res, r[t]...)
+		for _, route := range r[t] {
+			p := make(graphs.Path, len(route.P))
+			copy(p, route.P)
+
+			// TODO: need to set the priority for these all on true, since the deadlock solver assumes all nodes
+			// deliver eventually which they don't because of partial broadcasts so might get stuck if combined with
+			// partial broadcasts. Can be fixed, but reduces effectiveness of payload and dolev relay merging.
+			res = append(res, Path{
+				P:    p,
+				Prio: true,
+			})
+		}
 	}
 
 	return res

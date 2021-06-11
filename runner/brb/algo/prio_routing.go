@@ -84,33 +84,3 @@ func FixDeadlocks(r RoutingTable) {
 		}
 	}
 }
-
-// TODO: fix this function, doesn't resolve all deadlocks
-// Should be used after RoutingTable has been filtered
-//func FixDeadlocks(r RoutingTable, deps map[uint64]map[uint64]struct{}) {
-//	for dst, paths := range r {
-//		for i, p := range paths {
-//			if p.Prio {
-//				continue
-//			}
-//
-//			for _, e := range p.P[1:] {
-//				from := uint64(e.From().ID())
-//
-//				_, dep := deps[dst][from]
-//				_, mutual := deps[from][dst]
-//
-//				// Check for conflict
-//				if dep && mutual {
-//					//fmt.Printf("conflict in %v (to %v over %v): %v\n", p, dst, from, decideDeadlock(dst, from))
-//
-//					// If conflict, make priority path
-//					if decideDeadlock(dst, from) {
-//						r[dst][i].Prio = true
-//						break
-//					}
-//				}
-//			}
-//		}
-//	}
-//}

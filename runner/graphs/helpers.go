@@ -23,6 +23,20 @@ func IsSubPath(a, b Path) bool {
 	return true
 }
 
+func IsEqualPath(a, b Path) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i, e := range a {
+		if !EqualEdge(e, b[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func Directed(g *simple.WeightedUndirectedGraph) *simple.WeightedDirectedGraph {
 	gr := simple.NewWeightedDirectedGraph(0, 0)
 	nodes := g.Nodes()

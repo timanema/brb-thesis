@@ -74,7 +74,7 @@ var _ Application = (*BrachaDolevKnownImproved)(nil)
 
 func (bd *BrachaDolevKnownImproved) Init(n Network, app Application, cfg Config) {
 	if bd.wr == nil {
-		bd.wr = &brachaDolevKnownWrapper{bracha: &BrachaImproved{}, dolev: &DolevKnownImproved{}}
+		bd.wr = &brachaDolevKnownWrapper{bracha: &BrachaImproved{}, dolev: &DolevKnownImprovedPM{}}
 	}
 
 	bd.wr.Init(n, app, cfg)
@@ -149,7 +149,7 @@ func (bd *brachaDolevKnownWrapper) Init(n Network, app Application, cfg Config) 
 
 	// Create dolev (improved) instance with BD as the application
 	if bd.dolev == nil {
-		bd.dolev = &DolevKnownImproved{}
+		bd.dolev = &DolevKnownImprovedPM{}
 	}
 	cfg.AdditionalConfig = BrachaDolevConfig{}
 	bd.dolev.Init(n, bd, cfg)

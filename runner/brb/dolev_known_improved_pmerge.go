@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"gonum.org/v1/gonum/graph/simple"
-	"os"
 	"rp-runner/brb/algo"
 	"rp-runner/graphs"
 	"strconv"
@@ -224,18 +223,18 @@ func (d *DolevKnownImprovedPM) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrap
 	return res
 }
 
-type temp struct {
+type hopInfo struct {
 	next algo.NextHopPlan
 	id   dolevIdentifier
 }
 
-func (d *DolevKnownImprovedPM) getSimilarKnown(next algo.NextHopPlan, id dolevIdentifier) []temp {
+func (d *DolevKnownImprovedPM) getSimilarKnown(next algo.NextHopPlan, id dolevIdentifier) []hopInfo {
 	similar, ok := d.similarPayloads[id.Hash]
 	if !ok {
 		return nil
 	}
 
-	var res []temp
+	var res []hopInfo
 
 	for sId := range similar {
 		n := make(algo.NextHopPlan)
@@ -260,20 +259,18 @@ func (d *DolevKnownImprovedPM) getSimilarKnown(next algo.NextHopPlan, id dolevId
 		}
 
 		if len(n) > 0 {
-			res = append(res, temp{
+			res = append(res, hopInfo{
 				next: n,
 				id:   sId,
 			})
 		}
-		//fmt.Println("AAAAAAAHHH")
 	}
 
 	return res
 }
 
-// TODO: find out why some messages are not being delivered after being merged
 func (d *DolevKnownImprovedPM) sendMergedPayload(uid uint32, bufferCnt map[uint64]int,
-	next algo.NextHopPlan, m DolevKnownImprovedMessage, hoppers []temp) {
+	next algo.NextHopPlan, m DolevKnownImprovedMessage, hoppers []hopInfo) {
 	payload := m.Payload
 
 	for dst, p := range next {
@@ -408,7 +405,7 @@ func (d *DolevKnownImprovedPM) sendMergedMessage(uid uint32, m DolevKnownImprove
 	}
 }
 
-func (d *DolevKnownImprovedPM) sendInitialMessage(uid uint32, payload Size, partial bool, origin uint64) error {
+func (d *DolevKnownImprovedPM) sendInitialMessage(uid uint32, payload Size, partial bool, origin uint64) {
 	m := DolevKnownImprovedMessage{
 		Src:     d.cfg.Id,
 		Id:      d.cnt,
@@ -438,8 +435,6 @@ func (d *DolevKnownImprovedPM) sendInitialMessage(uid uint32, payload Size, part
 			}
 		}
 	}
-
-	return nil
 }
 
 func (d *DolevKnownImprovedPM) hasDelivered(id dolevIdentifier) bool {
@@ -474,17 +469,16 @@ func (d *DolevKnownImprovedPM) Receive(_ uint8, src uint64, uid uint32, data Siz
 			d.n.TriggerStat(uid, BrachaDolevMerge)
 		}
 	} else if dpWrapperOk {
-		msgs, tracking = dpw.Unpack(dm)
+		msgs, tracking = dpw.Unpack(dm, uid)
 
 		for i := 1; i < len(msgs); i++ {
-			fmt.Println("payload merged!")
 			d.n.TriggerStat(uid, DolevPayloadMerge)
 		}
 	}
 
 	for i, m := range msgs {
 		track := uid
-		if len(tracking) > 0 && i < len(tracking)-1 {
+		if len(tracking) > 0 {
 			track = tracking[i]
 		}
 
@@ -526,7 +520,7 @@ func (d *DolevKnownImprovedPM) Receive(_ uint8, src uint64, uid uint32, data Siz
 			if m.Src == src || graphs.VerifyDisjointPaths(d.paths[id], simple.Node(m.Src), simple.Node(d.cfg.Id), d.cfg.F+1) {
 				//fmt.Printf("proc %v is delivering %v at %v\n", d.cfg.Id, id, time.Now())
 				d.delivered[id] = struct{}{}
-				d.app.Deliver(uid, m.Payload, m.Src)
+				d.app.Deliver(track, m.Payload, m.Src)
 
 				// Memory cleanup
 				d.paths[id] = nil
@@ -535,6 +529,17 @@ func (d *DolevKnownImprovedPM) Receive(_ uint8, src uint64, uid uint32, data Siz
 	}
 
 	switch {
+	case dpWrapperOk:
+		// TODO: think of something better for this
+		for i, m := range msgs {
+			track := uid
+			if len(tracking) > 0 {
+				track = tracking[i]
+			}
+
+			// Send to next hops
+			d.sendMergedMessage(track, m)
+		}
 	case d.bd:
 		// Send to next hops
 		bw := Pack(msgs)
@@ -546,12 +551,6 @@ func (d *DolevKnownImprovedPM) Receive(_ uint8, src uint64, uid uint32, data Siz
 				// Send to next hops
 				d.sendMergedMessage(uid, m)
 			}
-		}
-	case dpWrapperOk:
-		// TODO: think of something better for this
-		for _, m := range msgs {
-			// Send to next hops
-			d.sendMergedMessage(uid, m)
 		}
 	default:
 		// Send to next hops
@@ -581,10 +580,8 @@ func (d *DolevKnownImprovedPM) Broadcast(uid uint32, payload Size, bc BroadcastI
 			partialId = m.Src
 		}
 
-		if err := d.sendInitialMessage(uid, payload, partial, partialId); err != nil {
-			fmt.Printf("process %v errored while broadcasting dolev (known, improved) message: %v\n", d.cfg.Id, err)
-			os.Exit(1)
-		}
+		//fmt.Printf("%v is sending %v (%v)\n", d.cfg.Id, uid, d.cnt)
+		d.sendInitialMessage(uid, payload, partial, partialId)
 
 		d.cnt += 1
 	}

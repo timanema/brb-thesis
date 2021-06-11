@@ -120,23 +120,23 @@ func RunnerMain() {
 		BrachaImplicitEcho:          true,
 		BrachaMinimalSubset:         true,
 		BrachaDolevPartialBroadcast: true,
-		BrachaDolevMerge:            true,
+		BrachaDolevMerge:            false,
 	}
 
-	n, k, fx := 20, 8, 2
-	messages := 15
+	n, k, fx := 50, 16, 5
+	messages := 42
 	deg := k
 	payloadSize := 12
-	gen := graphs.MultiPartiteWheelGenerator{}
+	gen := graphs.RandomRegularGenerator{}
 	_, name := gen.Cache()
 
 	cache := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
-	if err := runMultipleMessagesTest(info, 5, n, k, fx, deg, messages, payloadSize, cache, cfg, opts, &brb.DolevKnownImprovedPM{}); err != nil {
+	if err := runMultipleMessagesTest(info, 5, n, k, fx, deg, messages, payloadSize, cache, cfg, opts, &brb.BrachaDolevKnownImproved{}); err != nil {
 		fmt.Printf("err while running simple test: %v\n", err)
 		os.Exit(1)
 	}
 
-	//dolevFullTests(opts, info, cfg, payloadSize)
+	//dolevIndividualTests(opts, info, cfg, payloadSize, true)
 
 	fmt.Println("done")
 	fmt.Println("server stop")
@@ -213,6 +213,7 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, messages,
 	cnts := make([]int, 0, runs)
 	bdMergeds := make([]int, 0, runs)
 	dMergeds := make([]int, 0, runs)
+	pMergeds := make([]int, 0, runs)
 	transmits := make([]int, 0, runs)
 
 	for i := 0; i < runs; i++ {
@@ -247,6 +248,7 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, messages,
 		roundMsg := 0
 		roundBDMerged := 0
 		roundDMerged := 0
+		roundPMerged := 0
 		roundRelayCnt := 0
 		roundMinRelayCnt := math.MaxInt64
 		roundMaxRelayCnt := 0
@@ -273,19 +275,22 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, messages,
 			roundBDMerged += stats.BDMessagedMerged
 			roundTransmitted += stats.BytesTransmitted
 			roundDMerged += stats.DMessagesMerged
+			roundPMerged += stats.PayloadsMerged
 		}
 
 		roundMeanRelayCnt /= float64(messages)
 
 		fmt.Printf("statistics (%v):\n  last delivery latency: %v\n  messages sent: %v (~%v per broadcast)"+
-			"\n  recv: %.2f (%v - %v - %v)\n  bd merged: %v\n  d merged: %v, \n  bytes transmitted: %v (~%v per broadcast)\n", i,
+			"\n  recv: %.2f (%v - %v - %v)\n  bd merged: %v\n  d merged: %v\n  payloads merged: %v\n  "+
+			"bytes transmitted: %v (~%v per broadcast)\n", i,
 			roundLat, roundMsg, roundMsg/messages, roundMeanRelayCnt, roundRelayCnt, roundMinRelayCnt, roundMaxRelayCnt,
-			roundBDMerged, roundDMerged, roundTransmitted, roundTransmitted/messages)
+			roundBDMerged, roundDMerged, roundPMerged, roundTransmitted, roundTransmitted/messages)
 
 		lats = append(lats, int(roundLat))
 		cnts = append(cnts, roundMsg/messages)
 		bdMergeds = append(bdMergeds, roundBDMerged)
 		dMergeds = append(dMergeds, roundDMerged)
+		pMergeds = append(pMergeds, roundPMerged)
 		transmits = append(transmits, roundTransmitted/messages)
 
 		ctl.FlushProcesses()
@@ -310,6 +315,10 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, messages,
 	dmRsd := dmSd * 100 / dmMean
 	fmt.Printf("  d merged:\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", dmMean, dmSd, dmRsd)
 
+	pmMean, pmSd := sd(pMergeds)
+	pmRsd := pmSd * 100 / pmMean
+	fmt.Printf("  payloads merged:\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", pmMean, pmSd, pmRsd)
+
 	tMean, tSd := sd(transmits)
 	tRsd := tSd * 100 / tMean
 	fmt.Printf("  transmits:\n    mean: %.2f (~%.2f per broadcast)\n    sd: %.2f (%.2f%%)\n", tMean,
@@ -317,8 +326,8 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, messages,
 
 	fmt.Println("config:")
 	fmt.Printf("  nodes: %v\n  connectivity (k): %v\n  byzantine nodes (f): %v"+
-		"\n  runs: %v\n  protocol: %v\n  payload size: %v bytes\n",
-		n, k, f, runs, reflect.TypeOf(bp).Elem().Name(), payloadSize)
+		"\n  runs: %v\n  protocol: %v\n  payload size: %v bytes\n  messages: %v\n",
+		n, k, f, runs, reflect.TypeOf(bp).Elem().Name(), payloadSize, messages)
 
 	ctl.FlushProcesses()
 	ctl.Close()

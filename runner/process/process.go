@@ -24,6 +24,7 @@ type Stats struct {
 	BDMerged         map[uint32]int
 	BytesTransmitted map[uint32]uintptr
 	DMerged          map[uint32]int
+	PayloadsMerged   map[uint32]int
 }
 
 type Process struct {
@@ -56,6 +57,7 @@ func StartProcess(id uint64, cfg Config, stopCh <-chan struct{}, neighbours []ui
 		BDMerged:         make(map[uint32]int),
 		BytesTransmitted: make(map[uint32]uintptr),
 		DMerged:          make(map[uint32]int),
+		PayloadsMerged:   make(map[uint32]int),
 	}
 	p := &Process{ctl: ctl, flushing: atomic.NewBool(false), Id: id, cfg: cfg, stopCh: stopCh, stats: stats, brb: brb, neighbours: nmap}
 
@@ -289,6 +291,8 @@ func (p *Process) TriggerStat(uid uint32, n brb.NetworkStat) {
 		p.stats.BDMerged[uid] += 1
 	case brb.DolevPathMerge:
 		p.stats.DMerged[uid] += 1
+	case brb.DolevPayloadMerge:
+		p.stats.PayloadsMerged[uid] += 1
 	}
 	p.sLock.Unlock()
 }

@@ -10,4 +10,5 @@ type Stats struct {
 	BDMessagedMerged                   int
 	BytesTransmitted                   int
 	DMessagesMerged                    int
+	PayloadsMerged                     int
 }

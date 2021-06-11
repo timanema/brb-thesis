@@ -66,7 +66,6 @@ func BuildRoutingTable(g *simple.WeightedUndirectedGraph, s graph.Node, k int, w
 	for dst, paths := range routes {
 		res := make([]Path, 0, len(paths))
 
-		// TODO: remove automatic priority after deadlock detection works
 		for _, p := range paths {
 			res = append(res, Path{
 				P: p,
