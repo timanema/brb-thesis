@@ -84,7 +84,7 @@ In order to build the full routing table, this process has to be completed for e
 
 The pseudocode for the $k$-disjoint path solver can be found in Algorithm~\ref{contr:disjoint-path}. We use the Shortest Path Faster Algorithm or SPFA~\cite{spfa-moore,spfa-fanding}, which is a queue-based Bellman-Ford~\cite{bf-bellman,bf-ford} variation to find the shortest path in our paper, but any algorithm can be used which is capable of handling negative weights. In order to build a full routing table based on our disjoint path solver, one only has to vary the $t$ parameter, which is essentially the target process. The full table can be build by iterating over all processes for $t$.
 
-\jd{don't you have optimizations to avoid reusing some edges?}
+% \jd{don't you have optimizations to avoid reusing some edges?}
 
 \begin{algorithm}[h]
   \DontPrintSemicolon
@@ -189,16 +189,13 @@ The message verification is simplified greatly, as every message path can now be
 In addition to providing a base implementation for Dolev's protocol with routing, we also introduce several optimizations in order to further reduce the amount of messages transmitted. In order to avoid confusion we use the identifier \textbf{ORD.1-7} for our optimizations. This section will focus on optimizations only used while creating the routing table.
 
 \subsubsection{ORD.1: Avoid transmitting subpaths}
-When process $p$ is building its routing table, it can discard all routes which are a subpath of other routes. The messages related to said paths can be dropped without loss of information, as it is guaranteed another message will traverse the path in full.
-\jd{what is the impact? size of routing table? less information being transmitted with the message?}
+When process $p$ is building its routing table, it can discard all routes which are a subpath of other routes. The messages related to said paths can be dropped without loss of information, as it is guaranteed another message will traverse the path in full. This optimization will reduce the size of the routing table, or -if combined with \textbf{ORD.3}- reduce the amount of information being transmitted with the message.
 
 \subsubsection{ORD.2: Use a single route for direct neighbours}
 Bonomi et al.~\cite{bonomi2019multihop} showed that direct neighbours can directly deliver messages originating from the source. A similar change can be made to the routed version of Dolev's protocol, by accepting only one path to direct neighbours. We have achieved this by adding links to neighbouring processes separately prior to finding disjoint edges, which corresponds to line 2 in Algorithm~\ref{contr:disjoint-path}.
-\jd{which one do you use? how is it combined with the previous algorithm?}
 
 \subsubsection{ORD.3: Merge next hops when broadcasting}
 When process $p$ is transmitting the initial broadcast messages, it can merge all messages which have the same first hop into a single message. This process can then be continued by all relaying nodes until only a single base message remains. This means the desired and traversed path form a pair which needs to be maintained throughout the entire network. This optimization applies to the creation of routing tables, but is also applied when processes disseminate messages as they may need to split messages.
-\jd{ok, but sounds a bit straightforward}
 
 \subsubsection{ORD.4: Reuse paths when possible}
 When messages traverse the same path, processes can attempt to merge messages as explained in \textbf{ORD.3}. For this reason routes should be as similar as possible. We have achieved this  by adding weights to unused edges after each iteration of the disjoint k-paths solver, which corresponds to the space between line 12 and 13 in Algorithm~\ref{contr:disjoint-path}. \jd{is it still the right line? If not you can actually ask latex to handle references to line numbers for you.}
@@ -210,7 +207,9 @@ This section solely focuses on optimizations which do not apply to the creation 
 
 \subsubsection{ORD.5: Apply delayed relaying and merging}
 While \textbf{ORD.3} introduced the concept of merging messages, this is a \textit{structurally decreasing} process, i.e. the amount of wrapped messages in a single message will only decrease as the message is being relayed. The reason for this is that processes only analyse an incoming message without additional context, which means a process will process the incoming buffer sequentially and immediately relay messages when possible.
-While this process is pure \jd{pure?} and has little side-effects, there are cases when using the context of other messages or delaying outbound messages is beneficial. For example, two messages with the same Dolev identifier received over two different links can be merged into a single message (similar to \textbf{ORD.3}) when they share the same next-hop. However, since these messages are handled separately the process needs to delay the former and use its context when processing the latter message.
+While this process is pure\footnote{Pure in functional programming sense, a message enters the pipeline and zero or more come out without using other context} 
+%\jd{pure?} 
+and has little side-effects, there are cases when using the context of other messages or delaying outbound messages is beneficial. For example, two messages with the same Dolev identifier received over two different links can be merged into a single message (similar to \textbf{ORD.3}) when they share the same next-hop. However, since these messages are handled separately the process needs to delay the former and use its context when processing the latter message.
 \jd{how long should a process wait? if the network is asynchronous it might wait forever...}
 
 One possible option is to only relay messages whose contents have been delivered, and keep outbound messages in a buffer which can be used to merge outbound messages. While this approach would work on some networks, a deadlock will be created when two processes are delaying messages which would otherwise cause them two deliver.
@@ -220,18 +219,30 @@ One possible option is to only relay messages whose contents have been delivered
 This can be avoided by detecting possible deadlocks, and then marking one of the conflicting paths as a priority path, which means processes will immediately relay it. Deadlocks can be detected by finding a pair of paths for which at least one edge in the first path and the reverse edge in the second path exists. Deciding on priority paths can be done in any way, but it's essential that at least one path is picked for every conflict. In this paper we simply decide find the processes in an overlapping section with a maximum distance and mark the path which traverses the node with the smallest ID first as a priority path, unless the other path is already marked as a priority path. An optimal solution to this problem exists, but this is outside the scope of this paper.
 
 \textbf{Remark}
-This modification introduces more latency to the protocol, \jd{to be measured experimentally} as (some) messages are being held in buffers for longer amounts of time. This can be partially mitigated by applying optimizations to the deciding procedure. For example, designating paths as a priority path when all processes on the conflicting edges only have to relay that single message, since there is no other message to merge with. Another addition might be \textit{piggybacking}, which means messages in the buffer can be merged with a priority message sharing the same next hop, since the priority message will be transmitted anyways.
-\jd{I would put that in a different category, this is a software optimization, not theoretical}
+This modification introduces more latency to the protocol, 
+% \jd{to be measured experimentally} 
+as (some) messages are being held in buffers for longer amounts of time. This can be partially mitigated by applying optimizations to the deciding procedure. For example, designating paths as a priority path when all processes on the conflicting edges only have to relay that single message, since there is no other message to merge with. Another addition might be \textit{piggybacking}, which means messages in the buffer can be merged with a priority message sharing the same next hop, since the priority message will be transmitted anyways.
+% \jd{I would put that in a different category, this is a software optimization, not theoretical}
 
 % In addition to using the custom buffer, it might be possible to also include the incoming network buffer for more merging possibilities. However, this is heavily dependant on the programming language and environment used, so we refrain from using the read buffer directly in this paper.
 
 
 \subsubsection{ORD.6: Merging messages with identical contents}
-There exist protocols where every process or a subset of processes transmits the same payload. Examples of these protocols are \textit{keepalive} or topology verification protocols. In these cases messages from different Dolev broadcasts can be merged before being relayed in a similar fashion as \textbf{ORD.5}.
+While most optimization focus on single-message broadcasts, i.e. there is only one process broadcasting a message, there exist plenty of algorithms where every process transmits messages simultaneously. For the general case, there is not a lot that one can optimize for multiple broadcasts. However, in the case where the payloads of multiple messages are identical there is something we can improve. Examples of these cases are \textit{keepalive} or topology discovery protocols, where the payload will likely be identical for all processes. 
 
-\jd{not enough context, a bit lost}
+When the payload is identical processes can combine multiple messages into a single wrapper message, reducing the amount of time the payload is transmitted. This modification can extend on the buffer created by \textbf{ORD.5}.
+By tracking the Dolev identifiers for identical payloads, the buffers of multiple messages can be queried when relaying messages.
 
-The buffer from \textbf{ORD.5} can be reused as is, and the messages themselves can be retransmitted in a special wrapper message containing all information from the merged messages and a single copy of the payload.
+A receiving process can reconstruct the original Dolev messages based on a single wrapper message, reducing the amount of information transmitted in these messages.
+
+\textbf{Remark}
+Something similar might be possible for Bracha, by tracking similar echo payloads. Whenever multiple similar payloads exist a Bracha process can wait sending the appropriate \textit{readys} until all similar payloads have enough payloads. There should be an early exit strategy to avoid waiting indefinitely, but this will need to be researched further.
+
+% There exist protocols where every process or a subset of processes transmits the same payload. Examples of these protocols are \textit{keepalive} or topology verification protocols. In these cases messages from different Dolev broadcasts can be merged before being relayed in a similar fashion as \textbf{ORD.5}.
+
+% \jd{not enough context, a bit lost}
+
+% The buffer from \textbf{ORD.5} can be reused as is, and the messages themselves can be retransmitted in a special wrapper message containing all information from the merged messages and a single copy of the payload.
 
 \subsubsection{ORD.7: Reducing message size}
 As discussed in Sec.~\ref{contr:modifying-dolev}, the routing information can be included in the message headers to reduce computational complexity or it can be fully precomputed to reduce the message size. When optimizing for bandwidth usage the latter is the only viable option.
@@ -248,7 +259,7 @@ Similar to Dolev's optimizations, we will use \textbf{ORB.1-2} to identify diffe
 \subsubsection{ORB.1: Implicit echo messages}
 Instead of sending a \textit{send} message and an \textit{echo} message separately, a process can send a single \textit{send} message and others will interpret that as a combined \textit{send} and \textit{echo} message. Similarly, an echo or ready message will also be interpret as a \textit{send} message. This optimization is similar to \textbf{MDB.2} from~\cite{bonomi2021practical}, as that optimization converts the \textit{send} message into an \textit{echo} message after the first hop. While this is slightly different, the effects are nearly the same.
 
-\jd{ok, but this was known before. It cannot be claimed as a contribution.}
+% \jd{ok, but this was known before. It cannot be claimed as a contribution.}
 
 \subsubsection{ORB.2: Use minimal subset of neighbours}
 Bracha's protocol requires $\ceil{\frac{N+f+1}{2}} + f$ participants in the \textit{echo} phase and $3f+1$ for the \textit{ready} phase. This means that for overprovisioned networks, i.e. networks where $f < \floor{\frac{N}{3}} - 1$, we can avoid using all processes in said phases.
@@ -259,9 +270,9 @@ There are several ways to assign a cost to a process. Simple heuristics include 
 
 Using the chosen heuristic, every process calculates a Bracha routing table which contains all \textit{echo} and \textit{ready} participants for every message origin.
 
-In order to not add information to the message header, these participants can be precomputed by every Bracha process. These precomputed tables can then be used to find the participant sets for a given origin.
+In order to not add information to the message header, we made every process precompute these partipant tables. Processes can then use these tables to find the participant sets for a given origin.
 
-\jd{did you implement this part? if so, how did you do it?}
+% \jd{did you implement this part? if so, how did you do it?}
 
 \section{Bracha-Dolev on known topologies}
 \label{contr-bracha-dolev}
