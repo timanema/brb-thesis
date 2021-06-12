@@ -13,7 +13,7 @@
 
 \section{Dolev on known topologies}
 \label{contr-dolev}
-In this section we will describe the algorithms required to leverage the potential of topology knowledge, how Dolev can be modified to run on known topologies, and \textbf{7} novel modifications to the resulting protocol.
+In this section we will describe the algorithms required to leverage the potential of topology knowledge, in what ways Dolev's protocol will have to modified for this case, and \textbf{7} novel modifications to the resulting protocol.
 
 \subsection{Finding k-disjoint paths}
 In order to build a routing table, one has to find $k$ vertex-disjoint paths to every $p_i \in \Delta$. Formally this problem is known as the \textit{min-sum disjoint paths problem}.
@@ -159,9 +159,18 @@ The pseudocode for the $k$-disjoint path solver can be found in Algorithm~\ref{c
 \label{contr:modifying-dolev}
 
 We can distinguish between two options for the routing table in a modified verion of Dolev's protocol.
-In one version a process only computes its own routing table, while in the other version every process calculates the routing table of every other process including its own. The former is less computationally expensive, but the latter requires less information to be transmitted, since the desired path needs to be included in the message header for the former version to work. The latter option also allows for trivial message verification, as every process is aware of the paths another process will use to communicate. 
-\jd{can you split in two paragraphs, one per alternative and summarizing the advantages/drawbacks of each?}
-\jd{this is basically a one time cost for static topologies. It would be more important with dynamic topologies.}
+
+In one version a process only computes its own routing table. This is computationally less expensive, but requires more information to be included in the transmitted messages, as other processes are unaware of the desires paths of messages. Message verification is slightly less complex than in the case of normal Dolev, since traversed paths can be remembered by receiving nodes. However, the first message will have to be verified using the same technique as in an unknown topology. 
+%This version is also better suited for cases where the topology knowledge is not perfect, e.g. in the case when topology discovery is used. 
+
+In the second version every process computes the routing table for every other process. This is computationally expensive, but reduces the amount of information in the message headers considerably. Message verification also becomes trivial, as every process is aware of the paths the messages will use, so any message with an incorrect path can be discarded. Care has to be taken that this process is deterministic, as to avoid different routing tables for different processes.
+
+Note that the computational cost is only a one-time cost with the assumptions we use; static topologies. When dynamic topologies are used, the computational cost becomes more important. 
+
+In this paper we have opted for the protocol where every process has access to every routing table in order to decrease the message size, as will be discussed later.
+
+% \jd{can you split in two paragraphs, one per alternative and summarizing the advantages/drawbacks of each?}
+% \jd{this is basically a one time cost for static topologies. It would be more important with dynamic topologies.}
 
 % In one version every process only uses the edge weights without any modifications to calculate the routing table. Note that this results in routing tables where $paths(p_i, p_j) == reverse\_paths(p_j, p_i)$ where $p_i, p_j \in \Delta$, i.e. for every pair of arbitrary processes $p_i$ and $p_j$ the paths of $p_i$ to $p_j$ all have reverse paths\footnote{Let us recall that a reverse path is simply a path traversed backwards} in the set of paths from $p_j$ to $p_i$.
 % Another version allows for individual processes to make changes to their edge weights, so messages might traverse different paths from $p_i$ to $p_j$ than from $p_j$ to $p_i$.
@@ -172,12 +181,11 @@ In one version a process only computes its own routing table, while in the other
 
 % In this paper we have opted for the protocol where every process only computes its own routing table and they are allowed to change edge weights.
 
-In this paper we have opted for the protocol where every process has access to every routing table in order to decrease the message size, as will be discussed later.
 
 \subsubsection{Modifications}
-The protocol is changed in several places, in order to maximally leverage topology knowledge. 
+% The protocol is changed in several places, in order to maximally leverage topology knowledge. 
 
-The messages do not change significantly, all original information is retained.
+The messages themselves do not change significantly. If processes only compute their own routing table, an additional field is needed in the message header: the desired path field. This field simply indicates to other processes how a message should be transmitted.
 
 The message verification is simplified greatly, as every message path can now be simply compared to the corresponding routing table entry. If no matching entry exists for the given origin, the message is discarded. Otherwise it is kept in memory. Once enough messages with identical payloads and unique paths have been received the message is delivered. This can easily achieved by creating a mapping between a message identifier, consisting of the regular Dolev identifier and the hash of the payload, and a set of paths. When the size of the set of paths is equal to $f+1$, corresponding content can be delivered.
 
@@ -198,7 +206,8 @@ Bonomi et al.~\cite{bonomi2019multihop} showed that direct neighbours can direct
 When process $p$ is transmitting the initial broadcast messages, it can merge all messages which have the same first hop into a single message. This process can then be continued by all relaying nodes until only a single base message remains. This means the desired and traversed path form a pair which needs to be maintained throughout the entire network. This optimization applies to the creation of routing tables, but is also applied when processes disseminate messages as they may need to split messages.
 
 \subsubsection{ORD.4: Reuse paths when possible}
-When messages traverse the same path, processes can attempt to merge messages as explained in \textbf{ORD.3}. For this reason routes should be as similar as possible. We have achieved this  by adding weights to unused edges after each iteration of the disjoint k-paths solver, which corresponds to the space between line 12 and 13 in Algorithm~\ref{contr:disjoint-path}. \jd{is it still the right line? If not you can actually ask latex to handle references to line numbers for you.}
+When messages traverse the same path, processes can attempt to merge messages as explained in \textbf{ORD.3}. For this reason routes should be as similar as possible. We have achieved this  by adding weights to unused edges after each iteration of the disjoint k-paths solver, which corresponds to the space between line 12 and 13 in Algorithm~\ref{contr:disjoint-path}. 
+%\jd{is it still the right line? If not you can actually ask latex to handle references to line numbers for you.}
 
 Additional care has to be taken when \textbf{ORD.2} is also applied, to avoid routing messages to neighbours over intermediate nodes.
 
@@ -210,11 +219,11 @@ While \textbf{ORD.3} introduced the concept of merging messages, this is a \text
 While this process is pure\footnote{Pure in functional programming sense, a message enters the pipeline and zero or more come out without using other context} 
 %\jd{pure?} 
 and has little side-effects, there are cases when using the context of other messages or delaying outbound messages is beneficial. For example, two messages with the same Dolev identifier received over two different links can be merged into a single message (similar to \textbf{ORD.3}) when they share the same next-hop. However, since these messages are handled separately the process needs to delay the former and use its context when processing the latter message.
-\jd{how long should a process wait? if the network is asynchronous it might wait forever...}
+%\jd{how long should a process wait? if the network is asynchronous it might wait forever...}
 
-One possible option is to only relay messages whose contents have been delivered, and keep outbound messages in a buffer which can be used to merge outbound messages. While this approach would work on some networks, a deadlock will be created when two processes are delaying messages which would otherwise cause them two deliver.
+One possible option is to only relay messages whose contents have been delivered, and keep other messages in a buffer which can be used to merge outbound messages. While this approach would work on some networks, a deadlock will occur when two processes are delaying messages which would otherwise cause them two deliver.
 
-\jd{maybe you could add an illustration for this part}
+\textbf{TODO: illustration}
 
 This can be avoided by detecting possible deadlocks, and then marking one of the conflicting paths as a priority path, which means processes will immediately relay it. Deadlocks can be detected by finding a pair of paths for which at least one edge in the first path and the reverse edge in the second path exists. Deciding on priority paths can be done in any way, but it's essential that at least one path is picked for every conflict. In this paper we simply decide find the processes in an overlapping section with a maximum distance and mark the path which traverses the node with the smallest ID first as a priority path, unless the other path is already marked as a priority path. An optimal solution to this problem exists, but this is outside the scope of this paper.
 

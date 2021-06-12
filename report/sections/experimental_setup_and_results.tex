@@ -13,12 +13,12 @@
 In this section we will discuss the methodology we used and the results of our optimizations.
 
 \subsection{Methodology}
-For our research we implemented a small runner program in Go which uses goroutines as a process abstraction, and allocates dedicated channels which can be used as communication links. The protocol instances are instantiated by the process wrappers, and they have access to a network and an application instance, which are defined by the interfaces containing \texttt{Send(dst, m)} and \texttt{Deliver(m)} respectively. The protocols themselves provide the \texttt{Init()}, \texttt{Receive(src, m)}, and \texttt{Broadcast(m)} functions.
+For our research we implemented an evaluation program in Go which uses goroutines~\cite{goroutines} as a process abstraction, and dedicated channels~\cite{channels} as communication links. The protocol instances are instantiated by the process wrappers, and they have access to a network and an application instance, which are defined by the interfaces containing \texttt{Send(dst, m)} and \texttt{Deliver(m)} respectively. The protocols themselves provide the \texttt{Init()}, \texttt{Receive(src, m)}, and \texttt{Broadcast(m)} functions.
 
 In addition to the original protocols and improved version of Dolev~\cite{bonomi2019multihop} and a version of Dolev with naive routing was implemented. These two versions are the baseline for Dolev and Bracha-Dolev. 
 \textbf{TODO: discuss bonomi 10.}
 
-We use similar graphs as used in \cite{bonomi2019multihop,bonomi2021practical}: generalized wheels, multipartite wheels, and random regular graphs. For the tests we use an AMD Ryzen 5 2600 (3.4-3.9GHz) machine. The usage of channels leads to a different throughput per machine, but their performance will not limit the tests~\citationneeded and will not affect our main measurement.
+We use similar graphs as used in \cite{bonomi2021practical,bonomi2019multihop}: generalized wheels, multipartite wheels, and random regular graphs. For the tests we use an AMD Ryzen 5 2600 (3.4-3.9GHz) machine. The usage of channels leads to a different throughput per machine, but their performance will not limit the tests~\citationneeded and will not affect our main measurement.
 
 We will run the tests with varying graphs, broadcasting process, byzantine processes, and parameters $N$, $k$, $f$, such that $N \ge 3f+1$ and $k \ge 2f+1$, and report the mean and standard deviation of five tests. In most tests a single process will broadcast a single message, unless the modifications being tested include \textbf{ORD.6} as it is specifically made for the case of multiple broadcasters.
 
@@ -41,17 +41,17 @@ It is also interesting to note the dependencies between modifications. For examp
 \cline{2-9}
 \textbf{}                         & \multicolumn{4}{c|}{\textbf{Small payload (12B)}}                                                  & \multicolumn{4}{c|}{\textbf{Large payload (12KB)}}                                                  \\ \hline
 \multicolumn{1}{|c|}{\textbf{ID}} & \textbf{Msg. red. \%} & \textbf{Useful when} & \textbf{Usage red. \%} & \textbf{Useful when} & \textbf{Msg. red. \%} & \textbf{Useful when} & \textbf{Usage red. \%} & \textbf{Useful when} \\ \hline
-\multicolumn{1}{|c|}{ORD.1}       & 9.15\% (?\%)            & always               & 7.1\% (?\%)             & always               & 9.46\% (?\%)            & always               & 9.43\% (?\%)             & always               \\ \hline
-\multicolumn{1}{|c|}{ORD.2}       & 34.06\% (?\%)            & always               & 34.23\% (?\%)             & always               & 33.91\% (?\%)            & always               & 33.91\% (?\%)             & always               \\ \hline
-\multicolumn{1}{|c|}{ORD.3}       & 62.89\% (?\%)            & always               & 2.36\% (?\%)             & always               & 62.82\% (?\%)            & always               & 58.39\% (?\%)             & always               \\ \hline
-\multicolumn{1}{|c|}{ORD.4}       & 10\% (2\%)            & always               & 10\% (2\%)             & always               & 10\% (2\%)            & always               & 10\% (2\%)             & always               \\ \hline
-\multicolumn{1}{|c|}{ORD.5}       & ?\% (?\%)            & always               & ?\% (?\%)             & always               & ?\% (?\%)            & always               & ?\% (?\%)             & always               \\ \hline
-\multicolumn{1}{|c|}{ORD.6}       & ?\% (?\%)            & always               & ?\% (?\%)             & always               & ?\% (?\%)            & always               & ?\% (?\%)             & always               \\ \hline
-\multicolumn{1}{|c|}{ORD.7}       & ?\% (?\%)            & always               & ?\% (?\%)             & always               & ?\% (?\%)            & always               & ?\% (?\%)             & always               \\ \hline
-\multicolumn{1}{|c|}{ORB.1}       & 0.41\% (?\%)            & always               & 0.41\% (?\%)             & always               & 0.41\% (?\%)            & always               & 0.41\% (?\%)             & always               \\ \hline
-\multicolumn{1}{|c|}{ORB.2}       & 41.73\% (?\%)            & always               & 41.73\% (2\%)             & always               & 41.73\% (2\%)            & always               & 40.91\% (?\%)             & always               \\ \hline
-\multicolumn{1}{|c|}{ORBD.1}      & ?\% (?\%)            & always               & ?\% (?\%)             & always               & ?\% (?\%)            & always               & ?\% (?\%)             & always               \\ \hline
-\multicolumn{1}{|c|}{ORBD.2}      & ?\% (?\%)            & always               & ?\% (?\%)             & always               & ?\% (?\%)            & always               & ?\% (?\%)             & always               \\ \hline
+\multicolumn{1}{|c|}{ORD.1}       & 9.15\% (?\%)            & TODO               & 7.1\% (?\%)             & TODO               & 9.46\% (?\%)            & TODO               & 9.43\% (?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORD.2}       & 34.06\% (?\%)            & TODO               & 34.23\% (?\%)             & TODO               & 33.91\% (?\%)            & TODO               & 33.91\% (?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORD.3}       & 62.89\% (?\%)            & TODO               & 2.36\% (?\%)             & TODO               & 62.82\% (?\%)            & TODO               & 58.39\% (?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORD.4}       & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORD.5}       & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORD.6}       & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORD.7}       & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORB.1}       & 0.41\% (?\%)            & TODO               & 0.41\% (?\%)             & TODO               & 0.41\% (?\%)            & TODO               & 0.41\% (?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORB.2}       & 41.73\% (?\%)            & TODO               & 41.73\% (2\%)             & TODO               & 41.73\% (2\%)            & TODO               & 40.91\% (?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORBD.1}      & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORBD.2}      & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
 \end{tabular}
     }
   \caption{Effect of modifications measured on random graphs compared to their respective protocol standard}
@@ -104,6 +104,16 @@ These tests show we are able to achieve a mean reduction of 81.81\% for Dolev, X
             coordinates {
             (10,71.04)(20,71.56)(30,74.04)(40,77.77)(50,77.70)(60,79.98)(70,81.99)(80,84.60)(90,86.58)(100,88.88)
             };
+        \addlegendentry{Dolev}
+        
+        \addplot[
+            color=red!70,
+            ]
+            coordinates {
+            (10,93.57)(20,90.53)(30,88.35)(40,97.94)(50,88.89)(60,91.60)
+            };
+        \addlegendentry{Bracha-Dolev}
+        
         \addplot[
             name path=dolev_up,
             color=blue!70,
@@ -119,14 +129,7 @@ These tests show we are able to achieve a mean reduction of 81.81\% for Dolev, X
             (10,71.04)(20,71.56)(30,74.04)(40,77.77)(50,77.70)(60,79.98)(70,81.99)(80,84.60)(90,86.58)(100,88.88)
             };
         \addplot[blue!50,fill opacity=0.5] fill between[of=dolev_up and dolev_down];
-        \addlegendentry{Dolev}
         
-        \addplot[
-            color=red!70,
-            ]
-            coordinates {
-            (10,93.57)(20,90.53)(30,88.35)(40,97.94)(50,88.89)(60,91.60)
-            };
         \addplot[
             name path=bdolev_up,
             color=red!70,
@@ -142,7 +145,6 @@ These tests show we are able to achieve a mean reduction of 81.81\% for Dolev, X
             (10,93.57)(20,90.53)(30,88.35)(40,97.94)(50,88.89)(60,91.60)
             };
         \addplot[red!50,fill opacity=0.5] fill between[of=bdolev_up and bdolev_down];
-        \addlegendentry{Bracha-Dolev}
         \end{axis}
         \end{tikzpicture}
     \caption{Reduction using K-random graphs and fully-connected graphs (Bracha)}
