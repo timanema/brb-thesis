@@ -14,9 +14,9 @@
 
 % Do not forget to give this section another name, for example after the problem you are solving.
 
-Our model is defined by a set $\Delta=\{p_1, p_2,...,p_N\}$ of N processes, uniquely identified by an ID $i$ known to all others. In the Byzantine fault-model it is assumed that there are at most $f < \floor{N/3}$ Byzantine nodes, which can exhibit arbitrary behaviour. 
+Our model is defined by a set $\Delta=\{p_1, p_2,...,p_N\}$ of N processes, uniquely identified by an identifier $i$ known to all others. In the Byzantine fault-model it is assumed that there are at most $f < \floor{N/3}$ Byzantine nodes, which can exhibit arbitrary behaviour. 
 
-Furthermore, the processes are connected by a network which can be represented by an undirected graph $G=(V,E)$. In this graph every vertex represents a process $p_i$, such that $p_i \in \Delta$, which means $V=\Delta$ for all intents and purposes. It follows that the edges represent the communication links between nodes.
+Furthermore, the processes are connected by a network which can be represented by an undirected graph $G=(V,E)$. In this graph every vertex represents a process $p_i$, such that $p_i \in \Delta$, which means $V=\Delta$. It follows that the edges represent the communication links between nodes.
 Processes $p_i, p_j \in \Delta$ have a direct communication link if there exists an edge $(v_i, v_j) \in E$, which they can use to directly communicate with each other. If there exists no such link, they will have to rely on other processes to relay their messages. We assume that these links are authenticated, i.e.\jd{,} messages delivered at $p_i \in \Delta$ via edge $(v_i, v_j) \in E$ are guaranteed to originate from $p_j$, and vice-versa. In addition to this, the links are reliable, i.e. messages will always arrive at $p_i$ if and only if $p_j$ sent them over edge $(v_i, v_j)$. However, there is no delivery time or delivery order guarantee, so a link can be synchronous or asynchronous. Graph $G$ is known to all processes, and so are the IDs for every process. Furthermore, it is assumed the network is static, i.e. the network topology does not change, and one or more processes can broadcast messages simultaneously. The processes are used as underlying layer for application code, which receives data from the process when it delivers a message to the application layer.
 %, and the network lives for a considerable amount of time.
 
@@ -46,7 +46,7 @@ Furthermore, Dolev assumes Reliable Communication (RC) which guarantees the same
 
 We make the same assumptions as the mentioned protocols, while adding topology knowledge and static networks.
 
-\subsection*{Reducing the amount of messages}
+\subsection*{Reducing the number of messages}
 
 While all mentioned protocols work well in their designed environments, there is naturally a substantial amount of redundant work.
 
@@ -58,7 +58,7 @@ For Bracha there are similar inefficiencies. For example, Bracha uses all nodes 
 
 % The optimizations can be combined and applied to Bracha-Dolev, also reducing the amount of required messages for that protocol.
 
-The aim of this paper is to reduce the amount of messages being transmitted and network usage even further, assuming that the processes know the network topology. In addition to this, it might be possible to improve the delivery complexity of Dolev in the process by taking advantage of the fact that messages will traverse fixed paths. Furthermore, while the general process for handling known topologies for Dolev has been described in the original paper~\cite{dolev}, no actual implementation has been provided, which is something this paper will also do and is an additional contribution of this work.
+This paper aims to reduce the number of messages which are transmitted through the network. This reduces the network usage even further, assuming that all processes know the network topology. In addition to this, it might be possible to improve the delivery complexity of Dolev in the process by taking advantage of the fact that messages will traverse fixed paths. Furthermore, while the general process for handling known topologies for Dolev has been described in the original paper~\cite{dolev}, no actual implementation has been provided, which is something this paper will also do and is an additional contribution of this work.
 
 
 \section{Background}
@@ -68,11 +68,11 @@ In this section we will explain Dolev's and Bracha's protocols, and how they can
 \subsection*{Dolev}
 Dolev's protocol provides reliable communication when the network has authenticated links and is at least $2f+1$-connected.
 
-When a message traverses the network, processes leverage the authenticated links to build a traversal path for each message. Said paths have two purposes: avoiding transmitting loops and message verification. 
+When a message traverses the network, processes leverage the authenticated links to build a traversal path for each message. Said paths have two purposes: avoiding transmission loops and message verification. 
 The former is at play when processes relay messages to their neighbours; a message is forwarded to all neighbours, except to the transmitter and processes which are already present in the path. This is required in order to avoid messages circulating through the network indefinitely.
 The paths are also used for verification; a message is delivered whenever it has been received over $f+1$ disjoint paths.
 
-The basis for the correctness for Dolev's protocol lies in Menger's theorem~\cite{menger} which shows that there exist $2f+1$ disjoint paths between every pair of processes if a network is $2f+1$-connected, and the fact that at most $f$ of those paths can contain one or more Byzantine processes. This follows from the fact that a single process can only be in a single path, otherwise said path would not be disjoint, so the worst case is that all $f$ Byzantine processes are spread over all the $2f+1$ disjoint paths, which leaves $f+1$ paths not containing a Byzantine process.
+The basis for the correctness for Dolev's protocol lies in Menger's theorem~\cite{menger} which shows that there exist $2f+1$ disjoint paths between every pair of processes if a network is $2f+1$-connected, and the fact that at most $f$ of those paths can contain one or more Byzantine processes. This follows from the fact that a single process can only be in a single path, otherwise said path would not be disjoint, so the worst case scenario is that all $f$ Byzantine processes are spread over all the $2f+1$ disjoint paths, which leaves $f+1$ paths not containing a Byzantine process.
 
 There are multiple ways to verify that a message has traversed $f+1$ disjoint paths, but the problem is often reduced to a max flow problem or a minimum vertex cut problem~\cite{bonomi2019multihop}. \textbf{TODO: refs to set packing and hitting set?} We will elaborate on the first option. In this case paths are modeled as a flow network where every edge has a capacity of one. The maximum flow through the network from source $p_j$ to sink $p_i$ is then equal to the amount of disjoint paths. The max flow can be found with the Ford-Fulkerson algorithm~\cite{ford_fulkerson} for example. 
 %\jd{this only works with non Byzantine processes} ---> Why??

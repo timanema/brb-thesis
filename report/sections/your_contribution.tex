@@ -38,7 +38,7 @@ A straight-forward solution would be to repeatedly find the shortest path, remov
     		\draw [style=directed edge] (2) to node [auto] {0} (1);
     	\end{pgfonlayer}
     \end{tikzpicture}
-    \caption{In this example there exist two paths from $a$ to $d$, but only one would be found by a naive shorted path algorithm}
+    \caption{In this example there exist two disjoint paths from $a$ to $d$, but only one would be found by a naive shorted path algorithm}
     \label{contr:trap-topology}
 \end{figure}
 
@@ -80,7 +80,7 @@ A vertex is split into an 'in' vertex, and an 'out' vertex. Every incoming edge 
     \label{contr:node-splitting}
 \end{figure}
 
-In order to build the full routing table, this process has to be completed for every process, resulting in $(n-1) * (2f+1)$ paths which will reach every process over $2f+1$ node-disjoint paths.
+In order to build the full routing table, this algorithm has to be completed for every process, resulting in $(n-1) * (2f+1)$ paths which will reach every process over $2f+1$ node-disjoint paths.
 
 The pseudocode for the $k$-disjoint path solver can be found in Algorithm~\ref{contr:disjoint-path}. We use the Shortest Path Faster Algorithm or SPFA~\cite{spfa-moore,spfa-fanding}, which is a queue-based Bellman-Ford~\cite{bf-bellman,bf-ford} variation to find the shortest path in our paper, but any algorithm can be used which is capable of handling negative weights. In order to build a full routing table based on our disjoint path solver, one only has to vary the $t$ parameter, which is essentially the target process. The full table can be build by iterating over all processes for $t$.
 
@@ -163,7 +163,7 @@ We can distinguish between two options for the routing table in a modified verio
 In one version a process only computes its own routing table. This is computationally less expensive, but requires more information to be included in the transmitted messages, as other processes are unaware of the desires paths of messages. Message verification is slightly less complex than in the case of normal Dolev, since traversed paths can be remembered by receiving nodes. However, the first message will have to be verified using the same technique as in an unknown topology. 
 %This version is also better suited for cases where the topology knowledge is not perfect, e.g. in the case when topology discovery is used. 
 
-In the second version every process computes the routing table for every other process. This is computationally expensive, but reduces the amount of information in the message headers considerably. Message verification also becomes trivial, as every process is aware of the paths the messages will use, so any message with an incorrect path can be discarded. Care has to be taken that this process is deterministic, as to avoid different routing tables for different processes.
+In the second version every process computes the routing table for every other process. This is computationally expensive, but reduces the amount of information in the message headers considerably. Message verification also becomes trivial, as every process is aware of the paths the messages will use, so any message with an incorrect path can be discarded. Care has to be taken that this process is deterministic, as to avoid having different routing tables for different processes.
 
 Note that the computational cost is only a one-time cost with the assumptions we use; static topologies. When dynamic topologies are used, the computational cost becomes more important. 
 
@@ -216,7 +216,7 @@ This section solely focuses on optimizations which do not apply to the creation 
 
 \subsubsection{ORD.5: Apply delayed relaying and merging}
 While \textbf{ORD.3} introduced the concept of merging messages, this is a \textit{structurally decreasing} process, i.e. the amount of wrapped messages in a single message will only decrease as the message is being relayed. The reason for this is that processes only analyse an incoming message without additional context, which means a process will process the incoming buffer sequentially and immediately relay messages when possible.
-While this process is pure\footnote{Pure in functional programming sense, a message enters the pipeline and zero or more come out without using other context} 
+While this process is pure\footnote{Pure in the functional programming sense, a message enters the pipeline and zero or more come out without using other context} 
 %\jd{pure?} 
 and has little side-effects, there are cases when using the context of other messages or delaying outbound messages is beneficial. For example, two messages with the same Dolev identifier received over two different links can be merged into a single message (similar to \textbf{ORD.3}) when they share the same next-hop. However, since these messages are handled separately the process needs to delay the former and use its context when processing the latter message.
 %\jd{how long should a process wait? if the network is asynchronous it might wait forever...}
@@ -237,7 +237,7 @@ as (some) messages are being held in buffers for longer amounts of time. This ca
 
 
 \subsubsection{ORD.6: Merging messages with identical contents}
-While most optimization focus on single-message broadcasts, i.e. there is only one process broadcasting a message, there exist plenty of algorithms where every process transmits messages simultaneously. For the general case, there is not a lot that one can optimize for multiple broadcasts. However, in the case where the payloads of multiple messages are identical there is something we can improve. Examples of these cases are \textit{keepalive} or topology discovery protocols, where the payload will likely be identical for all processes. 
+While most optimization focus on single-message broadcasts, i.e. there is only one process broadcasting a message, there exist plenty of algorithms where every process transmits messages simultaneously. For the general case, there is not a lot that one can optimize for multiple broadcasts. However, in the case where the payloads of multiple messages are identical there is room for improvement. Examples of these cases are \textit{keepalive} or topology discovery protocols, where the payload will likely be identical for all processes. 
 
 When the payload is identical processes can combine multiple messages into a single wrapper message, reducing the amount of time the payload is transmitted. This modification can extend on the buffer created by \textbf{ORD.5}.
 By tracking the Dolev identifiers for identical payloads, the buffers of multiple messages can be queried when relaying messages.
@@ -266,14 +266,14 @@ In the case of Bracha's protocol, topology knowledge is not as useful as with Do
 Similar to Dolev's optimizations, we will use \textbf{ORB.1-2} to identify different optimizations.
 
 \subsubsection{ORB.1: Implicit echo messages}
-Instead of sending a \textit{send} message and an \textit{echo} message separately, a process can send a single \textit{send} message and others will interpret that as a combined \textit{send} and \textit{echo} message. Similarly, an echo or ready message will also be interpret as a \textit{send} message. This optimization is similar to \textbf{MDB.2} from~\cite{bonomi2021practical}, as that optimization converts the \textit{send} message into an \textit{echo} message after the first hop. While this is slightly different, the effects are nearly the same.
+Instead of sending a \textit{send} message and an \textit{echo} message separately, a process can send a single \textit{send} message and others will interpret that as a combined \textit{send} and \textit{echo} message. Similarly, an echo or ready message will also be interpreted as a \textit{send} message. This optimization is similar to \textbf{MDB.2} from~\cite{bonomi2021practical}, as that optimization converts the \textit{send} message into an \textit{echo} message after the first hop. While this is slightly different, the effects are nearly the same.
 
 % \jd{ok, but this was known before. It cannot be claimed as a contribution.}
 
 \subsubsection{ORB.2: Use minimal subset of neighbours}
 Bracha's protocol requires $\ceil{\frac{N+f+1}{2}} + f$ participants in the \textit{echo} phase and $3f+1$ for the \textit{ready} phase. This means that for overprovisioned networks, i.e. networks where $f < \floor{\frac{N}{3}} - 1$, we can avoid using all processes in said phases.
 
-This is similar to the optimization \textbf{MBD.11} from \cite{bonomi2021practical}, however we can improve overall latency by assigning a cost to every neighbour based on their outgoing edges and then making a selection. 
+This is similar to the optimization \textbf{MBD.11} from \cite{bonomi2021practical}. However, we can improve overall latency by assigning a cost to every neighbour based on their outgoing edges and then making a selection. 
 
 There are several ways to assign a cost to a process. Simple heuristics include finding the minimum sum of weights of edges used, finding the minimum sum of weights for all edges, and several other similar approaches. The optimal solution can also be computed, but that is outside of our scope. In this paper we use the simple heuristic of finding the minimum sum of weights for all edges.
 
