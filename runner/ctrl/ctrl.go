@@ -9,6 +9,7 @@ import (
 	"os"
 	"reflect"
 	"rp-runner/brb"
+	"rp-runner/brb/algo"
 	"rp-runner/msg"
 	"rp-runner/process"
 	"sync"
@@ -95,7 +96,7 @@ func (c *Controller) FlushProcesses() {
 }
 
 // TODO: random byzantine nodes?
-func (c *Controller) StartProcesses(cfg process.Config, opt brb.OptimizationConfig, g graph.WeightedUndirected, bp brb.Protocol, F int, possibleTransmitters []uint64, allTransmit bool) error {
+func (c *Controller) StartProcesses(cfg process.Config, opt brb.OptimizationConfig, g *simple.WeightedUndirectedGraph, bp brb.Protocol, F int, possibleTransmitters []uint64, allTransmit bool) error {
 	nodes := g.Nodes()
 	byzLeft := F
 	N := nodes.Len()
@@ -107,6 +108,21 @@ func (c *Controller) StartProcesses(cfg process.Config, opt brb.OptimizationConf
 
 	if r := len(transmitCheck); N-r < F {
 		return errors.Errorf("not enough nodes to support %v possible transmitters with %v byzantine nodes", r, F)
+	}
+
+	var fullTable *algo.FullRoutingTable
+	if opt.DolevImplicitPath {
+		w := 0
+		if opt.DolevReusePaths {
+			w = N / 10
+		}
+
+		var err error
+		fullTable, err = algo.BuildFullRoutingTable(g, w, N, F, F*2+1, opt.DolevSingleHopNeighbour,
+			opt.DolevCombineNextHops, opt.DolevFilterSubpaths, bp.Category() == brb.BrachaDolevCat)
+		if err != nil {
+			return errors.Wrap(err, "failed to build full routing table")
+		}
 	}
 
 	for nodes.Next() {
@@ -137,6 +153,7 @@ func (c *Controller) StartProcesses(cfg process.Config, opt brb.OptimizationConf
 			Graph:              pg,
 			Unused:             !possibleTransmitter,
 			OptimizationConfig: opt,
+			Precomputed:        brb.PrecomputedValues{FullTable: fullTable},
 		}
 
 		if allTransmit {

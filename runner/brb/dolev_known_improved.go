@@ -15,6 +15,7 @@ type DolevKnownImprovedMessage struct {
 	Id      uint32
 	Payload Size
 	Paths   []algo.DolevPath
+	Partial bool
 }
 
 func (d DolevKnownImprovedMessage) SizeOf() uintptr {
@@ -42,8 +43,9 @@ type DolevKnownImproved struct {
 }
 
 type bdBufferEntry struct {
-	Id   dolevIdentifier
-	Type uint8
+	Id      dolevIdentifier
+	Type    uint8
+	Partial bool
 }
 
 var _ Protocol = (*DolevKnownImproved)(nil)
@@ -139,18 +141,20 @@ func (d *DolevKnownImproved) sendMergedBDMessage(uid uint32, m BrachaDolevWrappe
 				} else {
 					d.buffer[id] = append(d.buffer[id], p)
 					d.bdBuffer[bid] = append(d.bdBuffer[bid], bdBufferEntry{
-						Id:   id,
-						Type: bw.messageType,
+						Id:      id,
+						Type:    bw.messageType,
+						Partial: dm.Partial,
 					})
 				}
 			}
 		}
 
 		bm := BrachaDolevMessage{
-			Src:   dm.Src,
-			Id:    dm.Id,
-			Type:  bw.messageType,
-			Paths: paths,
+			Src:     dm.Src,
+			Id:      dm.Id,
+			Type:    bw.messageType,
+			Paths:   paths,
+			Partial: dm.Partial,
 		}
 
 		if len(bm.Paths) > 0 {
@@ -161,10 +165,11 @@ func (d *DolevKnownImproved) sendMergedBDMessage(uid uint32, m BrachaDolevWrappe
 	if hopping {
 		for _, id := range d.bdBuffer[bid] {
 			bm := BrachaDolevMessage{
-				Src:   id.Id.Src,
-				Id:    id.Id.Id,
-				Type:  id.Type,
-				Paths: d.buffer[id.Id],
+				Src:     id.Id.Src,
+				Id:      id.Id.Id,
+				Type:    id.Type,
+				Paths:   d.buffer[id.Id],
+				Partial: id.Partial,
 			}
 
 			d.buffer[id.Id] = nil

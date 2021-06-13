@@ -2,6 +2,7 @@ package brb
 
 import (
 	"gonum.org/v1/gonum/graph/simple"
+	"rp-runner/brb/algo"
 )
 
 // Used as abstraction for BRB protocols
@@ -48,6 +49,10 @@ type OptimizationConfig struct {
 	BrachaDolevPartialBroadcast, BrachaDolevMerge bool
 }
 
+type PrecomputedValues struct {
+	FullTable *algo.FullRoutingTable
+}
+
 type Config struct {
 	Byz        bool
 	N, F       int
@@ -59,6 +64,7 @@ type Config struct {
 
 	AdditionalConfig   interface{}
 	OptimizationConfig OptimizationConfig
+	Precomputed        PrecomputedValues
 }
 
 type ProtocolCategory int

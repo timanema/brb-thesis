@@ -1,10 +1,14 @@
 package algo
 
 import (
+	"context"
+	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
 	"reflect"
 	"rp-runner/graphs"
+	"sync"
 )
 
 type Path struct {
@@ -14,6 +18,78 @@ type Path struct {
 type RoutingTable map[uint64][]Path
 type BroadcastPlan map[uint64][]Path
 type NextHopPlan map[uint64][]DolevPath
+
+type FullRoutingTable struct {
+	Plan   map[uint64]BroadcastPlan
+	BDPlan map[uint64]BrachaDolevRoutingTable
+	sync.RWMutex
+}
+
+// Only used to ease concurrent write, as the underlying map is directly accessible for concurrent read
+func (t *FullRoutingTable) Update(origin uint64, p BroadcastPlan) {
+	t.Lock()
+	defer t.Unlock()
+	t.Plan[origin] = p
+}
+
+func (t *FullRoutingTable) UpdateBD(origin uint64, p BrachaDolevRoutingTable) {
+	t.Lock()
+	defer t.Unlock()
+	t.BDPlan[origin] = p
+}
+
+func (t *FullRoutingTable) FindMatches(origin, partialId uint64, p graphs.Path, partial bool) []DolevPath {
+	r := t.Plan[origin]
+
+	if partial {
+		r = t.BDPlan[origin][partialId]
+	}
+
+	var res []DolevPath
+
+	for _, dolevs := range r {
+		for _, d := range dolevs {
+			if graphs.IsSubPath(p, d.P) {
+				dp := DolevPath{
+					Desired: make(graphs.Path, len(d.P)),
+					Actual:  p,
+					Prio:    d.Prio,
+				}
+
+				copy(dp.Desired, d.P)
+				res = append(res, dp)
+			}
+		}
+	}
+
+	return res
+}
+
+func dolevPathContained(xs []DolevPath, p DolevPath) bool {
+	for _, d := range xs {
+		if d.Prio == p.Prio && graphs.IsEqualPath(p.Desired, d.Desired) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (t *FullRoutingTable) FindAllMatches(origin, partialId uint64, p []DolevPath, partial bool) []DolevPath {
+	var res []DolevPath
+
+	for _, d := range p {
+		matches := t.FindMatches(origin, partialId, d.Actual, partial)
+
+		for _, m := range matches {
+			if !dolevPathContained(res, m) {
+				res = append(res, m)
+			}
+		}
+	}
+
+	return res
+}
 
 func (n NextHopPlan) Paths() []DolevPath {
 	var res []DolevPath
@@ -39,6 +115,16 @@ func SizeOfMultiplePaths(paths []DolevPath) uintptr {
 
 	for _, p := range paths {
 		res += p.SizeOf()
+	}
+
+	return res
+}
+
+func CleanDesiredPaths(paths []DolevPath) []DolevPath {
+	res := make([]DolevPath, 0, len(paths))
+	for _, p := range paths {
+		p.Desired = nil
+		res = append(res, p)
 	}
 
 	return res
@@ -77,6 +163,40 @@ func BuildRoutingTable(g *simple.WeightedUndirectedGraph, s graph.Node, k int, w
 	}
 
 	return rt, nil
+}
+
+func BuildFullRoutingTable(g *simple.WeightedUndirectedGraph, w, n, f, k int, singleHopNeighbour, combineNext, filterSubpath, bd bool) (*FullRoutingTable, error) {
+	nodes := g.Nodes()
+	ft := &FullRoutingTable{
+		Plan:   make(map[uint64]BroadcastPlan),
+		BDPlan: make(map[uint64]BrachaDolevRoutingTable),
+	}
+
+	errGr, _ := errgroup.WithContext(context.TODO())
+
+	for nodes.Next() {
+		node := nodes.Node()
+
+		errGr.Go(func() error {
+			r, err := BuildRoutingTable(g, node, k, w, singleHopNeighbour)
+			if err != nil {
+				return errors.Wrap(err, "failed to build routing table")
+			}
+
+			broadcast, partial := Routing(r, uint64(node.ID()), g, w, n, f,
+				singleHopNeighbour, combineNext, filterSubpath, bd)
+
+			ft.Update(uint64(node.ID()), broadcast)
+			ft.UpdateBD(uint64(node.ID()), partial)
+			return nil
+		})
+	}
+
+	if err := errGr.Wait(); err != nil {
+		return nil, err
+	}
+
+	return ft, nil
 }
 
 func FilterSubpaths(r RoutingTable) {

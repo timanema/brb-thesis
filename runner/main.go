@@ -120,11 +120,14 @@ func RunnerMain() {
 		BrachaImplicitEcho:          true,
 		BrachaMinimalSubset:         true,
 		BrachaDolevPartialBroadcast: true,
-		BrachaDolevMerge:            false,
+		BrachaDolevMerge:            true,
 	}
 
-	n, k, fx := 50, 16, 5
-	messages := 42
+	// TODO: further investigate why implicit path increases the amount of messages in BD when both BD optimizations
+	// are enabled. Likely to do with some critical partial broadcast information being lost when merging BD messages
+
+	n, k, fx := 25, 8, 2
+	messages := 1
 	deg := k
 	payloadSize := 12
 	gen := graphs.RandomRegularGenerator{}
@@ -304,8 +307,7 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, messages,
 
 	mMean, mSd := sd(cnts)
 	mRsd := mSd * 100 / mMean
-	fmt.Printf("  messages:\n    mean: %.2f (~%.2f per broadcast)\n    sd: %.2f (%.2f%%)\n", mMean,
-		mMean/float64(messages), mSd, mRsd)
+	fmt.Printf("  messages:\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", mMean, mSd, mRsd)
 
 	bdmMean, bdmSd := sd(bdMergeds)
 	bdmRsd := bdmSd * 100 / bdmMean

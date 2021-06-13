@@ -68,6 +68,10 @@ func decideDeadlock(p Path, c conflict) bool {
 }
 
 func FixDeadlocks(r RoutingTable) {
+	if r == nil {
+		panic("invalid routing table")
+	}
+
 	for dst, paths := range r {
 		for i, p := range paths {
 			for ndst, npaths := range r {

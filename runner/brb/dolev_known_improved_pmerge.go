@@ -6,7 +6,6 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 	"rp-runner/brb/algo"
 	"rp-runner/graphs"
-	"strconv"
 )
 
 // Dolev with routing and additional optimizations for RP Tim Anema.
@@ -57,22 +56,53 @@ func (d *DolevKnownImprovedPM) Init(n Network, app Application, cfg Config) {
 			w = d.cfg.N / 10
 		}
 
-		routes, err := algo.BuildRoutingTable(cfg.Graph, graphs.Node{
-			Id:   int64(d.cfg.Id),
-			Name: strconv.Itoa(int(d.cfg.Id)),
-		}, d.cfg.F*2+1, w, d.cfg.OptimizationConfig.DolevSingleHopNeighbour)
-		if err != nil {
-			panic(fmt.Sprintf("process %v errored while building lookup table: %v\n", d.cfg.Id, err))
+		if d.cfg.OptimizationConfig.DolevImplicitPath {
+			d.broadcast = d.cfg.Precomputed.FullTable.Plan[d.cfg.Id]
+			d.bdPlan = d.cfg.Precomputed.FullTable.BDPlan[d.cfg.Id]
+		} else {
+			d.broadcast, d.bdPlan = algo.Routing(nil, d.cfg.Id, d.cfg.Graph, w, d.cfg.N, d.cfg.F,
+				d.cfg.OptimizationConfig.DolevSingleHopNeighbour, d.cfg.OptimizationConfig.DolevCombineNextHops,
+				d.cfg.OptimizationConfig.DolevFilterSubpaths, d.bd)
 		}
 
-		algo.FixDeadlocks(routes)
+		//var routes algo.RoutingTable
+		//if d.cfg.OptimizationConfig.DolevImplicitPath {
+		//	routes = d.cfg.Precomputed.FullTable.Table[d.cfg.Id]
+		//} else {
+		//	var err error
+		//	routes, err = algo.BuildRoutingTable(cfg.Graph, graphs.Node{
+		//		Id:   int64(d.cfg.Id),
+		//		Name: strconv.Itoa(int(d.cfg.Id)),
+		//	}, d.cfg.F*2+1, w, d.cfg.OptimizationConfig.DolevSingleHopNeighbour)
+		//	if err != nil {
+		//		panic(fmt.Sprintf("process %v errored while building lookup table: %v\n", d.cfg.Id, err))
+		//	}
+		//}
+		//
+		//algo.FixDeadlocks(routes)
+		//
+		//if d.bd {
+		//	n, m := graphs.Nodes(d.cfg.Graph)
+		//	d.bdPlan = algo.BrachaDolevRouting(routes, graphs.FindAdjMap(graphs.Directed(d.cfg.Graph), m), n, d.cfg.N, d.cfg.F)
+		//}
+		//
+		//d.broadcast = algo.DolevRouting(routes, d.cfg.OptimizationConfig.DolevCombineNextHops, d.cfg.OptimizationConfig.DolevFilterSubpaths)
+	}
+}
 
-		if d.bd {
-			n, m := graphs.Nodes(d.cfg.Graph)
-			d.bdPlan = algo.BrachaDolevRouting(routes, graphs.FindAdjMap(graphs.Directed(d.cfg.Graph), m), n, d.cfg.N, d.cfg.F)
-		}
+func (d *DolevKnownImprovedPM) getPaths(m DolevKnownImprovedMessage) []algo.DolevPath {
+	var partialId uint64
+	var partial bool
 
-		d.broadcast = algo.DolevRouting(routes, d.cfg.OptimizationConfig.DolevCombineNextHops, d.cfg.OptimizationConfig.DolevFilterSubpaths)
+	if msg, ok := m.Payload.(brachaWrapper).msg.(BrachaMessage); d.bd && ok && m.Partial {
+		partialId = msg.Src
+		partial = true
+	}
+
+	if d.cfg.OptimizationConfig.DolevImplicitPath {
+		return d.cfg.Precomputed.FullTable.FindAllMatches(m.Src, partialId, m.Paths, partial)
+	} else {
+		return m.Paths
 	}
 }
 
@@ -91,8 +121,7 @@ func (d *DolevKnownImprovedPM) sendMergedBDMessage(uid uint32, m BrachaDolevWrap
 	}
 
 	for _, dm := range m.Unpack() {
-		// TODO: find sensible capacity
-		paths := make([]algo.DolevPath, 0, 10)
+		var paths []algo.DolevPath
 
 		id := dolevIdentifier{
 			Src:        dm.Src,
@@ -107,7 +136,7 @@ func (d *DolevKnownImprovedPM) sendMergedBDMessage(uid uint32, m BrachaDolevWrap
 		// If delivered, relay all messages, including ones in the buffer
 		if del || hopping {
 			hopping = true
-			paths = append(paths, dm.Paths...)
+			paths = append(paths, d.getPaths(dm)...)
 			paths = append(paths, d.buffer[id]...)
 
 			// Clear buffer
@@ -115,7 +144,7 @@ func (d *DolevKnownImprovedPM) sendMergedBDMessage(uid uint32, m BrachaDolevWrap
 		} else {
 			// If not delivered, add all messages with no priority to the buffer and
 			// all messages with priority to the outgoing paths
-			for _, p := range dm.Paths {
+			for _, p := range d.getPaths(dm) {
 				if len(p.Desired) == len(p.Actual) {
 					continue
 				}
@@ -125,18 +154,20 @@ func (d *DolevKnownImprovedPM) sendMergedBDMessage(uid uint32, m BrachaDolevWrap
 				} else {
 					d.buffer[id] = append(d.buffer[id], p)
 					d.bdBuffer[bid] = append(d.bdBuffer[bid], bdBufferEntry{
-						Id:   id,
-						Type: bw.messageType,
+						Id:      id,
+						Type:    bw.messageType,
+						Partial: dm.Partial,
 					})
 				}
 			}
 		}
 
 		bm := BrachaDolevMessage{
-			Src:   dm.Src,
-			Id:    dm.Id,
-			Type:  bw.messageType,
-			Paths: paths,
+			Src:     dm.Src,
+			Id:      dm.Id,
+			Type:    bw.messageType,
+			Paths:   paths,
+			Partial: dm.Partial,
 		}
 
 		if len(bm.Paths) > 0 {
@@ -147,10 +178,11 @@ func (d *DolevKnownImprovedPM) sendMergedBDMessage(uid uint32, m BrachaDolevWrap
 	if hopping {
 		for _, id := range d.bdBuffer[bid] {
 			bm := BrachaDolevMessage{
-				Src:   id.Id.Src,
-				Id:    id.Id.Id,
-				Type:  id.Type,
-				Paths: d.buffer[id.Id],
+				Src:     id.Id.Src,
+				Id:      id.Id.Id,
+				Type:    id.Type,
+				Paths:   d.buffer[id.Id],
+				Partial: id.Partial,
 			}
 
 			d.buffer[id.Id] = nil
@@ -167,7 +199,7 @@ func (d *DolevKnownImprovedPM) sendMergedBDMessage(uid uint32, m BrachaDolevWrap
 	}
 
 	for dst, m := range next {
-		d.n.Send(0, dst, uid, m, BroadcastInfo{})
+		d.Send(uid, dst, m)
 	}
 }
 
@@ -196,11 +228,16 @@ func (d *DolevKnownImprovedPM) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrap
 		}
 
 		for dst, paths := range res {
+			if d.cfg.OptimizationConfig.DolevImplicitPath {
+				paths = algo.CleanDesiredPaths(paths)
+			}
+
 			bds[dst] = append(bds[dst], BrachaDolevMessage{
-				Src:   bm.Src,
-				Id:    bm.Id,
-				Type:  bm.Type,
-				Paths: paths,
+				Src:     bm.Src,
+				Id:      bm.Id,
+				Type:    bm.Type,
+				Paths:   paths,
+				Partial: bm.Partial,
 			})
 		}
 	}
@@ -209,8 +246,6 @@ func (d *DolevKnownImprovedPM) prepareBrachaDolevMergedPaths(bdm BrachaDolevWrap
 
 	for dst, msgs := range bds {
 		res[dst] = DolevKnownImprovedMessage{
-			Src: d.cfg.Id,
-			Id:  0,
 			Payload: BrachaDolevWrapperMsg{
 				Msgs:            msgs,
 				OriginalSrc:     bdm.OriginalSrc,
@@ -312,7 +347,7 @@ func (d *DolevKnownImprovedPM) sendMergedPayload(uid uint32, bufferCnt map[uint6
 			}
 		}
 
-		d.n.Send(0, dst, uid, m, BroadcastInfo{})
+		d.Send(uid, dst, m)
 	}
 }
 
@@ -330,7 +365,7 @@ func (d *DolevKnownImprovedPM) sendMergedMessage(uid uint32, m DolevKnownImprove
 
 	// If delivered, relay all messages, including ones in the buffer
 	if del || !d.cfg.OptimizationConfig.DolevRelayMerging {
-		paths = append(paths, m.Paths...)
+		paths = append(paths, d.getPaths(m)...)
 
 		if buf, ok := d.buffer[id]; ok {
 			paths = append(paths, buf...)
@@ -349,7 +384,7 @@ func (d *DolevKnownImprovedPM) sendMergedMessage(uid uint32, m DolevKnownImprove
 	} else {
 		// If not delivered, add all messages with no priority to the buffer and
 		// all messages with priority to the outgoing paths
-		for _, p := range m.Paths {
+		for _, p := range d.getPaths(m) {
 			if len(p.Desired) == len(p.Actual) {
 				continue
 			}
@@ -401,7 +436,7 @@ func (d *DolevKnownImprovedPM) sendMergedMessage(uid uint32, m DolevKnownImprove
 		}
 
 		m.Paths = p
-		d.n.Send(0, dst, uid, m, BroadcastInfo{})
+		d.Send(uid, dst, m)
 	}
 }
 
@@ -415,26 +450,34 @@ func (d *DolevKnownImprovedPM) sendInitialMessage(uid uint32, payload Size, part
 	to := d.broadcast
 	if partial && d.cfg.OptimizationConfig.BrachaDolevPartialBroadcast {
 		to = d.bdPlan[origin]
+		m.Partial = true
 	}
 
 	for dst, p := range to {
 		if d.cfg.OptimizationConfig.DolevCombineNextHops {
 			dp := make([]algo.DolevPath, len(p))
 
-			for i, d := range p {
-				dp[i] = algo.DolevPath{Desired: d.P, Prio: d.Prio}
+			for i, dol := range p {
+				dp[i] = algo.DolevPath{Desired: dol.P, Prio: dol.Prio}
 			}
 
 			m.Paths = dp
-			d.n.Send(0, dst, uid, m, BroadcastInfo{})
+			d.Send(uid, dst, m)
 		} else {
 			for _, path := range p {
 				m.Paths = []algo.DolevPath{{Desired: path.P, Prio: path.Prio}}
-
-				d.n.Send(0, dst, uid, m, BroadcastInfo{})
+				d.Send(uid, dst, m)
 			}
 		}
 	}
+}
+
+func (d *DolevKnownImprovedPM) Send(uid uint32, dst uint64, m DolevKnownImprovedMessage) {
+	if d.cfg.OptimizationConfig.DolevImplicitPath {
+		m.Paths = algo.CleanDesiredPaths(m.Paths)
+	}
+
+	d.n.Send(0, dst, uid, m, BroadcastInfo{})
 }
 
 func (d *DolevKnownImprovedPM) hasDelivered(id dolevIdentifier) bool {
@@ -495,9 +538,9 @@ func (d *DolevKnownImprovedPM) Receive(_ uint8, src uint64, uid uint32, data Siz
 
 		// Add latest edge to path for message
 		for i, p := range m.Paths {
-			if len(p.Actual) >= len(p.Desired) {
-				panic("actual path is longer than desired path!")
-			}
+			//if len(p.Actual) >= len(p.Desired) {
+			//	panic("actual path is longer than desired path!")
+			//}
 
 			p.Actual = append(p.Actual, simple.WeightedEdge{
 				F: simple.Node(src),

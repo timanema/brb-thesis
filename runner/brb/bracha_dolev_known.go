@@ -12,10 +12,11 @@ type BrachaDolevConfig struct {
 }
 
 type BrachaDolevMessage struct {
-	Src   uint64
-	Id    uint32
-	Type  uint8
-	Paths []algo.DolevPath
+	Src     uint64
+	Id      uint32
+	Type    uint8
+	Paths   []algo.DolevPath
+	Partial bool
 }
 
 func (b BrachaDolevMessage) SizeOf() uintptr {

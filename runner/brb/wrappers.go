@@ -38,7 +38,8 @@ func (b BrachaDolevWrapperMsg) Unpack() []DolevKnownImprovedMessage {
 				messageType: msg.Type,
 				msg:         bm,
 			},
-			Paths: msg.Paths,
+			Paths:   msg.Paths,
+			Partial: msg.Partial,
 		}
 
 		res = append(res, dm)
@@ -56,10 +57,11 @@ func Pack(original []DolevKnownImprovedMessage) BrachaDolevWrapperMsg {
 		bw := msg.Payload.(brachaWrapper)
 
 		msgs = append(msgs, BrachaDolevMessage{
-			Src:   msg.Src,
-			Id:    msg.Id,
-			Type:  bw.messageType,
-			Paths: msg.Paths,
+			Src:     msg.Src,
+			Id:      msg.Id,
+			Type:    bw.messageType,
+			Paths:   msg.Paths,
+			Partial: msg.Partial,
 		})
 
 		bm := bw.msg.(BrachaMessage)
