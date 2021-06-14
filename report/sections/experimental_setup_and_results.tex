@@ -18,11 +18,11 @@ For our research we implemented an evaluation program in Go which uses goroutine
 In addition to the original protocols and improved version of Dolev~\cite{bonomi2019multihop} and a version of Dolev with naive routing was implemented. These two versions are the baseline for Dolev and Bracha-Dolev. 
 \textbf{TODO: discuss bonomi 10.}
 
+We focus on message complexity and network consumption, which is defined by the total number of messages transmitted and total number of bytes transmitted, respectively. We mention latency when notable, but this is not a statistic we focus on. We define the latency as the time between the original broadcast and the final non-Byzantine node delivering the message. 
+
 We use similar graphs as used in \cite{bonomi2021practical,bonomi2019multihop}: generalized wheels, multipartite wheels, and random regular graphs. For the tests we use an AMD Ryzen 5 2600 (3.4-3.9GHz) machine. The usage of channels leads to a different throughput per machine, but their performance will not limit the tests~\citationneeded and will not affect our main measurement.
 
 We will run the tests with varying graphs, broadcasting process, byzantine processes, and parameters $N$, $k$, $f$, such that $N \ge 3f+1$ and $k \ge 2f+1$, and report the mean and standard deviation of five tests. In most tests a single process will broadcast a single message, unless the modifications being tested include \textbf{ORD.6} as it is specifically made for the case of multiple broadcasters.
-
-We focus on message complexity and network consumption, which is defined by the total amount of messages transmitted and total amount of bytes transmitted, respectively. We mention latency when notable, but this is not a statistic we focus on. We define the latency as the time between the original broadcast and the final non-Byzantine node delivering the message. 
 
 \textbf{Remark}
 Note that the latency will not be entirely representative of the latency in a real deployment, as our simulated links have low latency which means latency is largely influenced by computing time. 
@@ -78,7 +78,7 @@ It is also interesting to note the dependencies between modifications. For examp
 \subsection{Improvements}
 In addition to comparing individual modification we will also compare our full protocol in the case of Dolev and Bracha-Dolev. Figure~\ref{eval:overal-reduction} shows the reduction of our protocol compared to Dolev, Bracha and Bracha-Dolev with regards to the message complexity. The reduction is relative to the same baseline used for the individual modifications.
 
-For Dolev and Bracha-Dolev we again use random graphs with $N=150$ and $N=75$ respectively, and vary the connectivity $k$. The amount of Byzantine nodes $f$ is defined by $\floor{\frac{k-1}{2}}$. In the case of Bracha we have can only use fully connected graphs, and will therefore vary the amount of processes $N$ depending on the connectivity. The amount of byzantine nodes in this case is defined by $\floor{\frac{k}{4}}$. In all cases the payload size is equal to 12B. 
+For Dolev and Bracha-Dolev we again use random graphs with $N=150$ and $N=75$ respectively, and vary the connectivity $k$. The number of Byzantine nodes $f$ is defined by $\floor{\frac{k-1}{2}}$. In the case of Bracha we have can only use fully connected graphs, and will therefore vary the number of processes $N$ depending on the connectivity. The number of byzantine nodes in this case is defined by $\floor{\frac{k}{4}}$. In all cases the payload size is equal to 12B. 
 
 These tests show we are able to achieve a mean reduction of 81.81\% for Dolev, XXX\% for Bracha and 90.14\% for Bracha-Dolev under the conditions mentioned above. The reduction in bytes transmitted is similar: 54.04\%, XXX\%, and 61.56\% respectively. \textbf{TODO: include SD in graph and text + add bracha stats}
 
@@ -152,9 +152,11 @@ These tests show we are able to achieve a mean reduction of 81.81\% for Dolev, X
 \end{figure}
 
 \subsection{Scalability}
-In real deployments networks will likely scale quickly, which is why we also evaluated the scalability of the protocol for an increasing number of processes. We considered graphs which include 25 to 150 processes in increments of 25. The connectivity $k$ and Byzantine parameter $f$ are defined as $k=\floor{\frac{N}{3}}$ and $f=\floor{\frac{k-1}{2}}$ for (Bracha-)Dolev and $f=\floor{\frac{k}{4}}$ for Bracha. The other configuration is identical to the previous sections.
+In real deployments the number of processes in the network will likely scale quickly, which is why we also evaluated the scalability of the protocol for an increasing number of processes. We considered graphs which include 25 to 150 processes in increments of 25. The connectivity $k$ and Byzantine parameter $f$ are defined as $k=\floor{\frac{N}{3}}$ and $f=\floor{\frac{k-1}{2}}$ for (Bracha-)Dolev and $f=\floor{\frac{k}{4}}$ for Bracha. The other configuration is identical to the previous sections.
 
-The evaluation for Bracha-Dolev was unable to continue after 75 processes, due to resource contraints; the version with naive routing an no additional optimizations was using too much memory during testing. Our optimized version had no issue reaching the final tests, but it was also using a considerable amount of memory in the process. We expect the trend of outperforming the base version on larger networks to continue, leading us to believe the reduction would be around 91\% for the larger networks.
+The evaluation for Bracha-Dolev was unable to continue after 75 processes, due to resource contraints; the version with naive routing an no additional optimizations was using too much memory\footnote{12GiB on a 16GiB system in this case} during testing. 
+%Our optimized version had no issue reaching the final tests, but it was also using a considerable amount of memory in the process. 
+We expect the trend of outperforming the base version on larger networks to continue, leading us to believe the reduction would be around 91\% for the larger networks.
 
 \textbf{TODO: small eval on scalability and use graph}
 
@@ -209,4 +211,4 @@ The evaluation for Bracha-Dolev was unable to continue after 75 processes, due t
 % You may give this section another name, or merge it with the one before or the one hereafter.
 While our results are promising, we have focused on two main statistics: message complexity and network usage. This means that other statistics such as latency have sometimes been sacrificed in order to enhance our chosen statistics, as is the case with \textbf{ORD.6} and \textbf{ORBD.2} for example. This might not be desired in some systems.
 
-We can safely conclude that we can indeed reduce the amount of messages when leveraging topology knowledge, but the system model might be too strict for modern networks as they are generally dynamic instead of static. 
+We can safely conclude that we can indeed reduce the number of messages when leveraging topology knowledge, but the system model might be too strict for modern networks as they are generally dynamic instead of static. 

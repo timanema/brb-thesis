@@ -123,9 +123,6 @@ func RunnerMain() {
 		BrachaDolevMerge:            true,
 	}
 
-	// TODO: further investigate why implicit path increases the amount of messages in BD when both BD optimizations
-	// are enabled. Likely to do with some critical partial broadcast information being lost when merging BD messages
-
 	n, k, fx := 25, 8, 2
 	messages := 1
 	deg := k

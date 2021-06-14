@@ -47,7 +47,11 @@ func (t *FullRoutingTable) FindMatches(origin, partialId uint64, p graphs.Path, 
 
 	var res []DolevPath
 
-	for _, dolevs := range r {
+	for dst, dolevs := range r {
+		if dst != uint64(p[0].To().ID()) {
+			continue
+		}
+
 		for _, d := range dolevs {
 			if graphs.IsSubPath(p, d.P) {
 				dp := DolevPath{
@@ -75,15 +79,16 @@ func dolevPathContained(xs []DolevPath, p DolevPath) bool {
 	return false
 }
 
-func (t *FullRoutingTable) FindAllMatches(origin, partialId uint64, p []DolevPath, partial bool) []DolevPath {
+func (t *FullRoutingTable) FindAllMatches(origin, partialId uint64, p []DolevPath, partial bool, except []DolevPath) []DolevPath {
 	var res []DolevPath
 
 	for _, d := range p {
 		matches := t.FindMatches(origin, partialId, d.Actual, partial)
 
 		for _, m := range matches {
-			if !dolevPathContained(res, m) {
+			if !dolevPathContained(append(res, except...), m) {
 				res = append(res, m)
+				break
 			}
 		}
 	}

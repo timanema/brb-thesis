@@ -46,6 +46,7 @@ type bdBufferEntry struct {
 	Id      dolevIdentifier
 	Type    uint8
 	Partial bool
+	Buf     algo.DolevPath
 }
 
 var _ Protocol = (*DolevKnownImproved)(nil)
