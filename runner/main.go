@@ -110,33 +110,33 @@ func RunnerMain() {
 
 	// Optimizations
 	opts := brb.OptimizationConfig{
-		DolevFilterSubpaths:         true,
-		DolevSingleHopNeighbour:     true, // orbd.2
-		DolevCombineNextHops:        true, // orbd.2
-		DolevReusePaths:             true,
-		DolevRelayMerging:           true,
-		DolevPayloadMerging:         true,
-		DolevImplicitPath:           true,
-		BrachaImplicitEcho:          true,
-		BrachaMinimalSubset:         true,
-		BrachaDolevPartialBroadcast: true,
-		BrachaDolevMerge:            true,
+		DolevFilterSubpaths:         false,
+		DolevSingleHopNeighbour:     false, // orbd.2
+		DolevCombineNextHops:        false, // orbd.2
+		DolevReusePaths:             false,
+		DolevRelayMerging:           false,
+		DolevPayloadMerging:         false,
+		DolevImplicitPath:           false,
+		BrachaImplicitEcho:          false,
+		BrachaMinimalSubset:         false,
+		BrachaDolevPartialBroadcast: false,
+		BrachaDolevMerge:            false,
 	}
 
-	n, k, fx := 25, 8, 2
-	messages := 1
-	deg := k
-	payloadSize := 12
-	gen := graphs.RandomRegularGenerator{}
-	_, name := gen.Cache()
+	//n, k, fx := 25, 8, 2
+	//messages := 5
+	//deg := k
+	payloadSize := 12000
+	//gen := graphs.RandomRegularGenerator{}
+	//_, name := gen.Cache()
+	//
+	//cache := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
+	//if err := runMultipleMessagesTest(info, 5, n, k, fx, deg, messages, payloadSize, cache, cfg, opts, &brb.BrachaDolevKnownImproved{}); err != nil {
+	//	fmt.Printf("err while running simple test: %v\n", err)
+	//	os.Exit(1)
+	//}
 
-	cache := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
-	if err := runMultipleMessagesTest(info, 5, n, k, fx, deg, messages, payloadSize, cache, cfg, opts, &brb.BrachaDolevKnownImproved{}); err != nil {
-		fmt.Printf("err while running simple test: %v\n", err)
-		os.Exit(1)
-	}
-
-	//dolevIndividualTests(opts, info, cfg, payloadSize, true)
+	brachaIndividualTests(opts, info, cfg, payloadSize, false)
 
 	fmt.Println("done")
 	fmt.Println("server stop")
