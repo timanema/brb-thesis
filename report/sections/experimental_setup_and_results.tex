@@ -16,7 +16,7 @@ In this section we will discuss the methodology we used and the results of our o
 For our research we implemented an evaluation program in Go which uses goroutines~\cite{goroutines} as a process abstraction, and dedicated channels~\cite{channels} as communication links. The protocol instances are instantiated by the process wrappers, and they have access to a network and an application instance, which are defined by the interfaces containing \texttt{Send(dst, m)} and \texttt{Deliver(m)} respectively. The protocols themselves provide the \texttt{Init()}, \texttt{Receive(src, m)}, and \texttt{Broadcast(m)} functions.
 
 In addition to the original protocols and improved version of Dolev~\cite{bonomi2019multihop} and a version of Dolev with naive routing was implemented. These two versions are the baseline for Dolev and Bracha-Dolev. 
-\textbf{TODO: discuss bonomi 10.}
+%\textbf{TODO: discuss bonomi 10.}
 
 We focus on message complexity and network consumption, which is defined by the total number of messages transmitted and total number of bytes transmitted, respectively. We mention latency when notable, but this is not a statistic we focus on. We define the latency as the time between the original broadcast and the final non-Byzantine node delivering the message. 
 
@@ -30,9 +30,15 @@ Note that the latency will not be entirely representative of the latency in a re
 \subsection{Impact of individual optimizations}
 We evaluated the impact of individual optimizations on the message complexity and network consumption. Table~\ref{eval:individual-results} summarizes our findings for every individual modification compared to its baseline. The baseline is different for each protocol: for Dolev we compare to a version with naive routing, for Bracha we compare to the original version, and for Bracha-Dolev we compare to a version of Bracha-Dolev which uses naive routing for the Dolev layer and the original Bracha implementation. For these tests random graphs were used with a size of $N=150$ for Dolev and Bracha and $N=75$ for Bracha-Dolev, and we varied the $k$ and $f$ to find out when modifications are useful. 
 
-We will illustrate some modifications with the aforementioned configuration. \textbf{TODO: make some highlights.}
+We will illustrate some modifications with the aforementioned configuration.
+
+There are several modification which perform well across the board, such as \textbf{ORD.1-3,7}, \textbf{ORB.1,2}, and \textbf{ORBD.1}. Others are slightly more nuanced however. For example, both \textbf{ORD.6} and \textbf{ORBD.2} perform better when the payload is large since they both rely on merging the payload, while adding slightly more information in a single header. 
+
+Another optimization, \textbf{ORD.5}, does not show significant improvement. However, this lack of performance is offset by the fact that both \textbf{ORD.6} and \textbf{ORBD.2} rely on this modification. Another modification not showing significant improvements is \textbf{ORD.4}. While a part of this is likely caused by a non-optimal algorithm to reuse paths, it can also be attributed to the fact that I heavily relies on \textbf{ORD.3} to complete its task.
 
 It is also interesting to note the dependencies between modifications. For example, \textbf{ORDB.2} on its own does not improve the protocol that much. However, when combined with \textbf{ORD.2} and \textbf{ORD.3} the amount of messages merged increases more than tenfold. The reason being that these two modifications cause a lot of messages to end up in the buffer and also cause quicker deliveries, leading to more merging in \textbf{ORDB.2}.
+
+The opposite is also true, some modifications block the use of others. For example, \textbf{ORD.6} is unable to merge messages when \textbf{ORBD.2} is active, since they share the same buffer and \textbf{ORBD.2} changes the payload temporarily. For this reason, it is recommended to prefer \textbf{ORD.6} over \textbf{ORBD.2} when all processes are broadcasting identical payloads. 
 
 \begin{table*}
   \centering
@@ -41,20 +47,20 @@ It is also interesting to note the dependencies between modifications. For examp
 \cline{2-9}
 \textbf{}                         & \multicolumn{4}{c|}{\textbf{Small payload (12B)}}                                                  & \multicolumn{4}{c|}{\textbf{Large payload (12KB)}}                                                  \\ \hline
 \multicolumn{1}{|c|}{\textbf{ID}} & \textbf{Msg. red. \%} & \textbf{Useful when} & \textbf{Usage red. \%} & \textbf{Useful when} & \textbf{Msg. red. \%} & \textbf{Useful when} & \textbf{Usage red. \%} & \textbf{Useful when} \\ \hline
-\multicolumn{1}{|c|}{ORD.1}       & 9.15\% (?\%)            & TODO               & 7.1\% (?\%)             & TODO               & 9.46\% (?\%)            & TODO               & 9.43\% (?\%)             & TODO               \\ \hline
-\multicolumn{1}{|c|}{ORD.2}       & 34.06\% (?\%)            & TODO               & 34.23\% (?\%)             & TODO               & 33.91\% (?\%)            & TODO               & 33.91\% (?\%)             & TODO               \\ \hline
-\multicolumn{1}{|c|}{ORD.3}       & 62.89\% (?\%)            & TODO               & 2.36\% (?\%)             & TODO               & 62.82\% (?\%)            & TODO               & 58.39\% (?\%)             & TODO               \\ \hline
-\multicolumn{1}{|c|}{ORD.4}       & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
-\multicolumn{1}{|c|}{ORD.5}       & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
-\multicolumn{1}{|c|}{ORD.6}       & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
-\multicolumn{1}{|c|}{ORD.7}       & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
-\multicolumn{1}{|c|}{ORB.1}       & 0.41\% (?\%)            & TODO               & 0.41\% (?\%)             & TODO               & 0.41\% (?\%)            & TODO               & 0.41\% (?\%)             & TODO               \\ \hline
-\multicolumn{1}{|c|}{ORB.2}       & 41.73\% (?\%)            & TODO               & 41.73\% (2\%)             & TODO               & 41.73\% (2\%)            & TODO               & 40.91\% (?\%)             & TODO               \\ \hline
-\multicolumn{1}{|c|}{ORBD.1}      & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
-\multicolumn{1}{|c|}{ORBD.2}      & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORD.1}       & 10.18\% (2.65\%)            & small $k \wedge$ large $f$*               & 8.29\% (3.05\%)             & small $k \wedge$ large $f$*                & 8.67\% (3.47\%)            & small $k \wedge$ large $f$*               & 8.63\% (3.48\%)             & small $k \wedge$ large $f$*               \\ \hline
+\multicolumn{1}{|c|}{ORD.2}       & 34.65\% (2.41\%)            & large $k$*               & 34.82\% (2.78\%)             & large $k$*               & 32.71\% (3.01\%)            & large $k$*               & 32.70\% (3.01\%)             & large $k$*               \\ \hline
+\multicolumn{1}{|c|}{ORD.3}       & 63.06\% (1.37\%)            & always               & 10.11\% (2.94\%)             & always               & 62.03\% (1.77\%)            & always               & 61.29\% (1.80\%)             & always               \\ \hline
+\multicolumn{1}{|c|}{ORD.4}       & 0.84\% (3.04\%)            & large $f$               & 0.77\% (3.46\%)             & large $f$               & -0.90\% (3.81\%)            & -               & -0.90\% (3.82\%)             & -               \\ \hline
+\multicolumn{1}{|c|}{ORD.5}       & 2.09\% (2.99\%)            & always               & 1.63\% (3.43\%)             & always               & -0.06\% (4.04\%)            & -               & 0.07\% (4.05\%)             & -               \\ \hline
+\multicolumn{1}{|c|}{ORD.6}       & 6.18\% (0.33\%)            & small $f$*               & 0.81\% (0.22\%)             & small $f$               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORD.7}       & 1.41\% (3.09\%)            & -               & 66.15\% (1.38\%)             & always               & ?\% (?\%)            & TODO               & ?\% (?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORB.1}       & 0.41\% (0\%)            & always               & 0.41\% (0\%)             & always               & 0.41\% (0\%)            & always               & 0.41\% (0\%)             & always               \\ \hline
+\multicolumn{1}{|c|}{ORB.2}       & 41.73\% (0\%)            & small $f$               & 41.73\% (0\%)             & small $f$               & 41.73\% (0\%)            & small $f$               & 40.91\% (0\%)             & small $f$               \\ \hline
+\multicolumn{1}{|c|}{ORBD.1}      & 24.51\% (2.71\%)            & small $k \wedge$ small $f$*                & 24.68\% (2.73\%)             & small $k \wedge$ small $f$*                 & 21.66\% (2.03\%)            & small $k \wedge$ small $f$*                 & 21.66\% (2.03\%)             & small $k \wedge$ small $f$*                 \\ \hline
+\multicolumn{1}{|c|}{ORBD.2}      & 1.25\% (1.12\%)            & always               & -3.04\% (1.96\%)             & never               & 0.2\% (0.82\%)            & -               & 0.14\% (0.83\%)             & -               \\ \hline
 \end{tabular}
     }
-  \caption{Effect of modifications measured on random graphs compared to their respective protocol standard}
+  \caption{Effect of modifications measured on random graphs compared to their respective protocol standard. The mean reduction and according standard error is listed, in addition to a small description of the best use-cases. Note that descriptions marked with a star* are always useful, but will perform best in the given use-case.}
   \label{eval:individual-results}
 \end{table*}
 
@@ -80,7 +86,7 @@ In addition to comparing individual modification we will also compare our full p
 
 For Dolev and Bracha-Dolev we again use random graphs with $N=150$ and $N=75$ respectively, and vary the connectivity $k$. The number of Byzantine nodes $f$ is defined by $\floor{\frac{k-1}{2}}$. In the case of Bracha we have can only use fully connected graphs, and will therefore vary the number of processes $N$ depending on the connectivity. The number of byzantine nodes in this case is defined by $\floor{\frac{k}{4}}$. In all cases the payload size is equal to 12B. 
 
-These tests show we are able to achieve a mean reduction of 81.81\% for Dolev, XXX\% for Bracha and 90.14\% for Bracha-Dolev under the conditions mentioned above. The reduction in bytes transmitted is similar: 54.04\%, XXX\%, and 61.56\% respectively. \textbf{TODO: include SD in graph and text + add bracha stats}
+These tests show we are able to achieve a mean reduction of 79.49\% (+-0.93\%) for Dolev, 23.32\% for Bracha and 89.54\% (+-0.22\%) for Bracha-Dolev under the conditions mentioned above. The reduction in bytes transmitted is similar: 85.86\% (+-0.68\%), 23.32\%, and 92.32\% (+-0.17\%) respectively. 
 
 \begin{figure}[h]
     \centering
@@ -88,12 +94,13 @@ These tests show we are able to achieve a mean reduction of 81.81\% for Dolev, X
     \begin{tikzpicture}
         \begin{axis}[
             xlabel={Connectivity},
-            ylabel={Reduction (\%)},
+            ylabel={Transmit reduction (\%)},
             xmin=10, xmax=100,
             ymin=0, ymax=100,
             xtick={10,20,30,40,50,60,70,80,90,100},
             ytick={0,25,50,75,100},
-            legend pos=south east,
+            legend style={at={(0.69,0.69)},
+	        anchor=north,legend columns=1},
             ymajorgrids=true,
             grid style=dashed,
         ]
@@ -102,7 +109,7 @@ These tests show we are able to achieve a mean reduction of 81.81\% for Dolev, X
             color=blue!70,
             ]
             coordinates {
-            (10,71.04)(20,71.56)(30,74.04)(40,77.77)(50,77.70)(60,79.98)(70,81.99)(80,84.60)(90,86.58)(100,88.88)
+            (10,71.44)(20,71.89)(30,74.52)(40,76.38)(50,77.82)(60,80.61)(70,82.19)(80,84.49)(90,86.92)(100,88.62)
             };
         \addlegendentry{Dolev}
         
@@ -110,23 +117,31 @@ These tests show we are able to achieve a mean reduction of 81.81\% for Dolev, X
             color=red!70,
             ]
             coordinates {
-            (10,93.57)(20,90.53)(30,88.35)(40,97.94)(50,88.89)(60,91.60)
+            (10,92.14)(20,88.80)(30,88.08)(40,87.79)(50,88.72)(60,91.72)
             };
         \addlegendentry{Bracha-Dolev}
+        
+        \addplot[
+            color=purple!70,
+            ]
+            coordinates {
+            (10,22.22)(20,20.54)(30,25.02)(40,22.57)(50,24.73)(60,19.63)(70,22.67)(80,21.71)(90,27.13)(100,26.99)
+            };
+        \addlegendentry{Bracha}
         
         \addplot[
             name path=dolev_up,
             color=blue!70,
             ]
             coordinates {
-            (10,71.04)(20,71.56)(30,74.04)(40,77.77)(50,77.70)(60,79.98)(70,81.99)(80,84.60)(90,86.58)(100,88.88)
+            (10,72.86)(20,73.17)(30,75.74)(40,77.72)(50,78.52)(60,81.42)(70,82.65)(80,85.09)(90,87.17)(100,88.86)
             };
         \addplot[
             name path=dolev_down,
             color=blue!70,
             ]
             coordinates {
-            (10,71.04)(20,71.56)(30,74.04)(40,77.77)(50,77.70)(60,79.98)(70,81.99)(80,84.60)(90,86.58)(100,88.88)
+            (10,70.02)(20,70.61)(30,73.30)(40,75.04)(50,77.12)(60,79.80)(70,81.73)(80,83.89)(90,86.76)(100,88.39)
             };
         \addplot[blue!50,fill opacity=0.5] fill between[of=dolev_up and dolev_down];
         
@@ -135,19 +150,19 @@ These tests show we are able to achieve a mean reduction of 81.81\% for Dolev, X
             color=red!70,
             ]
             coordinates {
-            (10,93.57)(20,90.53)(30,88.35)(40,97.94)(50,88.89)(60,91.60)
+            (10,92.26)(20,89.11)(30,88.47)(40,87.99)(50,88.85)(60,91.72)
             };
         \addplot[
             name path=bdolev_down,
             color=red!70,
             ]
             coordinates {
-            (10,93.57)(20,90.53)(30,88.35)(40,97.94)(50,88.89)(60,91.60)
+            (10,92.02)(20,88.49)(30,87.70)(40,87.59)(50,88.60)(60,91.72)
             };
         \addplot[red!50,fill opacity=0.5] fill between[of=bdolev_up and bdolev_down];
         \end{axis}
         \end{tikzpicture}
-    \caption{Reduction using K-random graphs and fully-connected graphs (Bracha)}
+    \caption{Reduction  of message complexity using K-random graphs and fully-connected graphs (Bracha), while varying the connectivity.}
     \label{eval:overal-reduction}
 \end{figure}
 
@@ -156,9 +171,9 @@ In real deployments the number of processes in the network will likely scale qui
 
 The evaluation for Bracha-Dolev was unable to continue after 75 processes, due to resource contraints; the version with naive routing an no additional optimizations was using too much memory\footnote{12GiB on a 16GiB system in this case} during testing. 
 %Our optimized version had no issue reaching the final tests, but it was also using a considerable amount of memory in the process. 
-We expect the trend of outperforming the base version on larger networks to continue, leading us to believe the reduction would be around 91\% for the larger networks.
+We expect the trend of outperforming the base version on larger networks to continue, leading us to believe the reduction would be around 87\% for the larger networks.
 
-\textbf{TODO: small eval on scalability and use graph}
+From these experiments we can see that the message complexity is not decreasing, which means in terms of message complexity and network usage our modified versions scale well with the number of processes. However, the latency is still doubling after each increment, suggesting exponential growth. The modified protocols still outperformed the baseline in term of latency by 25.16\%, 22.38\%, and 50.19\% for Dolev, Bracha, and Bracha-Dolev respectively.
 
 \begin{figure}[h]
     \centering
@@ -166,13 +181,14 @@ We expect the trend of outperforming the base version on larger networks to cont
     \begin{tikzpicture}
         \begin{axis}[
             xlabel={Processes},
-            ylabel={Reduction (\%)},
+            ylabel={Transmit reduction (\%)},
             xmin=25, xmax=150,
-            ymin=-15, ymax=100,
+            ymin=0, ymax=100,
             xtick={25,50,75,100,125,150},
-            ytick={-15,0,25,50,75,100},
-            legend pos=south east,
-            ymajorgrids=true,
+            ytick={0,25,50,75,100},
+            legend style={at={(0.69,0.69)},
+	        anchor=north,legend columns=1},
+	        ymajorgrids=true,
             grid style=dashed,
         ]
         
@@ -180,27 +196,57 @@ We expect the trend of outperforming the base version on larger networks to cont
             color=blue!70,
             ]
             coordinates {
-            (15,-12.59)(30,45.49)(45,76.59)(60,79.40)(75,85.01)(90,87.05)(105,92.23)(120,92.45)(135,93.46)(150,94.39)(165,96.31)
+            (25,76.20)(50,76.36)(75,78.85)(100,78.21)(125,77.59)(150,78.63)
             };
+        \addlegendentry{Dolev}
+        \addplot[
+            color=red!70,
+            ]
+            coordinates {
+            (25,86.51)(50,88.67)(75,88.49)
+            };
+        \addlegendentry{Bracha-Dolev}
+        \addplot[
+            color=purple!70,
+            ]
+            coordinates {
+            (25,20.83)(50,24.73)(75,25.88)(100,23.76)(125,19.79)(150,25.27)
+            };
+        \addlegendentry{Bracha}
+        
         \addplot[
             name path=dolev_up,
             color=blue!70,
             ]
             coordinates {
-            (15,-12.59)(30,46.49)(45,78.59)(60,83.40)(75,86.01)(90,89.05)(105,96.23)(120,94.45)(135,96.46)(150,97.39)(165,97.41)
+            (25,79.62)(50,78.07)(75,79.67)(100,79.20)(125,78.62)(150,79.44)
             };
         \addplot[
             name path=dolev_down,
             color=blue!70,
             ]
             coordinates {
-            (15,-12.59)(30,44.49)(45,74.59)(60,75.40)(75,83.71)(90,85.65)(105,90.23)(120,91.2)(135,91.46)(150,93.1)(165,94.31)
+            (25,72.79)(50,74.64)(75,78.02)(100,77.23)(125,76.56)(150,77.83)
             };
         \addplot[blue!50,fill opacity=0.5] fill between[of=dolev_up and dolev_down];
-        \addlegendentry{Dolev}
+        \addplot[
+            name path=bdolev_up,
+            color=red!70,
+            ]
+            coordinates {
+            (25,86.98)(50,88.93)(75,88.88)
+            };
+        \addplot[
+            name path=bdolev_down,
+            color=red!70,
+            ]
+            coordinates {
+            (25,86.05)(50,88.40)(75,88.10)
+            };
+        \addplot[red!50,fill opacity=0.5] fill between[of=bdolev_up and bdolev_down];
         \end{axis}
         \end{tikzpicture}
-    \caption{Reduction using K-random graphs and fully-connected graphs (Bracha)}
+    \caption{Reduction of message complexity using K-random graphs and fully-connected graphs (Bracha), while varying the number of processes.}
 \end{figure}
 
 \subsection{Discussion}
@@ -210,5 +256,7 @@ We expect the trend of outperforming the base version on larger networks to cont
 
 % You may give this section another name, or merge it with the one before or the one hereafter.
 While our results are promising, we have focused on two main statistics: message complexity and network usage. This means that other statistics such as latency have sometimes been sacrificed in order to enhance our chosen statistics, as is the case with \textbf{ORD.6} and \textbf{ORBD.2} for example. This might not be desired in some systems.
+
+As mentioned earlier, the measured latency is not fully representative of the real world. Something similar is true for the measured network usage, as we use size of internal structures as measurement. While this size is mostly representative of the actual size, it also includes some internal headers which would not be transmitted, and should therefore not be included. However, this will have no significant impact on our results as all measurements will include a similar size for internal data, which means the relative reductions will not be affected.
 
 We can safely conclude that we can indeed reduce the number of messages when leveraging topology knowledge, but the system model might be too strict for modern networks as they are generally dynamic instead of static. 

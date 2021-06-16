@@ -223,7 +223,7 @@ and has little side-effects, there are cases when using the context of other mes
 
 One possible option is to only relay messages whose contents have been delivered, and keep other messages in a buffer which can be used to merge outbound messages. While this approach would work on some networks, a deadlock will occur when two processes are delaying messages which would otherwise cause them two deliver.
 
-\textbf{TODO: illustration}
+\textbf{TODO: illustration (in appendix?)}
 
 This can be avoided by detecting possible deadlocks, and then marking one of the conflicting paths as a priority path, which means processes will immediately relay it. Deadlocks can be detected by finding a pair of paths for which at least one edge in the first path and the reverse edge in the second path exists. Deciding on priority paths can be done in any way, but it's essential that at least one path is picked for every conflict. In this paper we simply decide find the processes in an overlapping section with a maximum distance and mark the path which traverses the node with the smallest ID first as a priority path, unless the other path is already marked as a priority path. An optimal solution to this problem exists, but this is outside the scope of this paper.
 

@@ -29,7 +29,7 @@ Even though the aforementioned papers do not assume a known network, most of the
 In this paper we will start from solutions using naive routing and make the following contributions:\\
 (i) We explain how a routing table can be created for Dolev using a combination of existing algorithms.\\
 (ii) We discuss how the verification step of Dolev is trivial in our system.\\
-(iii) We introduce XXX novel modifications to Dolev, Bracha, and Bracha-Dolev.\\
+(iii) We introduce 9 modifications to Dolev, Bracha, and Bracha-Dolev.\\
 (iv) We present a detailed performance analysis using our profiling tool.
 
 The structure of this paper is as follows. We will first explain what work has already been done in this field. Sec.~\ref{system-model} will introduce the system model and the problem, while Sec.~\ref{background} will provide some background on Dolev, Bracha and Bracha-Dolev. Sec.~\ref{contr-dolev}, \ref{contr-bracha} and \ref{contr-bracha-dolev} will then introduce our novel modifications for Dolev, Bracha and Bracha-Dolev respectively. Sec.~\ref{eval} contains our performance analysis. We will briefly discuss the broader impact and reproducibility of our work in Sec.~\ref{broader-impact}. Finally, Sec.~\ref{conclusion} will conclude our paper.
@@ -58,7 +58,7 @@ Bonomi et al.~\cite{bonomi2019multihop} introduced several improvements to Dolev
 Wang and Wattenhofer~\cite{bracha-dolev} introduced a combination of existing protocols, 
 %\jd{I wouldn't say this part is new. They claim something else in the paper.} 
 Bracha and Dolev for example, in order to use a protocol designed for a fully connected network (e.g. Bracha's protocol) on a k-connected (where $k < |V|$) network. More recently, Bonomi et al.~\cite{bonomi2021practical} introduced several novel improvements to this protocol and combined it with an optimized version of Dolev's RC protocol~\cite{bonomi2019multihop,dolev-improvement}. 
-Their work showed significant improvements, and several modifications may also be applicable to other combinations, such as CPA~\cite{cpa} and Bracha.
+Their work showed significant improvements to the message complexity, and several modifications may also be applicable to other combinations, such as CPA~\cite{cpa} and Bracha.
 % \jd{a bit vague}
 
 % Let us recall their modifications with their original identification:

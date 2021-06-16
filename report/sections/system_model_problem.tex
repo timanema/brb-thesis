@@ -58,7 +58,7 @@ For Bracha there are similar inefficiencies. For example, Bracha uses all nodes 
 
 % The optimizations can be combined and applied to Bracha-Dolev, also reducing the amount of required messages for that protocol.
 
-This paper aims to reduce the number of messages which are transmitted through the network. This reduces the network usage even further, assuming that all processes know the network topology. In addition to this, it might be possible to improve the delivery complexity of Dolev in the process by taking advantage of the fact that messages will traverse fixed paths. Furthermore, while the general process for handling known topologies for Dolev has been described in the original paper~\cite{dolev}, no actual implementation has been provided, which is something this paper will also do and is an additional contribution of this work.
+This paper aims to reduce the number of messages which are transmitted through the network for the three mentioned protocols. This reduces the network usage even further, assuming that all processes know the network topology. In addition to this, it might be possible to improve the delivery complexity of Dolev in the process by taking advantage of the fact that messages will traverse fixed paths. Furthermore, while the general process for handling known topologies for Dolev has been described in the original paper~\cite{dolev}, no actual implementation has been provided, which is something this paper will also do and is an additional contribution of this work.
 
 
 \section{Background}
@@ -116,7 +116,7 @@ Pseudocode for Dolev's protocol for a single message is provided in Algorithm~\r
 \end{algorithm}
 
 \subsection*{Bracha}
-Unlike Dolev's protocol, Bracha's protocol requires a fully connected network while guaranteeing all four BRB properties. 
+Unlike Dolev's protocol, Bracha's protocol requires a fully connected network while guaranteeing all four BRB properties, including the \textbf{Agreement} property. 
 %\jd{is it not the case for Dolev? You haven't explained which BRB property is not satisfied by Dolev}
 The protocol has three phases: \textit{send}, \textit{echo}, and \textit{ready}.
 
