@@ -20,7 +20,7 @@ In addition to the original protocols and improved version of Dolev~\cite{bonomi
 
 We focus on message complexity and network consumption, which is defined by the total number of messages transmitted and total number of bytes transmitted, respectively. We mention latency when notable, but this is not a statistic we focus on. We define the latency as the time between the original broadcast and the final non-Byzantine node delivering the message. 
 
-We use similar graphs as used in \cite{bonomi2021practical,bonomi2019multihop}: generalized wheels, multipartite wheels, and random regular graphs. For the tests we use an AMD Ryzen 5 2600 (3.4-3.9GHz) machine. The usage of channels leads to a different throughput per machine, but their performance will not limit the tests~\citationneeded and will not affect our main measurement.
+We use similar graphs as used in \cite{bonomi2021practical,bonomi2019multihop}: generalized wheels, multipartite wheels, and random regular graphs. For the tests we use an AMD Ryzen 5 2600 (3.4-3.9GHz) machine. The usage of channels leads to a different throughput per machine, but their performance will not limit the tests and will not affect our main measurement.
 
 We will run the tests with varying random graphs, broadcasting process, byzantine processes, and parameters $N$, $k$, $f$, such that $N \ge 3f+1$ and $k \ge 2f+1$, and report the mean and standard deviation of five tests. In most tests a single process will broadcast a single message, unless the modifications being tested include \textbf{ORD.6} as it is specifically made for the case of multiple broadcasters. In that case the amount of transmitters $m$ is defined by $N-f$.
 
@@ -32,7 +32,7 @@ We evaluated the impact of individual optimizations on the message complexity an
 
 We will illustrate some modifications with the aforementioned configuration.
 
-There are several modification which perform well across the board, such as \textbf{ORD.1-3,7}, \textbf{ORB.1,2}, and \textbf{ORBD.1}. Others are slightly more nuanced however. For example, both \textbf{ORD.6} and \textbf{ORBD.2} perform better when the payload is large since they both rely on merging the payload, while adding slightly more information in a single header. 
+There are several modification which perform well across the board, such as \textbf{ORD.1-3,7}, \textbf{ORB.1,2}, and \textbf{ORBD.1}. Others are slightly more nuanced however. For example, both \textbf{ORD.6} and \textbf{ORBD.2} perform better when the payload is large since they both rely on merging the payload, while adding slightly more information in a single header. The opposite is true for \textbf{ORD.7}, which performs better when there is a smaller payload. This is because this optimization tries to minimize the information contained in the message header, which is insignificant if a large part of the message consists of the payload data.
 
 Another optimization, \textbf{ORD.5}, does not show significant improvement. However, this lack of performance is offset by the fact that both \textbf{ORD.6} and \textbf{ORBD.2} rely on this modification. Another modification not showing significant improvements is \textbf{ORD.4}. While a part of this is likely caused by a non-optimal algorithm to reuse paths, it can also be attributed to the fact that it heavily relies on \textbf{ORD.3} to complete its task and needs an oversaturated network.
 
@@ -63,7 +63,7 @@ The opposite is also true, some modifications are mutually exclusive. For exampl
   \caption{Effect of modifications measured on random graphs compared to their respective protocol standard. The mean reduction and standard error is listed respectively, in addition to a small description of the best use-cases. Note that descriptions marked with a star* are always useful, but will perform best in the given use-case.}
   \label{eval:individual-results}
 \end{table*}
-\vspace{-0.10in}
+% \vspace{-0.10in}
 
 % \begin{table}[]
 % \begin{tabular}{ll|ll|ll|ll|ll|}
@@ -179,7 +179,7 @@ We expect the trend of outperforming the base version on larger networks to cont
 
 From these experiments we can see that the message complexity reduction is not decreasing, which means in terms of message complexity and network usage our modified versions scale well with the number of processes. However, the latency is still doubling after each increment, suggesting exponential growth. The modified protocols still outperformed the baseline in terms of latency by 25.16\%, 22.38\%, and 50.19\% for Dolev, Bracha, and Bracha-Dolev respectively.
 
-\vspace{-0.10in}
+% \vspace{-0.10in}
 \begin{figure}[h]
     \centering
     
@@ -253,7 +253,7 @@ From these experiments we can see that the message complexity reduction is not d
         \end{tikzpicture}
     \caption{Reduction of message complexity using K-random graphs and fully-connected graphs (Bracha), while varying the number of processes. $k=\floor{\frac{N}{3}}$, \textsuperscript{a}$f=\floor{\frac{k-1}{2}}$, \textsuperscript{b}$f=\floor{\frac{k}{4}}$}
 \end{figure}
-\vspace{-0.12in}
+% \vspace{-0.12in}
 
 \subsection{Discussion}
 % Results can be compared to known results and placed in a broader context.
@@ -265,6 +265,8 @@ While our results are promising, we have focused on two main statistics: message
 
 As mentioned earlier, the measured latency is not fully representative of the real world. Something similar is true for the measured network usage, as we use size of internal structures as measurement. While this size is mostly representative of the actual size, it also includes some internal headers which would not be transmitted, and should therefore not be included. However, this will have no significant impact on our results as all measurements will include a similar size for internal data, which means the relative reductions will not be affected.
 
-Our evaluation was completed on a simulated network using Go channels~\cite{channels}, which limits our evaluation to a single machine with no bandwidth limits. A more elaborate deployment should use multiple systems, in order to evaluate the protocol on a real network. Our evaluation platform can be relatively easily modified to use a framework such as ZeroMQ~\citationneeded or plain TCP sockets, as the network evaluation layer is completely abstracted from the protocol layer. However, our evaluation platform also uses a controller to run processes and set correct parameters, which should also be modified to work on multiple machines. For the sake of time this was not implemented for this paper, but proper abstraction was used to have the possibility for extension for future papers.
+Our evaluation was completed on a simulated network using Go channels~\cite{channels}, which limits our evaluation to a single machine with no bandwidth limits. A more elaborate deployment should use multiple systems, in order to evaluate the protocol on a real network. Our evaluation platform can be relatively easily modified to use a framework such as ZeroMQ~\cite{zeromq} or plain TCP sockets, as the network evaluation layer is completely abstracted from the protocol layer. However, our evaluation platform also uses a controller to run processes and set correct parameters, which should also be modified to work on multiple machines. For the sake of time this was not implemented for this paper, but proper abstraction was used to have the possibility for extension for future papers.
+
+Some optimizations introduced by Bonomi et al.~\cite{bonomi2021practical} can also be translated to our protocol, which could reduce the message complexity even further. Some have already been used (\textbf{MBD.2}, \textbf{MBD.12}), while others could be implemented with (\textbf{MBD.3}, \textbf{MBD.4}) or without (\textbf{MBD.7}, \textbf{MBD.8}) slight modifications.
 
 We can safely conclude that we can indeed reduce the number of messages when leveraging topology knowledge, but the system model might be too strict for modern networks as they are generally dynamic instead of static. 
