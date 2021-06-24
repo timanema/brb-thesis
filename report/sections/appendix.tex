@@ -1,4 +1,5 @@
 \appendix
+\section{Appendix}
 % \section{The obvious}
 % \subsection{Reference use}
 % \begin{itemize}
@@ -36,3 +37,101 @@
 % \item if copied, they contain a reference
 % \item can be interpreted on their own (e.g. by means of a legend)
 % \end{itemize}
+
+\subsection{Pseudocode}
+\label{appendix-pseudocode}
+\begin{algorithm}
+  \DontPrintSemicolon
+  \SetKwFunction{DInit}{Init}
+  \SetKwProg{Fn}{On event}{:}{}
+  \Fn{\DInit}{
+        delivered = False\;
+        paths = $\emptyset$\;
+  }
+  
+  \SetKwFunction{DRecv}{Receive}
+  \Fn{\DRecv{$p_{recv}$, $m$, $path$, $planned$}}{
+        $path$ = $path \cup \{p_{recv}\}$\;
+        \ForAll{$p_j \in planned$}{
+            transmit($p_j$, $m$, $path$, $planned$)\;
+        }
+  
+        paths.add($path$)\;
+
+        \uIf{paths contains $f+1$ node-disjoint paths to the origin \textbf{and} delivered = False}{
+            deliver($m$)\;
+            delivered = True\;
+        }
+  }
+  
+  \SetKwFunction{DBrd}{Broadcast}
+  \Fn{\DBrd{$m$}}{
+        deliver($m$)\;
+        delivered = True\;
+            
+        \ForAll{$(p_j, route) \in routingTable$}{
+            transmit($p_j$, $m$, $\emptyset$, $route$)\;
+        }
+  }
+ \caption{Dolev's Reliable Communication routed algorithm}
+ \label{background:dolev}
+\end{algorithm}
+
+\begin{algorithm}[h]
+  \DontPrintSemicolon
+  \SetKwFunction{BInit}{Init}
+  \SetKwProg{Fn}{On event}{:}{}
+  \Fn{\BInit}{
+        sentEcho = sentReady = delivered = False\;
+        echos = readys = $\emptyset$\;
+  }
+  
+  \SetKwFunction{BRecvEcho}{ReceiveEcho}
+  \Fn{\BRecvEcho{$p_{recv}$, $m$}}{
+        \uIf{\textbf{not} sentEcho}{
+            \ForAll{$p_j \in neighbours$}{
+                transmit($p_j$, $m$, ECHO)\;
+            }
+            
+            sentEcho = True\;
+        }
+        
+        echos.add($p_{recv}$)\;
+
+        \uIf{len(echos) $\ge$ $\ceil{\frac{N+f+1}{2}}$ \textbf{and not} sentReady}{
+            \ForAll{$p_j \in neighbours$}{
+                transmit($p_j$, $m$, READY)\;
+            }
+            
+            sentReady = True\;
+        }
+  }
+  
+  \SetKwFunction{BRecvReady}{ReceiveReady}
+  \Fn{\BRecvReady{$p_{recv}$, $m$}}{
+        readys.add($p_{recv}$)\;
+
+        \uIf{len(readys) $\ge f+1$ \textbf{and not} sentReady}{
+            \ForAll{$p_j \in neighbours$}{
+                transmit($p_j$, $m$, READY)\;
+            }
+            
+            sentReady = True\;
+        }
+        
+        \uIf{len(readys) $\ge 2f+1$ \textbf{and not} delivered}{
+            deliver($m$)\;
+            delivered = True\;
+        }
+  }
+  
+  \SetKwFunction{BBrd}{Broadcast}
+  \Fn{\BBrd{$m$}}{
+        \ForAll{$p_j \in neighbours$}{
+            transmit($p_j$, $m$, SEND)\;
+            transmit($p_j$, $m$, ECHO)\;
+        }
+  }
+ \caption{Bracha's authenticated double echo algorithm}
+ \label{background:bracha}
+\end{algorithm}
