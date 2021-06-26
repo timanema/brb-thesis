@@ -42,9 +42,11 @@ func RunnerMain() {
 	fmt.Println("starting rp runner")
 	stopCh := make(chan struct{}, 1)
 	info := ctrl.Config{
-		PollDelay:  time.Millisecond * 200,
-		CtrlBuffer: 2000,
-		ProcBuffer: 50000,
+		PollDelay:            time.Millisecond * 200,
+		CtrlBuffer:           2000,
+		ProcBuffer:           50000,
+		IntermediateInterval: 20,
+		PrintIntermediate:    true,
 	}
 
 	sigc := make(chan os.Signal, 1)
@@ -110,23 +112,23 @@ func RunnerMain() {
 
 	// Optimizations
 	opts := brb.OptimizationConfig{
-		DolevFilterSubpaths:         false,
-		DolevSingleHopNeighbour:     false, // orbd.2
-		DolevCombineNextHops:        false, // orbd.2
-		DolevReusePaths:             false,
-		DolevRelayMerging:           false,
-		DolevPayloadMerging:         false,
-		DolevImplicitPath:           false,
-		BrachaImplicitEcho:          false,
-		BrachaMinimalSubset:         false,
-		BrachaDolevPartialBroadcast: false,
+		DolevFilterSubpaths:         true,
+		DolevSingleHopNeighbour:     true, // orbd.2
+		DolevCombineNextHops:        true, // orbd.2
+		DolevReusePaths:             true,
+		DolevRelayMerging:           true,
+		DolevPayloadMerging:         true,
+		DolevImplicitPath:           true,
+		BrachaImplicitEcho:          true,
+		BrachaMinimalSubset:         true,
+		BrachaDolevPartialBroadcast: true,
 		BrachaDolevMerge:            false,
 	}
 
 	//n, k, fx := 25, 8, 2
 	//messages := 5
 	//deg := k
-	payloadSize := 12000
+	payloadSize := 12
 	//gen := graphs.RandomRegularGenerator{}
 	//_, name := gen.Cache()
 	//
@@ -136,7 +138,7 @@ func RunnerMain() {
 	//	os.Exit(1)
 	//}
 
-	brachaIndividualTests(opts, info, cfg, payloadSize, false)
+	brachaDolevFullTests(opts, info, cfg, payloadSize, 5, true)
 
 	fmt.Println("done")
 	fmt.Println("server stop")
@@ -181,42 +183,65 @@ func (b bytePayload) SizeOf() uintptr {
 	return uintptr(len(b))
 }
 
-func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, messages, payloadSize int, gen graphs.Generator, cfg process.Config, opt brb.OptimizationConfig, bp brb.Protocol) error {
-	if k < 2*f+1 && bp.Category() != brb.BrachaCat {
-		return errors.Errorf("network is not 2f+1 connected (k=%v, f=%v)", k, f)
+type RunConfig struct {
+	Runs, N, K, F, Degree, PayloadSize int
+	MultipleTransmitters               bool
+	Generator                          graphs.Generator
+	ControlCfg                         ctrl.Config
+	ProcessCfg                         process.Config
+	OptimizationCfg                    brb.OptimizationConfig
+	Protocol                           brb.Protocol
+}
+
+func runMultipleMessagesTest(runCfg RunConfig) error {
+	if runCfg.Degree == -1 {
+		runCfg.Degree = runCfg.K
 	}
 
-	if float64(f) >= float64(n)/3 && bp.Category() != brb.DolevCat {
-		return errors.Errorf("f >= n/3 (n=%v, f=%v)", n, f)
+	if runCfg.Protocol.Category() == brb.BrachaCat {
+		runCfg.K = runCfg.N
 	}
 
-	ra := pickRandom(runs*messages, n-f)
-	g, err := gen.Generate(n, k, deg)
+	if runCfg.K < 2*runCfg.F+1 && runCfg.Protocol.Category() != brb.BrachaCat {
+		return errors.Errorf("network is not 2f+1 connected (k=%v, f=%v)", runCfg.K, runCfg.F)
+	}
+
+	if float64(runCfg.F) >= float64(runCfg.N)/3 && runCfg.Protocol.Category() != brb.DolevCat {
+		return errors.Errorf("f >= n/3 (n=%v, f=%v)", runCfg.N, runCfg.F)
+	}
+
+	messages := 1
+	if runCfg.MultipleTransmitters {
+		messages = runCfg.N - runCfg.F
+	}
+
+	ra := pickRandom(runCfg.Runs*messages, runCfg.N-runCfg.F)
+	g, err := runCfg.Generator.Generate(runCfg.N, runCfg.K, runCfg.Degree)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate graph for test")
 	}
 
-	fmt.Printf("everything ready, starting %v test runs\n", runs)
+	fmt.Printf("everything ready, starting %v test runs\n", runCfg.Runs)
 
-	ctl, err := ctrl.StartController(info)
+	ctl, err := ctrl.StartController(runCfg.ControlCfg)
 	if err != nil {
 		return errors.Wrap(err, "unable to start controller")
 	}
 
 	fmt.Printf("starting processes\nselected as possible transmitters: %v\n", ra)
-	err = ctl.StartProcesses(cfg, opt, g, bp, f, ra, bp.Category() == brb.BrachaDolevCat)
+	err = ctl.StartProcesses(runCfg.ProcessCfg, runCfg.OptimizationCfg, g, runCfg.Protocol, runCfg.F, ra, runCfg.Protocol.Category() == brb.BrachaDolevCat)
 	if err != nil {
 		return errors.Wrap(err, "unable to start processes")
 	}
 
-	lats := make([]int, 0, runs)
-	cnts := make([]int, 0, runs)
-	bdMergeds := make([]int, 0, runs)
-	dMergeds := make([]int, 0, runs)
-	pMergeds := make([]int, 0, runs)
-	transmits := make([]int, 0, runs)
+	lats := make([]int, 0, runCfg.Runs)
+	cnts := make([]int, 0, runCfg.Runs)
+	bdMergeds := make([]int, 0, runCfg.Runs)
+	dMergeds := make([]int, 0, runCfg.Runs)
+	pMergeds := make([]int, 0, runCfg.Runs)
+	transmits := make([]int, 0, runCfg.Runs)
 
-	for i := 0; i < runs; i++ {
+	for i := 0; i < runCfg.Runs; i++ {
 		fmt.Printf("---\nrun %v: waiting for all process to be alive\n", i)
 		if err := ctl.WaitForAlive(); err != nil {
 			return errors.Wrap(err, "err while waiting for alive")
@@ -228,7 +253,7 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, messages,
 		}
 
 		uids := make([]uint32, 0, messages)
-		payload := generatePayload(payloadSize, i)
+		payload := generatePayload(runCfg.PayloadSize, i)
 		for j := 0; j < messages; j++ {
 			id := ra[i*messages+j]
 
@@ -326,7 +351,7 @@ func runMultipleMessagesTest(info ctrl.Config, runs int, n, k, f, deg, messages,
 	fmt.Println("config:")
 	fmt.Printf("  nodes: %v\n  connectivity (k): %v\n  byzantine nodes (f): %v"+
 		"\n  runs: %v\n  protocol: %v\n  payload size: %v bytes\n  messages: %v\n",
-		n, k, f, runs, reflect.TypeOf(bp).Elem().Name(), payloadSize, messages)
+		runCfg.N, runCfg.K, runCfg.F, runCfg.Runs, reflect.TypeOf(runCfg.Protocol).Elem().Name(), runCfg.PayloadSize, messages)
 
 	ctl.FlushProcesses()
 	ctl.Close()

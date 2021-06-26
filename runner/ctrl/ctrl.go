@@ -24,8 +24,9 @@ type proc struct {
 }
 
 type Config struct {
-	CtrlBuffer, ProcBuffer int
-	PollDelay              time.Duration
+	CtrlBuffer, ProcBuffer, IntermediateInterval int
+	PollDelay                                    time.Duration
+	PrintIntermediate                            bool
 }
 
 type Controller struct {
@@ -48,6 +49,10 @@ type Controller struct {
 }
 
 func StartController(cfg Config) (*Controller, error) {
+	if cfg.IntermediateInterval == 0 {
+		cfg.IntermediateInterval = 5
+	}
+
 	c := &Controller{
 		ctl:        make(chan process.Message, cfg.CtrlBuffer),
 		channels:   make(map[uint64]chan process.Message),
@@ -263,10 +268,10 @@ func (c *Controller) WaitForDeliver(uid uint32) Stats {
 			return c.aggregateStats(uid)
 		}
 
-		if i == 0 {
+		if i == 0 && c.cfg.PrintIntermediate {
 			fmt.Printf("waiting for %v more (%v) delivers: %v\n", len(needed), uid, needed)
 		}
-		i = (i + 1) % 5
+		i = (i + 1) % c.cfg.IntermediateInterval
 
 		time.Sleep(c.cfg.PollDelay * 2)
 	}

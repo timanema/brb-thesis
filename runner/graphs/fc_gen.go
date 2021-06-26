@@ -7,7 +7,7 @@ import (
 
 type FullyConnectedGenerator struct{}
 
-func (f FullyConnectedGenerator) Generate(n, k, d int) (*simple.WeightedUndirectedGraph, error) {
+func (f FullyConnectedGenerator) Generate(n, k, _ int) (*simple.WeightedUndirectedGraph, error) {
 	if n != k {
 		return nil, errors.Errorf("impossible to generate (required n=k): n=%v, k=%v", n, k)
 	}
