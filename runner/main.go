@@ -28,6 +28,7 @@ func init() {
 	gob.Register(graphs.Node{})
 }
 
+// This function is the main program entry
 func main() {
 	val, ok := os.LookupEnv("MANUAL_RUNNER")
 	if ok && val == "true" {
@@ -38,7 +39,9 @@ func main() {
 	}
 }
 
+// You can test in this function
 func RunnerMain() {
+	// Profiler (pprof) is started in the background, in case you're interested in detailed performance reports
 	go func() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
@@ -69,9 +72,10 @@ func RunnerMain() {
 
 	// Optimizations
 	opts := brb.OptimizationConfig{
+		// All optimizations are ordered in their ORX.Y order
 		DolevFilterSubpaths:         true,
-		DolevSingleHopNeighbour:     true, // orbd.2
-		DolevCombineNextHops:        true, // orbd.2
+		DolevSingleHopNeighbour:     true,
+		DolevCombineNextHops:        true,
 		DolevReusePaths:             true,
 		DolevRelayMerging:           true,
 		DolevPayloadMerging:         true,
@@ -79,25 +83,52 @@ func RunnerMain() {
 		BrachaImplicitEcho:          true,
 		BrachaMinimalSubset:         true,
 		BrachaDolevPartialBroadcast: true,
-		BrachaDolevMerge:            false,
+		BrachaDolevMerge:            true,
 	}
 
 	// Run a single test
 	runCfg := RunConfig{
-		Runs:                 5,
-		N:                    25,
-		K:                    8,
-		F:                    3,
-		PayloadSize:          12,
+		// Amount of times to run the test (used for standard deviation + mean)
+		Runs: 5,
+
+		// Amount of nodes
+		N: 25,
+
+		// Connectivity
+		K: 8,
+
+		// Amount of Byzantine nodes
+		F: 3,
+
+		// Size of the generated payload
+		PayloadSize: 12,
+
+		// Boolean indicating if all non-Byzantine nodes will transmit (the same payload)
 		MultipleTransmitters: false,
-		Generator:            graphs.RandomRegularGenerator{},
-		ControlCfg:           info,
-		ProcessCfg:           cfg,
-		OptimizationCfg:      opts,
-		Protocol:             &brb.DolevKnownImprovedPM{},
+
+		// Graph generator to use. Possible options
+		// - RandomRegularGenerator
+		// - GeneralizedWheelGenerator (not complete, will place Byzantine nodes randomly, not yet in the center)
+		// - MultiPartiteWheelGenerator / MultiPartiteWheelAltGenerator (same graph, different implementation)
+		// - FullyConnectedGenerator
+		// - BasicGenerator (will return given graph, used for testing specific graphs)
+		Generator: graphs.RandomRegularGenerator{},
+
+		// Protocols can be:
+		// - DolevKnownImproved
+		// - BrachaImproved
+		// - BrachaDolevKnownImproved
+		// Others have been used for testing, but are not updated so might not work anymore
+		Protocol: &brb.DolevKnownImproved{},
+
+		// The rest can be ignored
+		ControlCfg:      info,
+		ProcessCfg:      cfg,
+		OptimizationCfg: opts,
 	}
 
-	// If you want to use the graph cache, enable it
+	// If you want to use the graph cache, enable it.
+	// This is recommended for large random graphs, as it can take a few minutes to generate them
 	useCache := false
 	if useCache {
 		_, name := runCfg.Generator.Cache()
@@ -110,14 +141,19 @@ func RunnerMain() {
 	}
 
 	// Run a full test
-	//brachaDolevFullTests(opts, info, cfg, 12, 5, true, 0)
+	brachaFullTests(opts, info, cfg, 12, 5, true, 0)
 
 	fmt.Println("done")
 	fmt.Println("server stop")
 }
 
+// ==== NOT NEEDED TO LOOK FURTHER FOR SIMPLE TESTING ====
 func generatePayload(size, run int) bytePayload {
-	if size <= 1 {
+	if size <= 0 {
+		return bytePayload{}
+	}
+
+	if size == 1 {
 		return bytePayload(fmt.Sprintf("%v", run))
 	}
 

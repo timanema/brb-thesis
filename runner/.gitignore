@@ -6,6 +6,7 @@
 ### Go ###
 # Binaries for programs and plugins
 *.exe
+!rp-runner.exe
 *.exe~
 *.dll
 *.so

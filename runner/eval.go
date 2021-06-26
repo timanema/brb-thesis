@@ -217,7 +217,7 @@ func dolevIndividualTests(opts brb.OptimizationConfig, info ctrl.Config, cfg pro
 		ControlCfg:           info,
 		ProcessCfg:           cfg,
 		OptimizationCfg:      opts,
-		Protocol:             &brb.DolevKnownImprovedPM{},
+		Protocol:             &brb.DolevKnownImproved{},
 	}
 
 	_, name := gen.Cache()
@@ -332,7 +332,7 @@ func dolevFullTests(opts brb.OptimizationConfig, info ctrl.Config, cfg process.C
 		ControlCfg:           info,
 		ProcessCfg:           cfg,
 		OptimizationCfg:      opts,
-		Protocol:             &brb.DolevKnownImprovedPM{},
+		Protocol:             &brb.DolevKnownImproved{},
 	}
 
 	_, name := gen.Cache()
@@ -446,7 +446,7 @@ func dolevScaleTests(opts brb.OptimizationConfig, info ctrl.Config, cfg process.
 		ControlCfg:           info,
 		ProcessCfg:           cfg,
 		OptimizationCfg:      opts,
-		Protocol:             &brb.DolevKnownImprovedPM{},
+		Protocol:             &brb.DolevKnownImproved{},
 	}
 
 	_, name := gen.Cache()

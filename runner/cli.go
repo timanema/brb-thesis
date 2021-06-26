@@ -322,7 +322,7 @@ func runSingle(c *cli.Context) error {
 	case "brachaDolev":
 		br = &brb.BrachaDolevKnownImproved{}
 	default:
-		br = &brb.DolevKnownImprovedPM{}
+		br = &brb.DolevKnownImproved{}
 	}
 
 	if c.Bool("cache") {
