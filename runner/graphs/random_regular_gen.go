@@ -127,6 +127,10 @@ func (r RandomRegularGenerator) Generate(n, k, d int) (*simple.WeightedUndirecte
 		return nil, errors.Errorf("degree cannot be lower than connectivity: k=%v, d=%v", k, d)
 	}
 
+	if k > n {
+		return nil, errors.Errorf("connectivity cannot be higher than size: k=%v, n=%v", k, n)
+	}
+
 	runners := runtime.NumCPU()
 	ctx, cancel := context.WithCancel(context.TODO())
 	res := make(chan *simple.WeightedUndirectedGraph, runners)

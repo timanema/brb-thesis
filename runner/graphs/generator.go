@@ -59,6 +59,8 @@ func (fc FileCacheGenerator) dump(n, k, d int) (*simple.WeightedUndirectedGraph,
 		if err := DumpToFile(g, fc.Name); err != nil {
 			return nil, errors.Wrap(err, "unable to save file")
 		}
+	} else {
+		fmt.Printf("graph %v is not marked as saveable, graph will not be saved and regenerated next time\n", fc.Name)
 	}
 
 	return g, nil
@@ -71,6 +73,7 @@ func (fc FileCacheGenerator) Generate(n, k, d int) (*simple.WeightedUndirectedGr
 		return fc.dump(n, k, d)
 	}
 
+	fmt.Printf("graph %v exists in storage!\n", fc.Name)
 	return ReadFromFile(fc.Name)
 }
 

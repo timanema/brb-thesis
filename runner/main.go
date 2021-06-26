@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/gob"
 	"fmt"
+	"github.com/fatih/color"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph/simple"
 	"log"
@@ -10,14 +11,12 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"os/signal"
 	"reflect"
 	"rp-runner/brb"
 	"rp-runner/ctrl"
 	"rp-runner/graphs"
 	"rp-runner/process"
 	"runtime"
-	"syscall"
 	"time"
 
 	_ "net/http/pprof"
@@ -30,8 +29,13 @@ func init() {
 }
 
 func main() {
-	//graphs.GraphsMain()
-	RunnerMain()
+	val, ok := os.LookupEnv("MANUAL_RUNNER")
+	if ok && val == "true" {
+		fmt.Println("running manual runner")
+		RunnerMain()
+	} else {
+		CLI()
+	}
 }
 
 func RunnerMain() {
@@ -40,75 +44,28 @@ func RunnerMain() {
 	}()
 
 	fmt.Println("starting rp runner")
-	stopCh := make(chan struct{}, 1)
+	// You can change these if you want, but these values should be sane defaults
 	info := ctrl.Config{
-		PollDelay:            time.Millisecond * 200,
-		CtrlBuffer:           2000,
-		ProcBuffer:           50000,
-		IntermediateInterval: 20,
-		PrintIntermediate:    true,
+		// Controller uses polling for waiting etc
+		PollDelay: time.Millisecond * 200,
+
+		// Buffer size of controller
+		CtrlBuffer: 2000,
+
+		// Buffer size of each link. Be aware that the full buffer is allocated, even though it might not be used.
+		ProcBuffer: 50000,
+
+		// Set the verbosity
+		Verbosity: ctrl.SLOW,
 	}
-
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT)
-	go func() {
-		<-sigc
-		close(stopCh)
-	}()
-
 	cfg := process.Config{
-		MaxRetries:     5,
+		// Connection attempts to controller and neighbours
+		MaxRetries: 5,
+
+		// Timeout delays
 		RetryDelay:     time.Millisecond * 100,
 		NeighbourDelay: time.Millisecond * 300,
 	}
-
-	// TEMP
-	//gr := simple.NewWeightedUndirectedGraph(0, 0)
-	////Create nodes
-	//a := graphs.NewNodeUndirected(gr, "a")
-	//gr.AddNode(a)
-	//b := graphs.NewNodeUndirected(gr, "b")
-	//gr.AddNode(b)
-	//c := graphs.NewNodeUndirected(gr, "c")
-	//gr.AddNode(c)
-	//d := graphs.NewNodeUndirected(gr, "d")
-	//gr.AddNode(d)
-	//e := graphs.NewNodeUndirected(gr, "e")
-	//gr.AddNode(e)
-	//f := graphs.NewNodeUndirected(gr, "f")
-	//gr.AddNode(f)
-	//g := graphs.NewNodeUndirected(gr, "g")
-	//gr.AddNode(g)
-	//
-	//ab := gr.NewWeightedEdge(a, b, 1)
-	//ac := gr.NewWeightedEdge(a, c, 1)
-	//ad := gr.NewWeightedEdge(a, d, 1)
-	//bc := gr.NewWeightedEdge(b, c, 1)
-	//dc := gr.NewWeightedEdge(d, c, 1)
-	//be := gr.NewWeightedEdge(b, e, 1)
-	//ce := gr.NewWeightedEdge(c, e, 1)
-	//cf := gr.NewWeightedEdge(c, f, 1)
-	//cg := gr.NewWeightedEdge(c, g, 1)
-	//ef := gr.NewWeightedEdge(e, f, 1)
-	//fg := gr.NewWeightedEdge(f, g, 1)
-	//dg := gr.NewWeightedEdge(d, g, 1)
-	//
-	//gr.SetWeightedEdge(ab)
-	//gr.SetWeightedEdge(ac)
-	//gr.SetWeightedEdge(ad)
-	//gr.SetWeightedEdge(bc)
-	//gr.SetWeightedEdge(dc)
-	//gr.SetWeightedEdge(be)
-	//gr.SetWeightedEdge(ce)
-	//gr.SetWeightedEdge(cf)
-	//gr.SetWeightedEdge(cg)
-	//gr.SetWeightedEdge(ef)
-	//gr.SetWeightedEdge(fg)
-	//gr.SetWeightedEdge(dg)
 
 	// Optimizations
 	opts := brb.OptimizationConfig{
@@ -125,20 +82,35 @@ func RunnerMain() {
 		BrachaDolevMerge:            false,
 	}
 
-	//n, k, fx := 25, 8, 2
-	//messages := 5
-	//deg := k
-	payloadSize := 12
-	//gen := graphs.RandomRegularGenerator{}
-	//_, name := gen.Cache()
-	//
-	//cache := graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, n, k), Gen: gen}
-	//if err := runMultipleMessagesTest(info, 5, n, k, fx, deg, messages, payloadSize, cache, cfg, opts, &brb.BrachaDolevKnownImproved{}); err != nil {
-	//	fmt.Printf("err while running simple test: %v\n", err)
-	//	os.Exit(1)
-	//}
+	// Run a single test
+	runCfg := RunConfig{
+		Runs:                 5,
+		N:                    25,
+		K:                    8,
+		F:                    3,
+		PayloadSize:          12,
+		MultipleTransmitters: false,
+		Generator:            graphs.RandomRegularGenerator{},
+		ControlCfg:           info,
+		ProcessCfg:           cfg,
+		OptimizationCfg:      opts,
+		Protocol:             &brb.DolevKnownImprovedPM{},
+	}
 
-	brachaDolevFullTests(opts, info, cfg, payloadSize, 5, true)
+	// If you want to use the graph cache, enable it
+	useCache := false
+	if useCache {
+		_, name := runCfg.Generator.Cache()
+		runCfg.Generator = &graphs.FileCacheGenerator{Name: fmt.Sprintf("generated/%v-%v-%v.graph", name, runCfg.N, runCfg.K), Gen: runCfg.Generator}
+	}
+
+	if err := runMultipleMessagesTest(runCfg, false); err != nil {
+		fmt.Printf("err while running simple test: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Run a full test
+	//brachaDolevFullTests(opts, info, cfg, 12, 5, true, 0)
 
 	fmt.Println("done")
 	fmt.Println("server stop")
@@ -193,9 +165,34 @@ type RunConfig struct {
 	Protocol                           brb.Protocol
 }
 
-func runMultipleMessagesTest(runCfg RunConfig) error {
-	if runCfg.Degree == -1 {
+func runMultipleMessagesTest(runCfg RunConfig, skip bool) error {
+	if skip {
+		return nil
+	}
+
+	if runCfg.PayloadSize < 0 {
+		return errors.Errorf("invalid payload size, must be >=0 but is: %v", runCfg.PayloadSize)
+	}
+
+	if runCfg.N < 0 {
+		return errors.Errorf("invalid amount of nodes, must be >=0 but is: %v", runCfg.N)
+	}
+
+	if runCfg.F < 0 {
+		return errors.Errorf("invalid amount of byzantine nodes, must be >=0 but is: %v", runCfg.F)
+	}
+
+	if runCfg.Degree <= 0 {
 		runCfg.Degree = runCfg.K
+	}
+
+	testGen := runCfg.Generator
+	if v, ok := testGen.(*graphs.FileCacheGenerator); ok {
+		testGen = v.Gen
+	}
+
+	if _, ok := testGen.(*graphs.FullyConnectedGenerator); runCfg.Protocol.Category() == brb.BrachaCat && !ok {
+		return errors.New("pure bracha cannot function on non-fully connected networks!")
 	}
 
 	if runCfg.Protocol.Category() == brb.BrachaCat {
@@ -215,6 +212,7 @@ func runMultipleMessagesTest(runCfg RunConfig) error {
 		messages = runCfg.N - runCfg.F
 	}
 
+	fmt.Println("generating graph...")
 	ra := pickRandom(runCfg.Runs*messages, runCfg.N-runCfg.F)
 	g, err := runCfg.Generator.Generate(runCfg.N, runCfg.K, runCfg.Degree)
 	if err != nil {
@@ -228,7 +226,9 @@ func runMultipleMessagesTest(runCfg RunConfig) error {
 		return errors.Wrap(err, "unable to start controller")
 	}
 
-	fmt.Printf("starting processes\nselected as possible transmitters: %v\n", ra)
+	if runCfg.ControlCfg.Verbosity > ctrl.SILENT {
+		fmt.Printf("starting processes\nselected as possible transmitters: %v\n", ra)
+	}
 	err = ctl.StartProcesses(runCfg.ProcessCfg, runCfg.OptimizationCfg, g, runCfg.Protocol, runCfg.F, ra, runCfg.Protocol.Category() == brb.BrachaDolevCat)
 	if err != nil {
 		return errors.Wrap(err, "unable to start processes")
@@ -266,7 +266,7 @@ func runMultipleMessagesTest(runCfg RunConfig) error {
 			uids = append(uids, uid)
 		}
 
-		fmt.Printf("sent %v messages (%v, round %v, origins %v) of %v bytes, waiting for delivers\n", messages, uids,
+		color.Black("sent %v messages (%v, round %v, origins %v) of %v bytes, waiting for delivers\n", messages, uids,
 			i, ra[i*messages:i*messages+messages], payload.SizeOf())
 
 		roundLat := time.Duration(0)
@@ -305,8 +305,8 @@ func runMultipleMessagesTest(runCfg RunConfig) error {
 
 		roundMeanRelayCnt /= float64(messages)
 
-		fmt.Printf("statistics (%v):\n  last delivery latency: %v\n  messages sent: %v (~%v per broadcast)"+
-			"\n  recv: %.2f (%v - %v - %v)\n  bd merged: %v\n  d merged: %v\n  payloads merged: %v\n  "+
+		color.Green("statistics (%v):\n  last delivery latency: %v\n  messages sent: %v (~%v per broadcast)"+
+			"\n  recv: %.2f (%v - %v - %v)\n  bd merged (orbd2): %v\n  d merged (ord5): %v\n  payloads merged (ord6): %v\n  "+
 			"bytes transmitted: %v (~%v per broadcast)\n", i,
 			roundLat, roundMsg, roundMsg/messages, roundMeanRelayCnt, roundRelayCnt, roundMinRelayCnt, roundMaxRelayCnt,
 			roundBDMerged, roundDMerged, roundPMerged, roundTransmitted, roundTransmitted/messages)
@@ -322,41 +322,42 @@ func runMultipleMessagesTest(runCfg RunConfig) error {
 		runtime.GC()
 	}
 
-	fmt.Println("==========\naverage stats:")
+	color.Black("==========\n")
+	color.Green("average stats:\n")
 	lMean, lSd := sd(lats)
 	lRsd := lSd * 100 / lMean
-	fmt.Printf("  latency:\n    mean: %v\n    sd: %v (%.2f%%)\n", time.Duration(lMean), time.Duration(lSd), lRsd)
+	color.Green("  latency:\n    mean: %v\n    sd: %v (%.2f%%)\n", time.Duration(lMean), time.Duration(lSd), lRsd)
 
 	mMean, mSd := sd(cnts)
 	mRsd := mSd * 100 / mMean
-	fmt.Printf("  messages:\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", mMean, mSd, mRsd)
+	color.Green("  messages:\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", mMean, mSd, mRsd)
 
 	bdmMean, bdmSd := sd(bdMergeds)
 	bdmRsd := bdmSd * 100 / bdmMean
-	fmt.Printf("  bd merged:\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", bdmMean, bdmSd, bdmRsd)
+	color.Green("  bd merged (orbd2):\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", bdmMean, bdmSd, bdmRsd)
 
 	dmMean, dmSd := sd(dMergeds)
 	dmRsd := dmSd * 100 / dmMean
-	fmt.Printf("  d merged:\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", dmMean, dmSd, dmRsd)
+	color.Green("  d merged (ord5):\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", dmMean, dmSd, dmRsd)
 
 	pmMean, pmSd := sd(pMergeds)
 	pmRsd := pmSd * 100 / pmMean
-	fmt.Printf("  payloads merged:\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", pmMean, pmSd, pmRsd)
+	color.Green("  payloads merged (ord6):\n    mean: %.2f\n    sd: %.2f (%.2f%%)\n", pmMean, pmSd, pmRsd)
 
 	tMean, tSd := sd(transmits)
 	tRsd := tSd * 100 / tMean
-	fmt.Printf("  transmits:\n    mean: %.2f (~%.2f per broadcast)\n    sd: %.2f (%.2f%%)\n", tMean,
+	color.Green("  transmits:\n    mean: %.2f (~%.2f per broadcast)\n    sd: %.2f (%.2f%%)\n", tMean,
 		tMean/float64(messages), tSd, tRsd)
 
-	fmt.Println("config:")
-	fmt.Printf("  nodes: %v\n  connectivity (k): %v\n  byzantine nodes (f): %v"+
-		"\n  runs: %v\n  protocol: %v\n  payload size: %v bytes\n  messages: %v\n",
+	color.Blue("config:")
+	color.Blue("  nodes: %v\n  connectivity (k): %v\n  byzantine nodes (f): %v"+
+		"\n  runs: %v\n  protocol: %v\n  payload size: %v bytes\n  messages broadcasted: %v\n",
 		runCfg.N, runCfg.K, runCfg.F, runCfg.Runs, reflect.TypeOf(runCfg.Protocol).Elem().Name(), runCfg.PayloadSize, messages)
 
 	ctl.FlushProcesses()
 	ctl.Close()
 
-	fmt.Println("==========")
+	color.Black("==========")
 	runtime.GC()
 
 	return nil

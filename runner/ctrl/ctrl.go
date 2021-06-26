@@ -23,10 +23,19 @@ type proc struct {
 	err error
 }
 
+type Verbosity int
+
+const (
+	SILENT Verbosity = iota
+	SLOW
+	FAST
+	ALL
+)
+
 type Config struct {
-	CtrlBuffer, ProcBuffer, IntermediateInterval int
+	CtrlBuffer, ProcBuffer, intermediateInterval int
 	PollDelay                                    time.Duration
-	PrintIntermediate                            bool
+	Verbosity                                    Verbosity
 }
 
 type Controller struct {
@@ -49,8 +58,15 @@ type Controller struct {
 }
 
 func StartController(cfg Config) (*Controller, error) {
-	if cfg.IntermediateInterval == 0 {
-		cfg.IntermediateInterval = 5
+	switch cfg.Verbosity {
+	case SLOW:
+		cfg.intermediateInterval = 20
+	case FAST:
+		cfg.intermediateInterval = 5
+	case ALL:
+		cfg.intermediateInterval = 3
+	default:
+		cfg.intermediateInterval = 1
 	}
 
 	c := &Controller{
@@ -159,6 +175,7 @@ func (c *Controller) StartProcesses(cfg process.Config, opt brb.OptimizationConf
 			Unused:             !possibleTransmitter,
 			OptimizationConfig: opt,
 			Precomputed:        brb.PrecomputedValues{FullTable: fullTable},
+			Silent:             c.cfg.Verbosity == SILENT,
 		}
 
 		if allTransmit {
@@ -213,7 +230,9 @@ func (c *Controller) WaitForAlive() error {
 			if p.err != nil {
 				return errors.Wrapf(p.err, "process %v failed", pic)
 			} else if !p.alive {
-				fmt.Printf("waiting for %v alive\n", pic)
+				if c.cfg.Verbosity == ALL {
+					fmt.Printf("waiting for %v alive\n", pic)
+				}
 				waiting = true
 				time.Sleep(c.cfg.PollDelay)
 				break
@@ -234,7 +253,9 @@ func (c *Controller) WaitForReady() error {
 			if p.err != nil {
 				return errors.Wrapf(p.err, "process %v failed", pic)
 			} else if !p.ready {
-				//fmt.Printf("waiting for %v ready\n", pic)
+				if c.cfg.Verbosity == ALL {
+					fmt.Printf("waiting for %v ready\n", pic)
+				}
 				waiting = true
 				time.Sleep(c.cfg.PollDelay)
 				break
@@ -268,10 +289,10 @@ func (c *Controller) WaitForDeliver(uid uint32) Stats {
 			return c.aggregateStats(uid)
 		}
 
-		if i == 0 && c.cfg.PrintIntermediate {
+		if i == 0 && c.cfg.Verbosity > SILENT {
 			fmt.Printf("waiting for %v more (%v) delivers: %v\n", len(needed), uid, needed)
 		}
-		i = (i + 1) % c.cfg.IntermediateInterval
+		i = (i + 1) % c.cfg.intermediateInterval
 
 		time.Sleep(c.cfg.PollDelay * 2)
 	}
@@ -378,7 +399,9 @@ func (c *Controller) handleMsg(src uint64, t uint8, b interface{}) {
 		c.al += 1
 		c.pLock.Unlock()
 
-		//fmt.Printf("runner %v is alive (%v)\n", src, c.al)
+		if c.cfg.Verbosity == ALL {
+			fmt.Printf("runner %v is alive (%v)\n", src, c.al)
+		}
 	case msg.RunnerReadyType:
 		r := b.(msg.RunnerStatus)
 		//if err := r.Decode(b); err != nil {
@@ -393,7 +416,9 @@ func (c *Controller) handleMsg(src uint64, t uint8, b interface{}) {
 		c.rdy += 1
 		c.pLock.Unlock()
 
-		//fmt.Printf("runner %v is ready (%v/%v)\n", src, c.rdy, len(c.p))
+		if c.cfg.Verbosity >= FAST {
+			fmt.Printf("runner %v is ready (%v/%v)\n", src, c.rdy, len(c.p))
+		}
 	case msg.RunnerFailedType:
 		r := b.(msg.RunnerFailure)
 		//if err := r.Decode(b); err != nil {
@@ -407,7 +432,9 @@ func (c *Controller) handleMsg(src uint64, t uint8, b interface{}) {
 		c.p[r.ID] = p
 		c.pLock.Unlock()
 
-		//fmt.Printf("runner %v failed: %v\n", r.ID, r.Err)
+		if c.cfg.Verbosity == ALL {
+			fmt.Printf("runner %v failed: %v\n", r.ID, r.Err)
+		}
 	case msg.MessageDeliveredType:
 		r := b.(msg.MessageDelivered)
 		//if err := r.Decode(b); err != nil {
@@ -423,11 +450,13 @@ func (c *Controller) handleMsg(src uint64, t uint8, b interface{}) {
 		}
 
 		c.deliverMap[r.Id][src] = struct{}{}
-		//del := len(c.deliverMap[r.Id])
+		del := len(c.deliverMap[r.Id])
 		c.dLock.Unlock()
 
 		c.pLock.Lock()
-		//fmt.Printf("runner %v has delivered %v (%v/%v-F)\n", src, r.Id, del, len(c.p))
+		if c.cfg.Verbosity == ALL {
+			fmt.Printf("runner %v has delivered %v with correct payload (%v/%v-F)\n", src, r.Id, del, len(c.p))
+		}
 		c.pLock.Unlock()
 	}
 }
