@@ -1,17 +1,14 @@
 \section{Broader impact and reproducibility}
 \label{broader-impact}
-% Reflect on the ethical aspects of your research and discuss the reproducibility of your methods.
-% In this section we will briefly discuss the broader impact of our modifications to the BRB protocols handled in our paper, and we will also make note of the reproducibility of our evaluation.
-
-Our research focused on improving existing protocols. This means we guarantee the same properties as the original protocols, while putting the network under less stress in certain systems. For this reason, there are no inherit risks to our work. In addition to this, there are limited malicious uses for our work, as it works as an underlying protocol similar to the regular internet protocol. 
+Our research focused on improving existing protocols. This means we guarantee the same properties as the original protocols while putting the network under less stress in certain systems. For this reason, there are no inherent risks to our work. In addition to this, there are limited malicious uses for our work, as it works as an underlying protocol similar to the regular internet protocol. 
 However, our modifications add a considerable amount of complexity to the protocol, allowing for more developer error possibly leading to violated protocol properties.
 
-% Depending on how the protocols are applied, our work could reduce network and system usage. This leads to either a higher capacity of the broadcast layer or a reduced energy footprint of the system. The latter always has positive impact, while the former can be negative if the system in question in malicious.
+% Depending on how the protocols are applied, our work could reduce network and system usage. This leads to either a higher capacity of the broadcast layer or a reduced energy footprint of the system. The latter always has a positive impact, while the former can be negative if the system in question is malicious.
 
-Now that we have discussed the broader impact of our work, its reproducibility should also be mentioned. All of our results are retrieved from a standalone binary whose source will be published together with this paper. The program has a low barrier of entry and can be used by anyone, since the program is written in widely supported language (Go) and has no other system dependencies. The program can be found in the GitLab repository\footnote{\url{https://gitlab.tudelft.nl/jdecouchant/rp21-group31-4-anema}}.
+Now that we have discussed the broader impact of our work, its reproducibility should also be mentioned. All of our results are retrieved from a standalone binary whose source will be published together with this paper. The program has a low barrier of entry and can be used by anyone since the program is written in a widely supported language (Go) and has no other system dependencies. The program can be found in the GitLab repository\footnote{\url{https://gitlab.tudelft.nl/jdecouchant/rp21-group31-4-anema}}.
 
-The exact configurations used can be deduced from the evaluation section, and these can then be executed by the program. The exact graphs used for evaluation will also be published along with the code, although a user can also choose to generate new graphs. 
+The exact configurations used can be deduced from the evaluation section, and are also included in the provided command-line tool. These can then be executed by the program. The exact graphs used for evaluation will also be published along with the code, although a user can also choose to generate new graphs. 
 
 It is important to note that results may be different for every computer, as the program will execute everything as fast as possible. However, the relative differences between the original protocols and our improved versions will be closer to the results showed in our paper.
 
-% To conclude, we believe our research does not have significant negative impact. Furthermore, everyone should be able to run our evaluation program themselves and verify our results. If desired, one can also implement our optimizations in another language using the descriptions and pseudocode we provided.
+% To conclude, we believe our research does not have a significant negative impact. Furthermore, everyone should be able to run our evaluation program themselves and verify our results. If desired, one can also implement our optimizations in another language using the descriptions and pseudocode we provided.

@@ -190,6 +190,8 @@ func CLI() {
 				Action: func(c *cli.Context) error {
 					if c.Int("verbosity") > 3 {
 						_ = c.Set("verbosity", "3")
+					} else if c.Int("verbosity") < 0 {
+						_ = c.Set("verbosity", "0")
 					}
 
 					if c.Bool("no-color") {

@@ -1,6 +1,7 @@
 package process
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
@@ -278,11 +279,11 @@ func (p *Process) Stats() Stats {
 	p.sLock.Lock()
 	defer p.sLock.Unlock()
 
-	s := p.stats
-	//// TODO: slow copy but safe, make faster if needed?
-	//var s Stats
-	//x, _ := json.Marshal(p.stats)
-	//_ = json.Unmarshal(x, &s)
+	//s := p.stats
+	// TODO: slow copy but safe, make faster if needed?
+	var s Stats
+	x, _ := json.Marshal(p.stats)
+	_ = json.Unmarshal(x, &s)
 
 	return s
 }

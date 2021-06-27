@@ -1,16 +1,6 @@
 \section{Evaluation}
 \label{eval}
-% As discussed earlier, in many sciences the methodology is explained in section 2 and this section only discusses the results. 
-% However, in computer science, most often the details of the evaluation setup are described here first (simulation environment, etc.).
-% Very important here is that any skilled reader would be able to reproduce this setup and then obtain the same results.
-
-% Then, results are reported in an accessible manner through figures (preferably with captions that allow them to be understood without going through the whole text), observations are made that clearly follow from the presented results.
-% Conclusions are drawn that follow logically from the previous material.
-% Sometimes the conclusions are in fact hypotheses, which in turn may give rise to new experiments to be validated.
-
-% You may want to give this section another name.
-
-In this section we will discuss the methodology we used and the results of our optimizations.
+In this section, we will discuss the methodology we used and the results of our optimizations.
 
 \subsection{Methodology}
 For our research we implemented an evaluation program in Go which uses goroutines~\cite{goroutines} as a process abstraction, and dedicated channels~\cite{channels} as communication links. The protocol instances are instantiated by the process wrappers, and they have access to a network and an application instance, which are defined by the interfaces containing \texttt{Send(dst, m)} and \texttt{Deliver(m)} respectively. The protocols themselves provide the \texttt{Init()}, \texttt{Receive(src, m)}, and \texttt{Broadcast(m)} functions.
@@ -18,27 +8,27 @@ For our research we implemented an evaluation program in Go which uses goroutine
 In addition to the original protocols and improved version of Dolev~\cite{bonomi2019multihop} and a version of Dolev with naive routing was implemented. These two versions are the baseline for Dolev and Bracha-Dolev. 
 %\textbf{TODO: discuss bonomi 10.}
 
-We focus on message complexity and network consumption, which is defined by the total number of messages transmitted and total number of bytes transmitted, respectively. We mention latency when notable, but this is not a statistic we focus on. We define the latency as the time between the original broadcast and the final non-Byzantine node delivering the message. 
+We focus on message complexity and network consumption, which is defined by the total number of messages transmitted and the total number of bytes transmitted, respectively. We mention latency when notable, but this is not a statistic we focus on. We define latency as the time between the original broadcast and the final non-Byzantine node delivering the message. 
 
-We use similar graphs as used in \cite{bonomi2021practical,bonomi2019multihop}: generalized wheels, multipartite wheels, and random regular graphs. For the tests we use an AMD Ryzen 5 2600 (3.4-3.9GHz) machine. The usage of channels leads to a different throughput per machine, but their performance will not limit the tests and will not affect our main measurement.
+We use similar graphs as used in \cite{bonomi2021practical,bonomi2019multihop}: generalized wheels, multipartite wheels, and random regular graphs. For the tests, we use an AMD Ryzen 5 2600 (3.4-3.9GHz) machine. The usage of channels leads to a different throughput per machine, but their performance will not limit the tests and will not affect our main measurement.
 
-We will run the tests with varying random graphs, broadcasting process, byzantine processes, and parameters $N$, $k$, $f$, such that $N \ge 3f+1$ and $k \ge 2f+1$, and report the mean and standard deviation of five tests. In most tests a single process will broadcast a single message, unless the modifications being tested include \textbf{ORD.6} as it is specifically made for the case of multiple broadcasters. In that case the amount of transmitters $m$ is defined by $N-f$.
+We will run the tests with varying random graphs, broadcasting process, byzantine processes, and parameters $N$, $k$, $f$, such that $N \ge 3f+1$ and $k \ge 2f+1$, and report the mean and standard deviation of five tests. In most tests, a single process will broadcast a single message, unless the modifications being tested include \textbf{ORD.6} as it is specifically made for the case of multiple broadcasters. In that case, the amount of transmitters $m$ is defined by $N-f$.
 
 \textbf{Remark}
 Note that the latency will not be entirely representative of the latency in a real deployment, as our simulated links have low latency which means latency is largely influenced by computing time. 
 
 \subsection{Impact of individual optimizations}
-We evaluated the impact of individual optimizations on the message complexity and network consumption. Table~\ref{eval:individual-results} summarizes our findings for every individual modification compared to its baseline. The baseline is different for each protocol: for Dolev we compare to a version with naive routing, for Bracha we compare to the original version, and for Bracha-Dolev we compare to a version of Bracha-Dolev which uses naive routing for the Dolev layer and the original Bracha implementation. For these tests random graphs were used with a size of $N=150$ for Dolev and Bracha and $N=75$ for Bracha-Dolev, and we varied the $k$ and $f$ to find out when modifications are useful. 
+We evaluated the impact of individual optimizations on message complexity and network consumption. Table~\ref{eval:individual-results} summarizes our findings for every individual modification compared to its baseline. The baseline is different for each protocol: for Dolev, we compare to a version with naive routing, for Bracha we compare to the original version, and for Bracha-Dolev we compare to a version of Bracha-Dolev which uses naive routing for the Dolev layer and the original Bracha implementation. For these tests, random graphs were used with a size of $N=150$ for Dolev and Bracha and $N=75$ for Bracha-Dolev, and we varied the $k$ and $f$ to find out when modifications are useful. 
 
 We will illustrate some modifications with the aforementioned configuration.
 
-There are several modification which perform well across the board, such as \textbf{ORD.1-3,7}, \textbf{ORB.1,2}, and \textbf{ORBD.1}. Others are slightly more nuanced however. For example, both \textbf{ORD.6} and \textbf{ORBD.2} perform better when the payload is large since they both rely on merging the payload, while adding slightly more information in a single header. The opposite is true for \textbf{ORD.7}, which performs better when there is a smaller payload. This is because this optimization tries to minimize the information contained in the message header, which is insignificant if a large part of the message consists of the payload data.
+There are several modification which perform well across the board, such as \textbf{ORD.1-3,7}, \textbf{ORB.1,2}, and \textbf{ORBD.1}. Others are slightly more nuanced, however. For example, both \textbf{ORD.6} and \textbf{ORBD.2} perform better when the payload is large since they both rely on merging the payload while adding slightly more information in a single header. The opposite is true for \textbf{ORD.7}, which performs better when there is a smaller payload. This is because this optimization tries to minimize the information contained in the message header, which is insignificant if a large part of the message consists of the payload data.
 
 Another optimization, \textbf{ORD.5}, does not show significant improvement. However, this lack of performance is offset by the fact that both \textbf{ORD.6} and \textbf{ORBD.2} rely on this modification. Another modification not showing significant improvements is \textbf{ORD.4}. While a part of this is likely caused by a non-optimal algorithm to reuse paths, it can also be attributed to the fact that it heavily relies on \textbf{ORD.3} to complete its task and needs an oversaturated network.
 
-It is also interesting to note the dependencies between modifications. For example, \textbf{ORDB.2} on its own does not improve the protocol that much. However, when combined with \textbf{ORD.2} and \textbf{ORD.3} the amount of messages merged increases more than tenfold. The reason being that these two modifications cause a lot of messages to end up in the buffer and also cause quicker deliveries, leading to more merging in \textbf{ORDB.2}.
+It is also interesting to note the dependencies between modifications. For example, \textbf{ORDB.2} on its own does not improve the protocol that much. However, when combined with \textbf{ORD.2} and \textbf{ORD.3} the number of messages merged increases more than tenfold. The reason being that these two modifications cause a lot of messages to end up in the buffer and also cause quicker deliveries, leading to more merging in \textbf{ORDB.2}.
 
-The opposite is also true, some modifications are mutually exclusive. For example, \textbf{ORD.6} is unable to merge messages when \textbf{ORBD.2} is active, since they share the same buffer and \textbf{ORBD.2} changes the payload temporarily. For this reason, it is recommended to prefer \textbf{ORD.6} over \textbf{ORBD.2} when all processes are broadcasting identical payloads. 
+The opposite is also true, some modifications are mutually exclusive. For example, \textbf{ORD.6} is unable to merge messages when \textbf{ORBD.2} is active since they share the same buffer and \textbf{ORBD.2} changes the payload temporarily. For this reason, it is recommended to prefer \textbf{ORD.6} over \textbf{ORBD.2} when all processes are broadcasting identical payloads. 
 
 \begin{table*}
   \centering
@@ -52,15 +42,15 @@ The opposite is also true, some modifications are mutually exclusive. For exampl
 \multicolumn{1}{|c|}{ORD.3}       & 63.06\% (+/-1.37\%)            & always               & 10.11\% (+/-2.94\%)             & always               & 62.03\% (+/-1.77\%)            & always               & 61.29\% (+/-1.80\%)             & always               \\ \hline
 \multicolumn{1}{|c|}{ORD.4}       & 0.84\% (+/-3.04\%)            & large $f$               & 0.77\% (+/-3.46\%)             & large $f$               & -0.90\% (+/-3.81\%)            & -               & -0.90\% (+/-3.82\%)             & -               \\ \hline
 \multicolumn{1}{|c|}{ORD.5}       & 2.09\% (+/-2.99\%)            & always               & 1.63\% (+/-3.43\%)             & always               & -0.06\% (+/-4.04\%)            & -               & 0.07\% (4.05\%)             & -               \\ \hline
-\multicolumn{1}{|c|}{ORD.6}       & 6.18\% (+/-0.33\%)            & small $f$*               & 0.81\% (+/-0.22\%)             & small $f$               & ?\% (+/-?\%)            & TODO               & ?\% (+/-?\%)             & TODO               \\ \hline
-\multicolumn{1}{|c|}{ORD.7}       & 1.41\% (+/-3.09\%)            & -               & 66.15\% (+/-1.38\%)             & always               & ?\% (+/-?\%)            & TODO               & ?\% (+/-?\%)             & TODO               \\ \hline
+\multicolumn{1}{|c|}{ORD.6}       & 6.18\% (+/-0.33\%)            & small $f$*               & 0.81\% (+/-0.22\%)             & small $f$               & 6.41\% (+/-0.19\%)            & small $f$               & 6.31\% (+/-0.18\%)             & small $f$               \\ \hline
+\multicolumn{1}{|c|}{ORD.7}       & 1.41\% (+/-3.09\%)            & -               & 66.15\% (+/-1.38\%)             & always               & 0.05\% (+/-4.51\%)            & -               & 0.81\% (+/-4.47\%)             & -               \\ \hline
 \multicolumn{1}{|c|}{ORB.1}       & 0.41\% (+/-0\%)            & always               & 0.41\% (+/-0\%)             & always               & 0.41\% (+/-0\%)            & always               & 0.41\% (+/-0\%)             & always               \\ \hline
 \multicolumn{1}{|c|}{ORB.2}       & 41.73\% (+/-0\%)            & small $f$               & 41.73\% (+/-0\%)             & small $f$               & 41.73\% (+/-0\%)            & small $f$               & 40.91\% (+/-0\%)             & small $f$               \\ \hline
 \multicolumn{1}{|c|}{ORBD.1}      & 24.51\% (+/-2.71\%)            & small $k \wedge$ small $f$*                & 24.68\% (+/-2.73\%)             & small $k \wedge$ small $f$*                 & 21.66\% (+/-2.03\%)            & small $k \wedge$ small $f$*                 & 21.66\% (+/-2.03\%)             & small $k \wedge$ small $f$*                 \\ \hline
 \multicolumn{1}{|c|}{ORBD.2}      & 1.25\% (+/-1.12\%)            & always               & -3.04\% (+/-1.96\%)             & never               & 0.2\% (+/-0.82\%)            & -               & 0.14\% (+/-0.83\%)             & -               \\ \hline
 \end{tabular}
     }
-  \caption{Effect of modifications measured on random graphs compared to their respective protocol standard. The mean reduction and standard error is listed respectively, in addition to a small description of the best use-cases. Note that descriptions marked with a star* are always useful, but will perform best in the given use-case.}
+  \caption{Effect of modifications measured on random graphs compared to their respective protocol standard. The mean reduction and standard error are listed respectively, in addition to a small description of the best use-cases. Note that descriptions marked with a star* are always useful, but will perform best in the given use-case.}
   \label{eval:individual-results}
 \end{table*}
 % \vspace{-0.10in}
@@ -83,11 +73,11 @@ The opposite is also true, some modifications are mutually exclusive. For exampl
 % \end{table}
 
 \subsection{Improvements}
-In addition to comparing individual modification we will evaluate the performance of our fully modified protocols. Figure~\ref{eval:overal-reduction} shows the reduction of our protocol compared to Dolev, Bracha and Bracha-Dolev with regards to the message complexity. The reduction is relative to the same baseline used for the individual modifications.
+In addition to comparing individual modifications, we will evaluate the performance of our fully modified protocols. Figure~\ref{eval:overal-reduction} shows the reduction of our protocol compared to Dolev, Bracha, and Bracha-Dolev with regards to the message complexity. The reduction is relative to the same baseline used for the individual modifications.
 
-For Dolev and Bracha-Dolev we again use random graphs with $N=150$ and $N=75$ respectively, and vary the connectivity $k$. The number of Byzantine nodes $f$ is defined by $\floor{\frac{k-1}{2}}$. In the case of Bracha we have can only use fully connected graphs, and will therefore vary the number of processes $N$ depending on the connectivity. The number of byzantine nodes in this case is defined by $\floor{\frac{k}{4}}$. In all cases the payload size is equal to 12B. 
+For Dolev and Bracha-Dolev we again use random graphs with $N=150$ and $N=75$ respectively, and vary the connectivity $k$. The number of Byzantine nodes $f$ is defined by $\floor{\frac{k-1}{2}}$. In the case of Bracha we have can only use fully connected graphs, and will therefore vary the number of processes $N$ depending on the connectivity. The number of byzantine nodes, in this case, is defined by $\floor{\frac{k}{4}}$. In all cases, the payload size is equal to 12B. 
 
-These tests show we are able to achieve a mean reduction of 79.49\% (+/-0.93\%) for Dolev, 23.32\% for Bracha and 89.54\% (+/-0.22\%) for Bracha-Dolev under the conditions mentioned above. The reduction in bytes transmitted is similar: 85.86\% (+/-0.68\%), 23.32\%, and 92.32\% (+/-0.17\%) respectively. 
+These tests show we can achieve a mean reduction of 79.49\% (+/-0.93\%) for Dolev, 23.32\% for Bracha, and 89.54\% (+/-0.22\%) for Bracha-Dolev under the conditions mentioned above. The reduction in bytes transmitted is similar: 85.86\% (+/-0.68\%), 23.32\%, and 92.32\% (+/-0.17\%) respectively. 
 
 \vspace{-0.10in}
 \begin{figure}[h]
@@ -171,9 +161,9 @@ These tests show we are able to achieve a mean reduction of 79.49\% (+/-0.93\%) 
 \vspace{-0.12in}
 
 \subsection{Scalability}
-In real deployments the number of processes in the network will likely scale quickly, which is why we also evaluated the scalability of the protocol for an increasing number of processes. We considered graphs which include 25 to 150 processes in increments of 25. The connectivity $k$ and Byzantine parameter $f$ are defined as $k=\floor{\frac{N}{3}}$ and $f=\floor{\frac{k-1}{2}}$ for (Bracha-)Dolev and $f=\floor{\frac{k}{4}}$ for Bracha. The other configuration is identical to the previous sections.
+In real deployments, the number of processes in the network will likely scale quickly, which is why we also evaluated the scalability of the protocol for an increasing number of processes. We considered graphs that include 25 to 150 processes in increments of 25. The connectivity $k$ and Byzantine parameter $f$ are defined as $k=\floor{\frac{N}{3}}$ and $f=\floor{\frac{k-1}{2}}$ for (Bracha-)Dolev and $f=\floor{\frac{k}{4}}$ for Bracha. The other configuration is identical to the previous sections.
 
-The evaluation for Bracha-Dolev was unable to continue after 75 processes, due to resource contraints; the version with naive routing an no additional optimizations was using too much memory\footnote{12GiB on a 16GiB system in this case} during testing. 
+The evaluation for Bracha-Dolev was unable to continue after 75 processes, due to resource constraints; the version with naive routing and no additional optimizations was using too much memory\footnote{12GiB on a 16GiB system in this case} during testing. 
 %Our optimized version had no issue reaching the final tests, but it was also using a considerable amount of memory in the process. 
 We expect the trend of outperforming the base version on larger networks to continue, leading us to believe the reduction would be around 87\% for the larger networks.
 
@@ -256,16 +246,11 @@ From these experiments we can see that the message complexity reduction is not d
 % \vspace{-0.12in}
 
 \subsection{Discussion}
-% Results can be compared to known results and placed in a broader context.
-% Provide a reflection on what has been concluded and how this was done.
-% Then give a further possible explanation of results.
+While our results are promising, we have focused on two main statistics: message complexity and network usage. This means that other statistics such as latency have sometimes been sacrificed to enhance our chosen statistics, as is the case with \textbf{ORD.6} and \textbf{ORBD.2} for example. This might not be desired in some systems.
 
-% You may give this section another name, or merge it with the one before or the one hereafter.
-While our results are promising, we have focused on two main statistics: message complexity and network usage. This means that other statistics such as latency have sometimes been sacrificed in order to enhance our chosen statistics, as is the case with \textbf{ORD.6} and \textbf{ORBD.2} for example. This might not be desired in some systems.
+As mentioned earlier, the measured latency is not fully representative of the real world. Something similar is true for the measured network usage, as we use the size of internal structures as measurement. While this size is mostly representative of the actual size, it also includes some internal headers which would not be transmitted, and should therefore not be included. However, this will have no significant impact on our results as all measurements will include a similar size for internal data, which means the relative reductions will not be affected.
 
-As mentioned earlier, the measured latency is not fully representative of the real world. Something similar is true for the measured network usage, as we use size of internal structures as measurement. While this size is mostly representative of the actual size, it also includes some internal headers which would not be transmitted, and should therefore not be included. However, this will have no significant impact on our results as all measurements will include a similar size for internal data, which means the relative reductions will not be affected.
-
-Our evaluation was completed on a simulated network using Go channels~\cite{channels}, which limits our evaluation to a single machine with no bandwidth limits. A more elaborate deployment should use multiple systems, in order to evaluate the protocol on a real network. Our evaluation platform can be relatively easily modified to use a framework such as ZeroMQ~\cite{zeromq} or plain TCP sockets, as the network evaluation layer is completely abstracted from the protocol layer. However, our evaluation platform also uses a controller to run processes and set correct parameters, which should also be modified to work on multiple machines. For the sake of time this was not implemented for this paper, but proper abstraction was used to have the possibility for extension for future papers.
+Our evaluation was completed on a simulated network using Go channels~\cite{channels}, which limits our evaluation to a single machine with no bandwidth limits. A more elaborate evaluation should use multiple systems, to evaluate the protocol on a real network. Our evaluation platform can be relatively easily modified to use a framework such as ZeroMQ~\cite{zeromq} or plain TCP sockets, as the network evaluation layer is completely abstracted from the protocol layer. However, our evaluation platform also uses a controller to run processes and set correct parameters, which should also be modified to work on multiple machines. For the sake of time, this was not implemented for this paper, but the proper abstraction was used to have the possibility for extension for future papers.
 
 Some optimizations introduced by Bonomi et al.~\cite{bonomi2021practical} can also be translated to our protocol, which could reduce the message complexity even further. Some have already been used (\textbf{MBD.2}, \textbf{MBD.12}), while others could be implemented with (\textbf{MBD.3}, \textbf{MBD.4}) or without (\textbf{MBD.7}, \textbf{MBD.8}) slight modifications.
 

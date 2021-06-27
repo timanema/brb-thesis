@@ -302,7 +302,7 @@ func runMultipleMessagesTest(runCfg RunConfig, skip bool) error {
 			uids = append(uids, uid)
 		}
 
-		color.Black("sent %v messages (%v, round %v, origins %v) of %v bytes, waiting for delivers\n", messages, uids,
+		fmt.Printf("sent %v messages (%v, round %v, origins %v) of %v bytes, waiting for delivers\n", messages, uids,
 			i, ra[i*messages:i*messages+messages], payload.SizeOf())
 
 		roundLat := time.Duration(0)
@@ -358,7 +358,7 @@ func runMultipleMessagesTest(runCfg RunConfig, skip bool) error {
 		runtime.GC()
 	}
 
-	color.Black("==========\n")
+	fmt.Printf("==========\n")
 	color.Green("average stats:\n")
 	lMean, lSd := sd(lats)
 	lRsd := lSd * 100 / lMean
@@ -393,7 +393,7 @@ func runMultipleMessagesTest(runCfg RunConfig, skip bool) error {
 	ctl.FlushProcesses()
 	ctl.Close()
 
-	color.Black("==========")
+	fmt.Printf("==========\n")
 	runtime.GC()
 
 	return nil
