@@ -9,8 +9,27 @@ The structure is as follows:
 ├─ RP_modification_summary.pdf       # small presentation summarizing the modifications
 ├─ LICENSE                          # Apache license
 ├─ README.md                        # this file
+├─ ResearchPoster_Tim-Anema.pdf     # Poster used for the final presentation
+├─ ResearchPaper_Tim-Anema.pdf      # Final paper
 ```
 
+## Paper details
+**Title**: 'Message efficient Byzantine Reliable Broadcast protocols on known topologies'
+
+**Abstract**: In this paper, we consider the Reliable Communication and Byzantine Reliable Broadcast 
+problems on partially connected networks with authenticated links. We consider the Reliable 
+Communication (RC) problem on partially connected networks, and the Byzantine Reliable Broadcast 
+(BRB) problem on partially and fully connected networks. Danny Dolev's protocol works on the former, 
+while Gabriel Bracha's authenticated double echo protocol works on the latter in the case of a 
+fully connected network. By layering the two protocols the BRB problem can be solved for partially 
+connected networks.
+The state-of-the-art protocols for these problems focus on unknown topologies, whereas we 
+focus on known topologies. We show that these protocols can be optimized when processes 
+leverage this knowledge. Our simulations with our profiler show that we can drastically 
+reduce the message complexity and network usage (e.g., a reduction of 71.9% and 79.4% 
+respectively with a 12B payload when N=150 and f=20 for Dolev) compared to naive routing with our optimizations and disjoint path solver.
+
+**Link to paper**: TBA
 
 ## Usage
 The program can be used in different ways. They will all be briefly discussed in this section. Note that most of the commands 
